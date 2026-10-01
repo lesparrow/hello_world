@@ -1,0 +1,4 @@
+{
+    "controller": "crosstab:controllers/crosstab",
+    "iconClass": "fas fa-table"
+}
