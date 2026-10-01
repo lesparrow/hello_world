@@ -116,7 +116,26 @@ class Exporter
         $formatCodes = [];
 
         foreach ($grid->valueFormats as $i => $meta) {
-            $formatCodes[$i] = $formatter->excelFormat($meta['format'], $meta['variant'], $meta['compareMode']);
+            $format = $meta['format'];
+
+            // "Number" without explicit decimals: integers when the whole column is integral.
+            if (($format['type'] ?? 'number') === 'number' && ($format['decimals'] ?? null) === null) {
+                $integral = true;
+
+                foreach ($grid->body as $row) {
+                    $value = $row['values'][$i] ?? null;
+
+                    if ($value !== null && floor($value) != $value) {
+                        $integral = false;
+
+                        break;
+                    }
+                }
+
+                $format['decimals'] = $integral ? 0 : 2;
+            }
+
+            $formatCodes[$i] = $formatter->excelFormat($format, $meta['variant'], $meta['compareMode']);
         }
 
         $firstBodyRow = $rowNumber;

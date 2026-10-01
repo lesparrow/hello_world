@@ -1,15 +1,15 @@
 {
-    "controller": "advanced-crosstab:controllers/advanced-crosstab",
+    "controller": "controllers/record",
     "iconClass": "fas fa-table-cells",
     "color": "#4a8bc2",
     "createDisabled": false,
     "quickCreateDisabled": true,
-    "boolFilterList": ["onlyMy"],
+    "boolFilterList": [
+        "onlyMy"
+    ],
     "filterList": [],
     "views": {
-        "detail": "advanced-crosstab:views/advanced-crosstab/designer"
-    },
-    "modalViews": {
-        "detail": "advanced-crosstab:views/advanced-crosstab/modals/quick-view"
+        "detail": "advanced-crosstab:views/advanced-crosstab/designer",
+        "edit": "advanced-crosstab:views/advanced-crosstab/designer"
     }
 }

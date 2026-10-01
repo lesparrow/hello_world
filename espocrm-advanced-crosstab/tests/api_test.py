@@ -340,10 +340,27 @@ def test_saved_report_and_export():
         check(f'export {fmt}', ok, f"{status} {reason} {data}")
 
 
+def test_rollup_consistency():
+    print('In-memory roll-up = database aggregation')
+    base = {'entityType': 'Opportunity', 'rows': [{'path': 'account.industry'}, {'path': 'stage'}],
+            'columns': [{'path': 'closeDate', 'granularity': 'year'}, {'path': 'leadSource'}],
+            'measures': [{'key': 'revenue', 'aggregation': 'SUM', 'expression': 'amount'}, {'key': 'n', 'aggregation': 'COUNT'},
+                         {'key': 'lo', 'aggregation': 'MIN', 'expression': 'amount'},
+                         {'key': 'hi', 'aggregation': 'MAX', 'expression': 'amount', 'condition': "stage == 'Closed Won'"}]}
+    for auth in [ADMIN, ALICE]:
+        rolled = run(base, auth)
+        # An AVG measure is not decomposable: every level is then aggregated by the database.
+        database = run(dict(base, measures=base['measures'] + [{'key': 'avg', 'aggregation': 'AVG', 'expression': 'amount'}]), auth)
+        diffs = [(r, c) for r, cols in database['cells'].items() for c, vals in cols.items()
+                 if rolled['cells'].get(r, {}).get(c) != vals[:4]]
+        check(f'{auth[0]}: identical cells, 1 query instead of {database["queryCount"]}',
+              not diffs and rolled['queryCount'] == 1, str(diffs[:3]))
+
+
 if __name__ == '__main__':
     for test in [test_totals, test_ratio_correctness, test_display_and_conditional, test_multi_level_relations,
                  test_filters, test_acl, test_validation_and_injection, test_dates_compare_topn, test_drill_down,
-                 test_saved_report_and_export]:
+                 test_saved_report_and_export, test_rollup_consistency]:
         try:
             test()
         except Exception as e:  # noqa

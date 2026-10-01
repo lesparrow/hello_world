@@ -1,0 +1,172 @@
+# Advanced Crosstab for EspoCRM
+
+Pivot analytics inside EspoCRM: pick any entity, use fields of related entities as rows and columns, define several
+measures (including calculated ones written in the EspoCRM Formula language), filter, drill down to the records,
+export, and place the result on dashboards as a table, a chart or KPI cards.
+
+All aggregation runs in the database. The browser only receives aggregated cells, never the raw records.
+
+- Installable package: `./build.sh` creates `dist/advanced-crosstab-<version>.zip`. Install it from
+  Administration → Extensions.
+- Requirements: EspoCRM 9.0 or later, PHP 8.2 or later, MySQL/MariaDB. Tested on EspoCRM 10.0.9 with MariaDB 10.11
+  and PHP 8.3. PostgreSQL is not tested.
+- No core files are modified. Everything lives in the `AdvancedCrosstab` module and the `advanced-crosstab` client
+  module.
+
+## Features
+
+| Area | What you get |
+|---|---|
+| Data source | Any entity the user can read, standard or custom, discovered from metadata. |
+| Rows / columns | Several levels on each axis, with add, remove, reorder and swap. Expand/collapse in both directions. Sort by label, natural order or a measure, ascending or descending. Top N / Bottom N and rank at each level. |
+| Related fields | Fields reached through many-to-one links, up to 3 levels deep (`account.parent.industry`, `assignedUser.name`…), picked from a searchable relationship tree. |
+| Dates | Year, quarter, year-month, week and day, plus quarter, month and day of week across all years. Year then month gives a hierarchy. Datetime fields are grouped in the user's time zone. |
+| Measures | Count, count distinct, sum, average, min and max of a field or of a record formula (`amount * quantity`). Each measure can have a condition (`… WHERE stage == 'Closed Won'`). |
+| Calculated measures | **Aggregate formulas** such as `(SUM(amount) - SUM(cost)) / SUM(amount) * 100` and **display formulas** over other measures such as `margin / revenue * 100`. Both are correct at every level (see below). |
+| Formula builder | Relationship field tree, operator buttons, function catalog, server-side validation with clear errors (`Invalid field: account.discount`, syntax errors…) and a live preview computed on real data. |
+| Comparisons | Previous period (MoM, QoQ…) or same period last year (YoY), shown as % change or as a difference. |
+| Filters | Nested AND / OR / NOT groups. Conditions on own or related fields: enum, boolean, number, text, links (record picker) and dates (fixed dates, ranges, and relative ones such as today, this month, last quarter or last N days). Record formula conditions. The entity's preset filters. |
+| Totals | Row totals, column totals, subtotals at every level and a grand total, each one optional. |
+| Drill-down | Click any cell, subtotal, total or KPI to open the matching records in EspoCRM's standard list, with sorting and paging. |
+| Views | Table, column, bar, stacked bar, line, pie and donut charts, and KPI cards, all from the same result without running the query again. |
+| Saved crosstabs | Save, save as (duplicate), rename, delete, favorite (stars) and share through teams and collaborators, with EspoCRM roles controlling access. A crosstab is validated before it is saved. |
+| Dashboards | An "Advanced Crosstab" dashlet that shows a saved crosstab as a table, a chart or KPI cards. |
+| Export | XLSX (number formats, frozen headers, hierarchy), CSV (UTF-8 with BOM, protected against spreadsheet formula injection) and PDF, all generated on the server, plus print from the browser. Large exports run as a background job and the user gets a notification with a download link. |
+| Formatting | Number, integer, decimal, percent, currency and duration (h:mm). Decimals, prefix and suffix are configurable. Values use EspoCRM's thousand separator and decimal mark. |
+| Languages | English and French. |
+
+## How it works
+
+```text
+Definition (JSON) ──► DefinitionParser ──► QueryCompiler ─────────────────────────────► PivotEngine ──► result
+                                            │ PathResolver: metadata + ACL, LEFT JOINs       │ grouping-set queries
+                                            │ ExpressionCompiler: Formula AST → ORM          │ or in-memory roll-up
+                                            │ FilterCompiler: filter tree → ORM where        │ labels, trees, Top N,
+                                            ▼                                                │ display formulas, YoY
+                                     ACL-restricted base query (SelectBuilder, strict access) ┘
+```
+
+- **Formulas are parsed by EspoCRM's own Formula parser** and compiled to EspoCRM ORM expressions. Field references
+  go through the metadata/ACL resolver, function names come from a whitelist, and literals are quoted by the database
+  driver. User input is never concatenated into SQL.
+- **Record, aggregate and display formulas are separate.** A record formula is evaluated per record (`amount - cost`).
+  An aggregate formula is evaluated per group by the database (`SUM(amount) - SUM(cost)`). A display formula is
+  evaluated on already aggregated measures (`margin / revenue * 100`).
+- **Every level is computed from records.** Cells, subtotals and totals are grouping sets, and each needed set is
+  one `GROUP BY` query. A margin % total is therefore `SUM(margin) / SUM(revenue)`, never an average of percentages.
+  When every measure is decomposable (SUM, COUNT, MIN, MAX), the higher levels are rolled up in memory from the
+  detail level: one query instead of up to (rows + 1) × (columns + 1), and the tests check that the numbers are
+  identical.
+- **Security is never bypassed:**
+  - the base query uses EspoCRM's strict access control for the current user (roles, teams, own/team/all levels);
+  - related entities need read access;
+  - when the user can't read all records of a related entity, the join is restricted to the records they can read;
+  - field-level ACL applies to every field in a dimension, measure, formula or filter, at every relationship level;
+  - a shared crosstab always runs with the viewer's permissions, never the author's;
+  - the result cache is per user.
+
+The full design is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Formula reference
+
+Operators: `+ - * / %`, `== != > < >= <=`, `&&` / `AND`, `||` / `OR`, `!`, `??`.
+
+| Group | Functions |
+|---|---|
+| Aggregate (aggregate formulas only) | `SUM(x)`, `AVG(x)`, `MIN(x)`, `MAX(x)`, `COUNT(id)`, `COUNT_DISTINCT(x)` or `COUNT(DISTINCT x)`. An optional second argument is a condition: `SUM(amount, stage == 'Closed Won')`. |
+| Conditional | `ifThenElse(c, a, b)`, `ifThen(c, a[, b])`, `IF(c, a, b)` |
+| Text | `string\concat`, `string\lowerCase`, `string\upperCase`, `string\trim`, `string\length`, `string\contains`, `string\replace` |
+| Number | `number\round`, `number\abs`, `number\floor`, `number\ceil` |
+| Date | `datetime\year`, `datetime\month`, `datetime\date`, `datetime\dayOfWeek`, `datetime\hour`, `datetime\minute`, `datetime\diff(a, b, 'days')`, `datetime\today()`, `datetime\now()` |
+| List | `array\includes(list('a', 'b'), field)` |
+
+Fields: `amount`, `accountId`, `account.industry`, `account.parent.industry`, `assignedUser.name`…
+Display formulas reference measure keys instead of fields.
+
+These formulas become SQL, so only functions that have an SQL equivalent are supported. Any other function is
+rejected with an explicit error.
+
+## API
+
+| Method and path | Purpose |
+|---|---|
+| `GET/POST/PUT/DELETE api/v1/AdvancedCrosstab[/:id]` | Standard CRUD for saved crosstabs (record ACL). |
+| `POST api/v1/AdvancedCrosstab/:id/run` | Run a saved crosstab. `{noCache}` |
+| `POST api/v1/AdvancedCrosstab/action/run` | Run an unsaved definition. `{definition, noCache}` |
+| `POST api/v1/AdvancedCrosstab/action/validateFormula` | `{entityType, formula, kind: record\|condition\|aggregate\|display, measureKeys}` returns `{valid, error, preview}` |
+| `GET api/v1/AdvancedCrosstab/action/drillDown?payload=…` | Records of a cell, in EspoCRM's list format (`{total, list}`). |
+| `POST api/v1/AdvancedCrosstab/:id/export`, `…/action/export` | `{format: xlsx\|csv\|pdf, title}` returns `{attachmentId}` or `{async: true}` |
+
+An example definition:
+
+```json
+{
+  "entityType": "Opportunity",
+  "rows": [{"path": "account.industry", "limit": {"type": "top", "count": 10, "measure": "revenue"}}],
+  "columns": [{"path": "closeDate", "granularity": "year"}, {"path": "closeDate", "granularity": "month", "id": "m"}],
+  "measures": [
+    {"key": "revenue", "label": "Revenue", "aggregation": "SUM", "expression": "amount",
+     "format": {"type": "currency"}, "compare": "previousYear"},
+    {"key": "won", "label": "Won", "aggregation": "SUM", "expression": "amount", "condition": "stage == 'Closed Won'"},
+    {"key": "winRate", "label": "Win %", "kind": "display", "formula": "won / revenue * 100", "format": {"type": "percent"}}
+  ],
+  "filter": {"type": "and", "items": [
+    {"type": "condition", "path": "closeDate", "operator": "currentYear"},
+    {"type": "condition", "path": "account.billingAddressCountry", "operator": "equals", "value": "Morocco"}
+  ]},
+  "options": {"rowTotals": true, "columnTotals": true, "subtotals": true}
+}
+```
+
+## Limits and configuration
+
+Defaults are in `Resources/metadata/app/advancedCrosstab.json`. They can be overridden in `data/config.php` with
+`'advancedCrosstabLimits' => ['maxCells' => 100000, …]`.
+
+| Limit | Default |
+|---|---|
+| Row dimensions | 5 |
+| Column dimensions | 3 |
+| Measures | 25 |
+| Cells | 50,000. Past this, the result is truncated and a warning is shown. |
+| Joins | 10 |
+| Relationship depth | 3 |
+| Filter conditions | 100 |
+| Formula length | 4,000 characters |
+| Result cache | 120 s, per user (0 disables it) |
+| Export cells before switching to a background job | 20,000 |
+| Drill-down page size | 200 |
+
+## Known limitations
+
+- Only many-to-one links (`link` fields) can be traversed. Following one-to-many or many-to-many links would
+  duplicate rows and make sums wrong. For those, start the crosstab from the "many" side; for example, to analyse
+  opportunities per account, use Opportunity as the data source.
+- Inline conditions written inside an aggregate formula (`SUM(x, cond)`) are not applied when drilling down. The
+  measure's own condition is.
+- Datetime fields are converted to the user's *current* UTC offset. Records on the other side of a daylight-saving
+  change can fall into the neighbouring hour or day.
+- Currency amounts are aggregated as stored. There is no conversion between currencies.
+- Totals include every record that passes the filters, including rows hidden by Top N.
+- With the cache on, a permission change can take up to `cacheTtl` seconds to show. The Refresh button skips the
+  cache.
+- Drill-down on an *unsaved* crosstab sends the definition in the URL. Save very large definitions before drilling
+  down.
+- Period comparisons use the periods present in the result. If a filter excludes a previous period, its comparison
+  is empty.
+- Charts show at most 8 series and 40 categories, and say so when they hide some. Pie charts group the rest into
+  "Other".
+- Dimensions are reordered with arrow buttons; there is no drag and drop.
+
+## Development
+
+- `tests/` holds the end-to-end API suite (see `tests/README.md`). Expected values come from direct SQL queries.
+- The client code is AMD modules (`define(…)`) using ES classes, loaded by EspoCRM without a build step.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Crosstab](docs/screenshots/crosstab.png) | ![Formula builder](docs/screenshots/formula-builder.png) |
+| ![Chart](docs/screenshots/chart.png) | ![Drill-down](docs/screenshots/drill-down.png) |
+| ![Dashboard](docs/screenshots/dashboard.png) | |

@@ -32,6 +32,6 @@ class ResolvedField
 
     public function isNumeric(): bool
     {
-        return in_array($this->fieldType, ['int', 'float', 'currency', 'autoincrement'], true);
+        return in_array($this->fieldType, ['int', 'float', 'currency', 'autoincrement', 'duration', 'enumInt', 'enumFloat'], true);
     }
 }

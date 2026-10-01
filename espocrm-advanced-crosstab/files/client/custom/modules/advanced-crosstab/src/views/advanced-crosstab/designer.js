@@ -1,0 +1,817 @@
+define('advanced-crosstab:views/advanced-crosstab/designer', [
+    'view',
+    'advanced-crosstab:lib/schema',
+    'advanced-crosstab:lib/operators',
+    'advanced-crosstab:lib/styles',
+], function (View, Schema, Operators, Styles) {
+
+    const CHART_TYPES = ['column', 'bar', 'stackedBar', 'line', 'pie', 'donut'];
+    const EXPORT_FORMATS = ['xlsx', 'csv', 'pdf'];
+
+    /**
+     * Crosstab designer and viewer (detail and edit page of AdvancedCrosstab records).
+     *
+     * Every change re-runs the crosstab (debounced); aggregation happens on the server.
+     */
+    return class extends View {
+
+        templateContent = `
+            <div class="acx-header">
+                <a href="#AdvancedCrosstab" class="text-muted"><span class="fas fa-table-cells"></span>
+                    {{translate 'AdvancedCrosstab' category='scopeNamesPlural'}}</a>
+                <span class="text-muted">›</span>
+                <input type="text" class="acx-name-input" data-name="name" maxlength="150"
+                    placeholder="{{translate 'Untitled crosstab' scope='AdvancedCrosstab'}}">
+                <span class="acx-dirty hidden" data-role="dirty">● {{translate 'Unsaved changes' scope='AdvancedCrosstab'}}</span>
+                <div class="acx-header-buttons">
+                    <button type="button" class="btn btn-default btn-icon acx-star hidden" data-action="toggleStar"
+                        title="{{translate 'Favorite' scope='AdvancedCrosstab'}}"><span class="far fa-star"></span></button>
+                    <button type="button" class="btn btn-primary" data-action="save">{{translate 'Save'}}</button>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+                            <span class="fas fa-ellipsis-h"></span></button>
+                        <ul class="dropdown-menu pull-right" data-role="menu"></ul>
+                    </div>
+                </div>
+            </div>
+            <div class="acx-designer">
+                <div class="acx-sidebar">
+                    <div class="panel panel-default">
+                        <div class="panel-body">
+                            <div class="acx-section">
+                                <div class="acx-section-title">{{translate 'Data source' scope='AdvancedCrosstab'}}</div>
+                                <select class="form-control" data-name="entityType"></select>
+                            </div>
+                            <div class="acx-section" data-role="rows"></div>
+                            <div class="acx-section" data-role="columns"></div>
+                            <div class="acx-section" data-role="measures"></div>
+                            <div class="acx-section">
+                                <div class="acx-section-title">{{translate 'Filters' scope='AdvancedCrosstab'}}</div>
+                                <select class="form-control input-sm" data-name="primaryFilter"></select>
+                                <div class="acx-mt" data-role="filters">{{{filters}}}</div>
+                            </div>
+                            <div class="acx-section">
+                                <div class="acx-section-title">{{translate 'Totals' scope='AdvancedCrosstab'}}</div>
+                                <div class="checkbox"><label><input type="checkbox" data-option="rowTotals">
+                                    {{translate 'Row totals' scope='AdvancedCrosstab'}}</label></div>
+                                <div class="checkbox"><label><input type="checkbox" data-option="columnTotals">
+                                    {{translate 'Column totals' scope='AdvancedCrosstab'}}</label></div>
+                                <div class="checkbox"><label><input type="checkbox" data-option="subtotals">
+                                    {{translate 'Subtotals' scope='AdvancedCrosstab'}}</label></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="acx-main">
+                    <div class="panel panel-default">
+                        <div class="panel-body">
+                            <div class="acx-toolbar">
+                                <div class="btn-group" data-role="modes"></div>
+                                <select class="form-control input-sm acx-inline-select hidden" data-name="chartType"></select>
+                                <select class="form-control input-sm acx-inline-select hidden" data-name="chartMeasure"></select>
+                                <div class="btn-group btn-group-sm" data-role="table-tools">
+                                    <button type="button" class="btn btn-default" data-action="expandAll"
+                                        title="{{translate 'Expand all' scope='AdvancedCrosstab'}}"><span class="fas fa-plus-square"></span></button>
+                                    <button type="button" class="btn btn-default" data-action="collapseAll"
+                                        title="{{translate 'Collapse all' scope='AdvancedCrosstab'}}"><span class="fas fa-minus-square"></span></button>
+                                </div>
+                                <button type="button" class="btn btn-default btn-sm" data-action="refresh"
+                                    title="{{translate 'Refresh' scope='AdvancedCrosstab'}}"><span class="fas fa-sync-alt"></span></button>
+                                <span class="acx-info" data-role="info"></span>
+                            </div>
+                            <div data-role="result"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `
+
+        setup() {
+            Styles.ensure();
+
+            this.schema = new Schema(this);
+            this.entityTypeList = this.schema.getEntityTypeList();
+            this.isNew = !this.model.id;
+
+            this.definition = Espo.Utils.cloneDeep(this.model.get('definition')) || null;
+
+            if (!this.definition || !this.definition.entityType) {
+                this.definition = this.createDefaultDefinition(this.entityTypeList[0]);
+            }
+
+            this.definition.rows = this.definition.rows || [];
+            this.definition.columns = this.definition.columns || [];
+            this.definition.measures = this.definition.measures || [];
+            this.definition.options = this.definition.options || {};
+            this.definition.options.view = this.definition.options.view || {mode: 'table', chartType: 'column'};
+
+            this.dirty = this.isNew;
+            this.result = null;
+            this.requestId = 0;
+
+            const handlers = {
+                save: () => this.save(),
+                saveAs: () => this.saveAs(),
+                properties: () => this.editProperties(),
+                remove: () => this.removeRecord(),
+                toggleStar: () => this.toggleStar(),
+                refresh: () => this.run(true),
+                expandAll: () => this.tableView()?.expandAll(true),
+                collapseAll: () => this.tableView()?.expandAll(false),
+                print: () => this.print(),
+            };
+
+            for (const [name, handler] of Object.entries(handlers)) {
+                this.addActionHandler(name, handler);
+            }
+
+            this.addActionHandler('exportResult', (e, target) => this.exportResult(target.dataset.format));
+            this.addActionHandler('setMode', (e, target) => this.setViewOption('mode', target.dataset.mode));
+            this.addActionHandler('addDimension', (e, target) => this.editDimension(target.dataset.axis, null));
+            this.addActionHandler('editDimension', (e, target) => this.editDimension(target.dataset.axis, parseInt(target.dataset.index)));
+            this.addActionHandler('removeDimension', (e, target) => this.removeItem(target.dataset.axis, parseInt(target.dataset.index)));
+            this.addActionHandler('moveItem', (e, target) =>
+                this.moveItem(target.dataset.axis, parseInt(target.dataset.index), parseInt(target.dataset.direction)));
+            this.addActionHandler('swapAxes', () => this.swapAxes());
+            this.addActionHandler('addMeasure', (e, target) => this.editMeasure(null, target.dataset.kind));
+            this.addActionHandler('editMeasure', (e, target) => this.editMeasure(parseInt(target.dataset.index)));
+            this.addActionHandler('removeMeasure', (e, target) => this.removeItem('measures', parseInt(target.dataset.index)));
+            this.addActionHandler('toggleMeasure', (e, target) => this.toggleMeasure(parseInt(target.dataset.index)));
+
+            this.listenTo(this.model, 'change:isStarred', () => this.updateStar());
+
+            this.setupFilterView();
+        }
+
+        createDefaultDefinition(entityType) {
+            return {
+                entityType: entityType,
+                rows: [],
+                columns: [],
+                measures: [{key: 'count', label: this.translate('Count', 'labels', 'AdvancedCrosstab'), kind: 'native', aggregation: 'COUNT'}],
+                filter: null,
+                options: {rowTotals: true, columnTotals: true, subtotals: true, view: {mode: 'table', chartType: 'column'}},
+            };
+        }
+
+        setupFilterView() {
+            this.createView('filters', 'advanced-crosstab:views/advanced-crosstab/filter-builder', {
+                selector: '[data-role="filters"]',
+                entityType: this.definition.entityType,
+                filter: this.definition.filter,
+                onChange: filter => {
+                    this.definition.filter = filter;
+                    this.markChanged();
+                },
+            });
+        }
+
+        afterRender() {
+            const $ = name => this.element.querySelector(`[data-name="${name}"]`);
+
+            $('name').value = this.model.get('name') || '';
+            $('name').addEventListener('input', () => this.markChanged(false));
+
+            $('entityType').innerHTML = this.entityTypeList.map(scope =>
+                `<option value="${scope}"${scope === this.definition.entityType ? ' selected' : ''}>${this.escapeString(this.schema.translateEntity(scope))}</option>`).join('');
+
+            $('entityType').addEventListener('change', () => this.changeEntityType($('entityType').value));
+
+            this.element.querySelectorAll('[data-option]').forEach(input => {
+                input.checked = this.definition.options[input.dataset.option] !== false;
+                input.addEventListener('change', () => {
+                    this.definition.options[input.dataset.option] = input.checked;
+                    this.markChanged();
+                });
+            });
+
+            $('primaryFilter').addEventListener('change', () => {
+                this.definition.primaryFilter = $('primaryFilter').value || null;
+                this.markChanged();
+            });
+
+            $('chartType').addEventListener('change', () => this.setViewOption('chartType', $('chartType').value));
+            $('chartMeasure').addEventListener('change', () => this.setViewOption('chartMeasure', $('chartMeasure').value));
+
+            this.renderMenu();
+            this.renderPanels();
+            this.updateStar();
+            this.updateDirty();
+            this.run();
+        }
+
+        t(label, category = 'labels') {
+            return this.translate(label, category, 'AdvancedCrosstab');
+        }
+
+        renderMenu() {
+            const item = (action, label, icon, data = '') =>
+                `<li><a role="button" data-action="${action}" ${data}><span class="${icon} fa-fw"></span> ${this.escapeString(label)}</a></li>`;
+
+            const canEdit = this.isNew || this.getAcl().checkModel(this.model, 'edit');
+            const canDelete = !this.isNew && this.getAcl().checkModel(this.model, 'delete');
+            const canCreate = this.getAcl().check('AdvancedCrosstab', 'create');
+
+            this.element.querySelector('[data-action="save"]').classList.toggle('hidden', !canEdit);
+
+            this.element.querySelector('[data-role="menu"]').innerHTML = [
+                canCreate ? item('saveAs', this.t('Save as…'), 'far fa-copy') : '',
+                !this.isNew && canEdit ? item('properties', this.t('Rename & share…'), 'fas fa-share-alt') : '',
+                '<li class="divider"></li>',
+                ...EXPORT_FORMATS.map(format => item('exportResult', this.t('Export') + ' ' + format.toUpperCase(), 'fas fa-file-export', `data-format="${format}"`)),
+                item('print', this.t('Print'), 'fas fa-print'),
+                canDelete ? '<li class="divider"></li>' + item('remove', this.translate('Remove'), 'fas fa-trash') : '',
+            ].join('');
+        }
+
+        renderPanels() {
+            this.renderDimensionList('rows');
+            this.renderDimensionList('columns');
+            this.renderMeasureList();
+            this.renderPrimaryFilters();
+            this.renderViewControls();
+        }
+
+        renderPrimaryFilters() {
+            const select = this.element.querySelector('[data-name="primaryFilter"]');
+            const list = (this.getMetadata().get(['clientDefs', this.definition.entityType, 'filterList']) || [])
+                .map(item => typeof item === 'string' ? item : item.name)
+                .filter(Boolean);
+
+            select.innerHTML = `<option value="">${this.escapeString(this.t('All records'))}</option>` + list.map(name =>
+                `<option value="${this.escapeString(name)}"${name === this.definition.primaryFilter ? ' selected' : ''}>` +
+                this.escapeString(this.translate(name, 'presetFilters', this.definition.entityType)) + '</option>').join('');
+
+            select.classList.toggle('hidden', !list.length);
+        }
+
+        describeDimension(dimension) {
+            if (dimension.type === 'formula') {
+                return {label: dimension.label || this.t('Formula'), meta: dimension.formula};
+            }
+
+            const label = dimension.label || this.schema.getPathLabel(this.definition.entityType, dimension.path);
+            const meta = [dimension.path];
+
+            if (dimension.granularity) {
+                meta.push(this.t(dimension.granularity, 'granularities'));
+            }
+
+            if (dimension.limit) {
+                meta.push((dimension.limit.type === 'top' ? 'Top ' : 'Bottom ') + dimension.limit.count);
+            }
+
+            return {label, meta: meta.join(' · ')};
+        }
+
+        chipActions(axis, index, length, extra = '') {
+            return `<span class="acx-chip-actions">${extra}
+                ${index > 0 ? `<a role="button" data-action="moveItem" data-axis="${axis}" data-index="${index}" data-direction="-1"
+                    title="${this.escapeString(this.t('Move up'))}"><span class="fas fa-arrow-up"></span></a>` : ''}
+                ${index < length - 1 ? `<a role="button" data-action="moveItem" data-axis="${axis}" data-index="${index}" data-direction="1"
+                    title="${this.escapeString(this.t('Move down'))}"><span class="fas fa-arrow-down"></span></a>` : ''}
+                <a role="button" data-action="${axis === 'measures' ? 'removeMeasure' : 'removeDimension'}" data-axis="${axis}" data-index="${index}"
+                    title="${this.escapeString(this.translate('Remove'))}"><span class="fas fa-times"></span></a>
+            </span>`;
+        }
+
+        renderDimensionList(axis) {
+            const list = this.definition[axis];
+            const container = this.element.querySelector(`[data-role="${axis}"]`);
+
+            const items = list.map((dimension, index) => {
+                const {label, meta} = this.describeDimension(dimension);
+
+                return `<li class="acx-chip">
+                    <span class="acx-chip-body" data-action="editDimension" data-axis="${axis}" data-index="${index}">
+                        <span class="acx-chip-label">${this.escapeString(label)}</span>
+                        <span class="acx-chip-meta">${this.escapeString(meta || '')}</span>
+                    </span>
+                    ${this.chipActions(axis, index, list.length)}
+                </li>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="acx-section-title">
+                    <span>${this.escapeString(this.t(axis === 'rows' ? 'Rows' : 'Columns'))}</span>
+                    <span>
+                        ${axis === 'columns' ? `<a role="button" data-action="swapAxes" title="${this.escapeString(this.t('Swap rows and columns'))}">
+                            <span class="fas fa-exchange-alt"></span></a>&nbsp;` : ''}
+                        <a role="button" data-action="addDimension" data-axis="${axis}" title="${this.escapeString(this.t('Add'))}">
+                            <span class="fas fa-plus"></span></a>
+                    </span>
+                </div>
+                <ul class="acx-chips">${items}</ul>
+                ${list.length ? '' : `<div class="acx-empty-hint">${this.escapeString(this.t(axis === 'rows' ? 'No rows' : 'No columns'))}</div>`}
+            `;
+        }
+
+        describeMeasure(measure) {
+            if (measure.kind === 'native') {
+                const condition = measure.condition ? ' WHERE ' + measure.condition : '';
+
+                return measure.aggregation + '(' + (measure.expression || 'id') + ')' + condition;
+            }
+
+            return (measure.kind === 'display' ? '= ' : '') + measure.formula + (measure.condition ? ' WHERE ' + measure.condition : '');
+        }
+
+        renderMeasureList() {
+            const list = this.definition.measures;
+            const container = this.element.querySelector('[data-role="measures"]');
+
+            const items = list.map((measure, index) => {
+                const eye = `<a role="button" data-action="toggleMeasure" data-index="${index}"
+                    title="${this.escapeString(this.t('Show / hide'))}"><span class="far fa-eye${measure.hidden ? '-slash' : ''}"></span></a>`;
+
+                return `<li class="acx-chip${measure.hidden ? ' acx-hidden-measure' : ''}">
+                    <span class="acx-chip-body" data-action="editMeasure" data-index="${index}">
+                        <span class="acx-chip-label">${this.escapeString(measure.label)}</span>
+                        <span class="acx-chip-meta" title="${this.escapeString(this.describeMeasure(measure))}">${this.escapeString(this.describeMeasure(measure))}</span>
+                    </span>
+                    ${this.chipActions('measures', index, list.length, eye)}
+                </li>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="acx-section-title">
+                    <span>${this.escapeString(this.t('Measures'))}</span>
+                    <span class="dropdown">
+                        <a role="button" class="dropdown-toggle" data-toggle="dropdown" title="${this.escapeString(this.t('Add'))}">
+                            <span class="fas fa-plus"></span></a>
+                        <ul class="dropdown-menu pull-right">
+                            <li><a role="button" data-action="addMeasure" data-kind="native">${this.escapeString(this.t('native', 'measureKinds'))}</a></li>
+                            <li><a role="button" data-action="addMeasure" data-kind="aggregate">${this.escapeString(this.t('aggregate', 'measureKinds'))}</a></li>
+                            <li><a role="button" data-action="addMeasure" data-kind="display">${this.escapeString(this.t('display', 'measureKinds'))}</a></li>
+                        </ul>
+                    </span>
+                </div>
+                <ul class="acx-chips">${items}</ul>
+            `;
+        }
+
+        renderViewControls() {
+            const view = this.definition.options.view;
+            const visibleMeasures = this.definition.measures.filter(m => !m.hidden);
+
+            this.element.querySelector('[data-role="modes"]').innerHTML = [
+                ['table', 'fas fa-table'], ['chart', 'fas fa-chart-bar'], ['kpi', 'fas fa-tachometer-alt'],
+            ].map(([mode, icon]) => `<button type="button" class="btn btn-default btn-sm${view.mode === mode ? ' active' : ''}"
+                data-action="setMode" data-mode="${mode}"><span class="${icon}"></span> ${this.escapeString(this.t(mode, 'modes'))}</button>`).join('');
+
+            const chartType = this.element.querySelector('[data-name="chartType"]');
+            const chartMeasure = this.element.querySelector('[data-name="chartMeasure"]');
+
+            chartType.innerHTML = CHART_TYPES.map(type =>
+                `<option value="${type}"${type === (view.chartType || 'column') ? ' selected' : ''}>${this.escapeString(this.t(type, 'chartTypes'))}</option>`).join('');
+            chartMeasure.innerHTML = visibleMeasures.map(m =>
+                `<option value="${this.escapeString(m.key)}"${m.key === view.chartMeasure ? ' selected' : ''}>${this.escapeString(m.label)}</option>`).join('');
+
+            chartType.classList.toggle('hidden', view.mode !== 'chart');
+            chartMeasure.classList.toggle('hidden', view.mode !== 'chart' || visibleMeasures.length < 2);
+            this.element.querySelector('[data-role="table-tools"]').classList.toggle('hidden', view.mode !== 'table');
+        }
+
+        setViewOption(name, value) {
+            this.definition.options.view[name] = value;
+            this.renderViewControls();
+            this.markChanged(false);
+            this.renderResult();
+        }
+
+        changeEntityType(entityType) {
+            const options = this.definition.options;
+
+            this.definition = this.createDefaultDefinition(entityType);
+            this.definition.options = {...options, view: options.view};
+
+            this.clearView('filters');
+            this.setupFilterView();
+            this.getView('filters').render();
+
+            this.renderPanels();
+            this.markChanged();
+        }
+
+        markChanged(rerun = true) {
+            this.dirty = true;
+            this.updateDirty();
+
+            if (rerun) {
+                clearTimeout(this.runTimeout);
+                this.runTimeout = setTimeout(() => this.run(), 350);
+            }
+        }
+
+        updateDirty() {
+            this.element.querySelector('[data-role="dirty"]').classList.toggle('hidden', !this.dirty);
+            this.getRouter().confirmLeaveOut = this.dirty && !this.isNew;
+        }
+
+        updateStar() {
+            const button = this.element && this.element.querySelector('[data-action="toggleStar"]');
+
+            if (!button) {
+                return;
+            }
+
+            const starred = !!this.model.get('isStarred');
+
+            button.classList.toggle('hidden', this.isNew || !this.model.has('isStarred'));
+            button.classList.toggle('active', starred);
+            button.querySelector('span').className = (starred ? 'fas' : 'far') + ' fa-star';
+        }
+
+        async toggleStar() {
+            const starred = !!this.model.get('isStarred');
+            const url = `AdvancedCrosstab/${this.model.id}/starSubscription`;
+
+            await (starred ? Espo.Ajax.deleteRequest(url) : Espo.Ajax.putRequest(url));
+
+            this.model.set('isStarred', !starred, {sync: true});
+        }
+
+        // --- Dimensions & measures --------------------------------------------------------------------------
+
+        measureOptions(exceptIndex = null) {
+            return this.definition.measures
+                .filter((m, i) => i !== exceptIndex)
+                .map(m => ({key: m.key, label: m.label}));
+        }
+
+        nextDimensionId(axis) {
+            const prefix = axis === 'rows' ? 'r' : 'c';
+            const used = this.definition.rows.concat(this.definition.columns).map(d => d.id);
+            let i = 0;
+
+            while (used.includes(prefix + i)) {
+                i++;
+            }
+
+            return prefix + i;
+        }
+
+        editDimension(axis, index) {
+            const list = this.definition[axis];
+            const existing = index === null ? null : list[index];
+
+            this.createView('dialog', 'advanced-crosstab:views/advanced-crosstab/modals/dimension', {
+                entityType: this.definition.entityType,
+                dimension: existing,
+                measures: this.measureOptions(),
+                onApply: dimension => {
+                    dimension.id = existing ? existing.id : this.nextDimensionId(axis);
+
+                    if (existing) {
+                        list[index] = dimension;
+                    } else {
+                        list.push(dimension);
+                    }
+
+                    this.renderDimensionList(axis);
+                    this.markChanged();
+                },
+            }).then(view => view.render());
+        }
+
+        editMeasure(index, kind) {
+            const existing = index === null ? null : this.definition.measures[index];
+            const position = index === null ? this.definition.measures.length : index;
+
+            this.createView('dialog', 'advanced-crosstab:views/advanced-crosstab/modals/measure', {
+                entityType: this.definition.entityType,
+                measure: existing,
+                kind: kind,
+                // Display formulas may reference the measures defined before them.
+                measures: this.definition.measures.slice(0, position).map(m => ({key: m.key, label: m.label})),
+                usedKeys: this.definition.measures.filter((m, i) => i !== index).map(m => m.key),
+                onApply: measure => {
+                    if (existing) {
+                        this.renameMeasureReferences(existing.key, measure.key);
+                        this.definition.measures[index] = measure;
+                    } else {
+                        this.definition.measures.push(measure);
+                    }
+
+                    this.renderMeasureList();
+                    this.renderViewControls();
+                    this.markChanged();
+                },
+            }).then(view => view.render());
+        }
+
+        renameMeasureReferences(oldKey, newKey) {
+            if (oldKey === newKey) {
+                return;
+            }
+
+            for (const dimension of this.definition.rows.concat(this.definition.columns)) {
+                if (dimension.sort && dimension.sort.measure === oldKey) {
+                    dimension.sort.measure = newKey;
+                }
+
+                if (dimension.limit && dimension.limit.measure === oldKey) {
+                    dimension.limit.measure = newKey;
+                }
+            }
+        }
+
+        toggleMeasure(index) {
+            const measure = this.definition.measures[index];
+
+            if (!measure.hidden && this.definition.measures.filter(m => !m.hidden).length === 1) {
+                Espo.Ui.warning(this.t('At least one measure must be visible'));
+
+                return;
+            }
+
+            measure.hidden = !measure.hidden;
+
+            this.renderMeasureList();
+            this.renderViewControls();
+            this.markChanged();
+        }
+
+        removeItem(axis, index) {
+            const list = this.definition[axis];
+
+            if (axis === 'measures') {
+                const key = list[index].key;
+                const usedBy = this.definition.rows.concat(this.definition.columns)
+                    .some(d => (d.sort && d.sort.measure === key) || (d.limit && d.limit.measure === key));
+
+                if (list.length === 1 || usedBy) {
+                    Espo.Ui.warning(this.t(list.length === 1 ? 'At least one measure is required' : 'Measure is used for sorting'));
+
+                    return;
+                }
+            }
+
+            list.splice(index, 1);
+            this.renderPanels();
+            this.markChanged();
+        }
+
+        moveItem(axis, index, direction) {
+            const list = this.definition[axis];
+            const target = index + direction;
+
+            if (target < 0 || target >= list.length) {
+                return;
+            }
+
+            [list[index], list[target]] = [list[target], list[index]];
+
+            this.renderPanels();
+            this.markChanged();
+        }
+
+        swapAxes() {
+            [this.definition.rows, this.definition.columns] = [this.definition.columns, this.definition.rows];
+
+            this.renderPanels();
+            this.markChanged();
+        }
+
+        // --- Running -----------------------------------------------------------------------------------------
+
+        /**
+         * The definition sent to the server: incomplete filter conditions are left out.
+         */
+        getRunDefinition() {
+            const clean = node => {
+                if (!node) {
+                    return null;
+                }
+
+                if (['and', 'or', 'not'].includes(node.type)) {
+                    const items = node.items.map(clean).filter(Boolean);
+
+                    return items.length ? {type: node.type, items} : null;
+                }
+
+                if (node.type === 'formula') {
+                    return node.formula && node.formula.trim() ? {type: 'formula', formula: node.formula} : null;
+                }
+
+                const value = node.value;
+                const empty = value === null || value === undefined || value === '' ||
+                    (Array.isArray(value) && (!value.length || value.some(v => v === null || v === '')));
+
+                if (!Operators.hasNoValue(node.operator) && empty) {
+                    return null;
+                }
+
+                const condition = {type: 'condition', path: node.path, operator: node.operator, value: value};
+
+                // Record names, kept for display only.
+                if (node.valueNames) {
+                    condition.valueNames = node.valueNames;
+                }
+
+                return condition;
+            };
+
+            const definition = Espo.Utils.cloneDeep(this.definition);
+
+            definition.filter = clean(definition.filter);
+
+            return definition;
+        }
+
+        getSource() {
+            return this.dirty || this.isNew ? {definition: this.getRunDefinition()} : {id: this.model.id};
+        }
+
+        async run(noCache = false) {
+            const requestId = ++this.requestId;
+            const source = this.getSource();
+            const info = this.element.querySelector('[data-role="info"]');
+
+            info.innerHTML = '<span class="fas fa-spinner fa-spin"></span>';
+
+            let result;
+
+            try {
+                result = source.id ?
+                    await Espo.Ajax.postRequest(`AdvancedCrosstab/${source.id}/run`, {noCache}) :
+                    await Espo.Ajax.postRequest('AdvancedCrosstab/action/run', {definition: source.definition, noCache});
+            } catch (e) {
+                if (requestId === this.requestId) {
+                    const reason = e && e.getResponseHeader ? e.getResponseHeader('X-Status-Reason') : null;
+
+                    info.innerHTML = '';
+                    this.element.querySelector('[data-role="result"]').innerHTML =
+                        `<div class="alert alert-danger">${this.escapeString(reason || this.t('Error'))}</div>`;
+
+                    if (e) {
+                        e.errorIsHandled = true;
+                    }
+                }
+
+                return;
+            }
+
+            // A newer request was sent meanwhile.
+            if (requestId !== this.requestId) {
+                return;
+            }
+
+            this.result = result;
+            this.resultSource = source;
+
+            info.textContent = (result.fromCache ? this.t('Cached') + ' · ' : '') +
+                result.queryCount + ' ' + this.t('queries') + ' · ' + result.durationMs + ' ms';
+
+            this.renderResult();
+        }
+
+        renderResult() {
+            if (!this.result) {
+                return;
+            }
+
+            const view = this.definition.options.view;
+
+            this.createView('result', 'advanced-crosstab:views/advanced-crosstab/result/panel', {
+                selector: '[data-role="result"]',
+                result: this.result,
+                mode: view.mode,
+                chartType: view.chartType,
+                chartMeasure: view.chartMeasure,
+                source: this.resultSource,
+            }).then(panel => panel.render());
+        }
+
+        tableView() {
+            const panel = this.getView('result');
+
+            return panel ? panel.getTableView() : null;
+        }
+
+        // --- Persistence ---------------------------------------------------------------------------------------
+
+        getName() {
+            return this.element.querySelector('[data-name="name"]').value.trim();
+        }
+
+        async save() {
+            const name = this.getName();
+
+            if (!name) {
+                Espo.Ui.warning(this.t('Enter a name'));
+                this.element.querySelector('[data-name="name"]').focus();
+
+                return;
+            }
+
+            Espo.Ui.notifyWait();
+
+            await this.model.save({name: name, definition: this.getRunDefinition()}, {patch: !this.isNew});
+
+            Espo.Ui.success(this.translate('Saved'));
+
+            this.dirty = false;
+            this.updateDirty();
+
+            if (this.isNew) {
+                this.getRouter().navigate(`#AdvancedCrosstab/view/${this.model.id}`, {trigger: true});
+            }
+        }
+
+        async saveAs() {
+            const model = await this.getModelFactory().create('AdvancedCrosstab');
+
+            model.set({
+                name: (this.getName() || this.t('Untitled crosstab')) + ' (' + this.t('copy') + ')',
+                description: this.model.get('description'),
+                definition: this.getRunDefinition(),
+            });
+
+            this.createView('dialog', 'views/modals/edit', {
+                scope: 'AdvancedCrosstab',
+                model: model,
+                layoutName: 'detailSmall',
+            }).then(view => {
+                view.render();
+
+                this.listenToOnce(view, 'after:save', () => {
+                    this.getRouter().navigate(`#AdvancedCrosstab/view/${model.id}`, {trigger: true});
+                });
+            });
+        }
+
+        editProperties() {
+            this.createView('dialog', 'views/modals/edit', {
+                scope: 'AdvancedCrosstab',
+                id: this.model.id,
+                layoutName: 'detailSmall',
+            }).then(view => {
+                view.render();
+
+                this.listenToOnce(view, 'after:save', model => {
+                    this.model.set({name: model.get('name'), description: model.get('description')});
+                    this.element.querySelector('[data-name="name"]').value = model.get('name');
+                });
+            });
+        }
+
+        async removeRecord() {
+            await this.confirm(this.translate('removeRecordConfirmation', 'messages'));
+
+            await this.model.destroy();
+
+            this.getRouter().confirmLeaveOut = false;
+            this.getRouter().navigate('#AdvancedCrosstab', {trigger: true});
+        }
+
+        // --- Export --------------------------------------------------------------------------------------------
+
+        async exportResult(format) {
+            const source = this.getSource();
+            const title = this.getName() || this.t('Untitled crosstab');
+
+            Espo.Ui.notifyWait();
+
+            const response = source.id ?
+                await Espo.Ajax.postRequest(`AdvancedCrosstab/${source.id}/export`, {format, title}) :
+                await Espo.Ajax.postRequest('AdvancedCrosstab/action/export', {definition: source.definition, format, title});
+
+            if (response.async) {
+                Espo.Ui.notify(this.t('exportScheduled', 'messages'), 'success', 6000);
+
+                return;
+            }
+
+            Espo.Ui.notify(false);
+
+            window.location = this.getBasePath() + '?entryPoint=download&id=' + response.attachmentId;
+        }
+
+        print() {
+            const body = this.element.querySelector('[data-role="result"]');
+            const styles = document.getElementById('advanced-crosstab-styles');
+            const win = window.open('', '_blank');
+
+            if (!win) {
+                return;
+            }
+
+            win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${this.escapeString(this.getName())}</title>
+                <style>${styles ? styles.textContent : ''}
+                    body { font-family: Arial, sans-serif; font-size: 11px; color: #000; background: #fff; margin: 16px; }
+                    table { border-collapse: collapse; } th, td { border: 1px solid #bbb; padding: 2px 6px; }
+                    .acx-table-wrap { max-height: none !important; overflow: visible !important; }
+                    .acx-toggle { display: none; } thead th { position: static !important; }
+                </style></head><body><h3>${this.escapeString(this.getName())}</h3>${body.innerHTML}</body></html>`);
+            win.document.close();
+            win.focus();
+            setTimeout(() => win.print(), 300);
+        }
+
+        onRemove() {
+            this.getRouter().confirmLeaveOut = false;
+            clearTimeout(this.runTimeout);
+        }
+    };
+});

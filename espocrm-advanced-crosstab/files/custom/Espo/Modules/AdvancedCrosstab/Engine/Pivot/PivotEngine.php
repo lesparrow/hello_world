@@ -65,7 +65,25 @@ class PivotEngine
         $values = [];
         $truncated = false;
 
-        foreach ($this->determineSets($definition, $R, $C) as [$i, $j]) {
+        $sets = $this->determineSets($definition, $R, $C);
+
+        // The detail level first: when every measure is decomposable, the other levels are rolled up from it
+        // in memory instead of scanning the table again.
+        $truncated = $this->fetchSet($compiled, $R, $C, $values);
+
+        $rollUp = !$truncated && $this->isDecomposable($definition);
+
+        foreach ($sets as [$i, $j]) {
+            if ($i === $R && $j === $C) {
+                continue;
+            }
+
+            if ($rollUp) {
+                $this->rollUp($definition, $values, $R, $C, $i, $j);
+
+                continue;
+            }
+
             $truncated = $this->fetchSet($compiled, $i, $j, $values) || $truncated;
         }
 
@@ -151,6 +169,7 @@ class PivotEngine
                 'columnTotals' => $definition->columnTotals,
                 'subtotals' => $definition->subtotals,
             ],
+            'view' => is_array($definition->raw['options']['view'] ?? null) ? $definition->raw['options']['view'] : null,
             'truncated' => $truncated,
             'queryCount' => $this->queryCount,
             'durationMs' => (int) round((microtime(true) - $start) * 1000),
@@ -214,6 +233,90 @@ class PivotEngine
         $sets['0:0'] = [0, 0];
 
         return array_values($sets);
+    }
+
+    /**
+     * SUM, COUNT, MIN and MAX of a group can be computed from the values of its sub-groups.
+     * AVG, COUNT DISTINCT and aggregate formulas (ratios…) can't: they are always computed by the database.
+     */
+    private function isDecomposable(Definition $definition): bool
+    {
+        foreach ($definition->getAggregatedMeasures() as $measure) {
+            if (
+                $measure->kind !== Measure::KIND_NATIVE ||
+                !in_array($measure->aggregation, ['SUM', 'COUNT', 'MIN', 'MAX'], true)
+            ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function rollUp(Definition $definition, array &$values, int $R, int $C, int $i, int $j): void
+    {
+        $measures = $definition->getAggregatedMeasures();
+        $result = [];
+
+        foreach ($values as $rowId => $columnsData) {
+            $rowPath = json_decode($rowId, true);
+
+            if (count($rowPath) !== $R) {
+                continue;
+            }
+
+            $targetRowId = self::id(array_slice($rowPath, 0, $i));
+
+            foreach ($columnsData as $columnId => $cell) {
+                $columnPath = json_decode($columnId, true);
+
+                if (count($columnPath) !== $C) {
+                    continue;
+                }
+
+                $targetColumnId = self::id(array_slice($columnPath, 0, $j));
+                $target = $result[$targetRowId][$targetColumnId] ?? [];
+
+                foreach ($measures as $measure) {
+                    $key = $measure->key;
+                    $value = $cell[$key] ?? null;
+                    $current = $target[$key] ?? null;
+
+                    if (!array_key_exists($key, $target)) {
+                        $target[$key] = $measure->aggregation === 'COUNT' ? 0 : null;
+                        $current = $target[$key];
+                    }
+
+                    if ($value === null) {
+                        continue;
+                    }
+
+                    $target[$key] = match ($measure->aggregation) {
+                        'MIN' => $current === null ? $value : min($current, $value),
+                        'MAX' => $current === null ? $value : max($current, $value),
+                        default => ($current ?? 0) + $value,
+                    };
+                }
+
+                $result[$targetRowId][$targetColumnId] = $target;
+            }
+        }
+
+        foreach ($result as $rowId => $columnsData) {
+            foreach ($columnsData as $columnId => $cell) {
+                $values[$rowId][$columnId] = array_map(
+                    fn ($v) => is_float($v) ? round($v, 6) : $v,
+                    $cell
+                );
+            }
+        }
+
+        // An empty data set still has a grand total.
+        if ($i === 0 && $j === 0 && !isset($values['[]']['[]'])) {
+            foreach ($measures as $measure) {
+                $values['[]']['[]'][$measure->key] = $measure->aggregation === 'COUNT' ? 0 : null;
+            }
+        }
     }
 
     /**

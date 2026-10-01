@@ -27,7 +27,7 @@ class PathResolver
 {
     public const DIMENSION_TYPES = [
         'varchar', 'enum', 'bool', 'int', 'float', 'currency', 'date', 'datetime', 'datetimeOptional',
-        'link', 'personName', 'url', 'autoincrement', 'number', 'text',
+        'link', 'personName', 'url', 'autoincrement', 'number', 'text', 'duration', 'enumInt', 'enumFloat',
     ];
 
     /** @var array<string, string[]> */
