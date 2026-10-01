@@ -1,0 +1,9 @@
+{
+    "beforeCreateHookClassNameList": [
+        "Espo\\Modules\\AdvancedCrosstab\\Classes\\RecordHooks\\BeforeSaveValidation"
+    ],
+    "beforeUpdateHookClassNameList": [
+        "Espo\\Modules\\AdvancedCrosstab\\Classes\\RecordHooks\\BeforeSaveValidation"
+    ],
+    "duplicateIgnoreAttributeList": ["assignedUserId", "assignedUserName", "teamsIds", "teamsNames", "collaboratorsIds", "collaboratorsNames"]
+}

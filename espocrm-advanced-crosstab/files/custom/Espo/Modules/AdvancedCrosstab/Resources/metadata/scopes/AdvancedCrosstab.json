@@ -1,0 +1,15 @@
+{
+    "entity": true,
+    "layouts": true,
+    "tab": true,
+    "acl": true,
+    "aclActionList": ["create", "read", "edit", "delete"],
+    "module": "AdvancedCrosstab",
+    "customizable": false,
+    "importable": false,
+    "notifications": false,
+    "object": false,
+    "stars": true,
+    "collaborators": true,
+    "disabled": false
+}

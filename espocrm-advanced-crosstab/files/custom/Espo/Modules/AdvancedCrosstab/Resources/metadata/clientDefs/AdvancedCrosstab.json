@@ -1,0 +1,15 @@
+{
+    "controller": "advanced-crosstab:controllers/advanced-crosstab",
+    "iconClass": "fas fa-table-cells",
+    "color": "#4a8bc2",
+    "createDisabled": false,
+    "quickCreateDisabled": true,
+    "boolFilterList": ["onlyMy"],
+    "filterList": [],
+    "views": {
+        "detail": "advanced-crosstab:views/advanced-crosstab/designer"
+    },
+    "modalViews": {
+        "detail": "advanced-crosstab:views/advanced-crosstab/modals/quick-view"
+    }
+}

@@ -1,0 +1,38 @@
+{
+    "view": "advanced-crosstab:views/dashlets/advanced-crosstab",
+    "aclScope": "AdvancedCrosstab",
+    "options": {
+        "fields": {
+            "title": {
+                "type": "varchar",
+                "required": true
+            },
+            "report": {
+                "type": "link",
+                "entity": "AdvancedCrosstab",
+                "required": true
+            },
+            "displayMode": {
+                "type": "enum",
+                "options": ["table", "chart", "kpi"],
+                "translation": "AdvancedCrosstab.options.displayMode"
+            },
+            "autorefreshInterval": {
+                "type": "enumFloat",
+                "options": [0, 0.5, 1, 2, 5, 10, 30, 60]
+            }
+        },
+        "defaults": {
+            "displayMode": "table",
+            "autorefreshInterval": 0
+        },
+        "layout": [
+            {
+                "rows": [
+                    [{"name": "title"}, {"name": "report"}],
+                    [{"name": "displayMode"}, {"name": "autorefreshInterval"}]
+                ]
+            }
+        ]
+    }
+}

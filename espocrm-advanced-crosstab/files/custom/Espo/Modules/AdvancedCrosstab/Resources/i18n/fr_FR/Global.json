@@ -1,0 +1,11 @@
+{
+    "scopeNames": {
+        "AdvancedCrosstab": "Tableau croisé avancé"
+    },
+    "scopeNamesPlural": {
+        "AdvancedCrosstab": "Tableaux croisés avancés"
+    },
+    "dashlets": {
+        "AdvancedCrosstab": "Tableau croisé avancé"
+    }
+}

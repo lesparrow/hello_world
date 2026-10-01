@@ -1,0 +1,9 @@
+[
+    {
+        "rows": [
+            [{"name": "name"}, {"name": "assignedUser"}],
+            [{"name": "description"}, {"name": "teams"}],
+            [false, {"name": "collaborators"}]
+        ]
+    }
+]

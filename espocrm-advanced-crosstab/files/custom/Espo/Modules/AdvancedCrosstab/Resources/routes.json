@@ -1,0 +1,32 @@
+[
+    {
+        "route": "/AdvancedCrosstab/action/run",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\AdvancedCrosstab\\Api\\PostRun"
+    },
+    {
+        "route": "/AdvancedCrosstab/:id/run",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\AdvancedCrosstab\\Api\\PostRun"
+    },
+    {
+        "route": "/AdvancedCrosstab/action/validateFormula",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\AdvancedCrosstab\\Api\\PostValidateFormula"
+    },
+    {
+        "route": "/AdvancedCrosstab/action/drillDown",
+        "method": "get",
+        "actionClassName": "Espo\\Modules\\AdvancedCrosstab\\Api\\GetDrillDown"
+    },
+    {
+        "route": "/AdvancedCrosstab/action/export",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\AdvancedCrosstab\\Api\\PostExport"
+    },
+    {
+        "route": "/AdvancedCrosstab/:id/export",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\AdvancedCrosstab\\Api\\PostExport"
+    }
+]

@@ -1,0 +1,15 @@
+{
+    "limits": {
+        "maxRowDimensions": 5,
+        "maxColumnDimensions": 3,
+        "maxMeasures": 25,
+        "maxCells": 50000,
+        "maxJoins": 10,
+        "maxPathDepth": 3,
+        "maxFilterItems": 100,
+        "maxFormulaLength": 4000,
+        "cacheTtl": 120,
+        "asyncExportCellThreshold": 20000,
+        "drillDownMaxSize": 200
+    }
+}

@@ -1,7 +1,0 @@
-[
-    {
-        "route": "/Crosstab/action/run",
-        "method": "post",
-        "actionClassName": "Espo\\Modules\\Crosstab\\Api\\PostRun"
-    }
-]

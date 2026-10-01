@@ -1,0 +1,7 @@
+[
+    {"name": "name", "link": true, "width": 30},
+    {"name": "entityType", "width": 18},
+    {"name": "description", "notSortable": true},
+    {"name": "assignedUser", "width": 15},
+    {"name": "modifiedAt", "width": 15}
+]
