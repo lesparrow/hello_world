@@ -20,6 +20,12 @@ class JoinRegistry
     /** @var array<string, CustomJoin> */
     private array $customJoins = [];
 
+    /** @var array<string, RecordSelector> */
+    private array $selectors = [];
+
+    /** @var ?callable(RecordSelector, JoinRegistry): array{string, string} */
+    private $selectorJoiner = null;
+
     /** @var array<string, true> Custom joins being resolved (cycle detection). */
     private array $resolving = [];
 
@@ -37,6 +43,39 @@ class JoinRegistry
         }
 
         return $this;
+    }
+
+    /**
+     * @param RecordSelector[] $selectors
+     * @param callable(RecordSelector, JoinRegistry): array{string, string} $joiner Joins the selected record,
+     *   returns [alias, entityType].
+     */
+    public function withSelectors(array $selectors, callable $joiner): self
+    {
+        foreach ($selectors as $selector) {
+            $this->selectors[$selector->name] = $selector;
+        }
+
+        $this->selectorJoiner = $joiner;
+
+        return $this;
+    }
+
+    public function getSelector(string $name): ?RecordSelector
+    {
+        return $this->selectors[$name] ?? null;
+    }
+
+    /**
+     * @return array{string, string} [alias, entityType] of the selected record.
+     */
+    public function ensureSelector(RecordSelector $selector): array
+    {
+        if (!$this->selectorJoiner) {
+            throw new SchemaError("Record selectors are not available here.");
+        }
+
+        return ($this->selectorJoiner)($selector, $this);
     }
 
     public function getCustomJoin(string $name): ?CustomJoin
@@ -69,6 +108,11 @@ class JoinRegistry
     public function has(string $linkPath): bool
     {
         return isset($this->joins[$linkPath]);
+    }
+
+    public function getEntityType(string $linkPath): ?string
+    {
+        return $this->joins[$linkPath]['entityType'] ?? null;
     }
 
     public function getAlias(string $linkPath): string

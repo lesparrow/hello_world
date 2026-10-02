@@ -29,6 +29,8 @@ class Definition
         public readonly ?array $listWhere = null,
         /** @var \Espo\Modules\AdvancedCrosstab\Engine\Schema\CustomJoin[] Custom links to any entity. */
         public readonly array $joins = [],
+        /** @var \Espo\Modules\AdvancedCrosstab\Engine\Schema\RecordSelector[] One record picked among related records. */
+        public readonly array $selectors = [],
     ) {}
 
     public function getMeasure(string $key): ?Measure

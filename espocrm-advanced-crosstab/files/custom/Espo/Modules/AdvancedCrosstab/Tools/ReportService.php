@@ -14,6 +14,7 @@ use Espo\Core\Record\ServiceContainer;
 use Espo\Core\Select\SearchParams;
 use Espo\Core\Select\SelectBuilderFactory;
 use Espo\Modules\AdvancedCrosstab\Engine\Definition\Definition;
+use Espo\Modules\AdvancedCrosstab\Engine\Definition\DefinitionError;
 use Espo\Modules\AdvancedCrosstab\Engine\Definition\DefinitionParser;
 use Espo\Modules\AdvancedCrosstab\Engine\Formula\DisplayEvaluator;
 use Espo\Modules\AdvancedCrosstab\Engine\Formula\ExpressionCompiler;
@@ -131,9 +132,13 @@ class ReportService
                 return ['valid' => true];
             }
 
-            // Custom links of the crosstab being edited, so formulas can use them.
-            $registry = (new JoinRegistry($this->limits->maxJoins()))
-                ->withCustomJoins($this->definitionParser->parseJoinList($data->joins ?? [], $entityType));
+            // Custom links and record selectors of the crosstab being edited, so formulas can use them.
+            $joins = $this->definitionParser->parseJoinList($data->joins ?? [], $entityType);
+            $registry = $this->queryCompiler->createRegistry(
+                $entityType,
+                $joins,
+                $this->definitionParser->parseSelectorList($data->selectors ?? [], $entityType, $joins)
+            );
 
             if ($kind === 'aggregate') {
                 $expression = $this->expressionCompiler->compileAggregate($formula, $entityType, $registry);
@@ -160,7 +165,7 @@ class ReportService
             $rows = $this->previewQuery($entityType, $registry, [Selection::create($expression, 'v')], null, 5);
 
             return ['valid' => true, 'preview' => ['values' => array_map(fn ($row) => $row['v'], $rows)]];
-        } catch (FormulaError|SchemaError $e) {
+        } catch (FormulaError|SchemaError|DefinitionError $e) {
             return ['valid' => false, 'error' => $e->getMessage()];
         } catch (BadRequest $e) {
             return ['valid' => false, 'error' => $e->getMessage() ?: 'Invalid formula.'];

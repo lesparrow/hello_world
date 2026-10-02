@@ -20,6 +20,7 @@ use Espo\Modules\AdvancedCrosstab\Engine\Formula\FormulaError;
 use Espo\Modules\AdvancedCrosstab\Engine\Limits;
 use Espo\Modules\AdvancedCrosstab\Engine\Schema\JoinRegistry;
 use Espo\Modules\AdvancedCrosstab\Engine\Schema\PathResolver;
+use Espo\Modules\AdvancedCrosstab\Engine\Schema\RecordSelector;
 use Espo\Modules\AdvancedCrosstab\Engine\Schema\SchemaError;
 use Espo\Core\Utils\Metadata;
 use Espo\ORM\EntityManager;
@@ -47,6 +48,9 @@ class QueryCompiler
     /** @var array<string, \Espo\Modules\AdvancedCrosstab\Engine\Schema\CustomJoin> */
     private array $customJoins = [];
 
+    /** @var array<string, RecordSelector> */
+    private array $selectors = [];
+
     public function __construct(
         private Acl $acl,
         private SelectBuilderFactory $selectBuilderFactory,
@@ -59,7 +63,25 @@ class QueryCompiler
         private Limits $limits,
         private Metadata $metadata,
         private EntityManager $entityManager,
+        private SelectorJoiner $selectorJoiner,
     ) {}
+
+    /**
+     * A join registry knowing the crosstab's custom links and record selectors.
+     *
+     * @param \Espo\Modules\AdvancedCrosstab\Engine\Schema\CustomJoin[] $joins
+     * @param RecordSelector[] $selectors
+     */
+    public function createRegistry(string $entityType, array $joins, array $selectors): JoinRegistry
+    {
+        return (new JoinRegistry($this->limits->maxJoins()))
+            ->withCustomJoins($joins)
+            ->withSelectors(
+                $selectors,
+                fn (RecordSelector $selector, JoinRegistry $registry) =>
+                    $this->selectorJoiner->join($selector, $entityType, $registry)
+            );
+    }
 
     /**
      * @param ?SearchParams $searchParams Only for record listing (drill-down): order, paging, select.
@@ -76,16 +98,26 @@ class QueryCompiler
             throw new Forbidden("No read access to {$entityType}.");
         }
 
-        $registry = (new JoinRegistry($this->limits->maxJoins()))->withCustomJoins($definition->joins);
+        $registry = $this->createRegistry($entityType, $definition->joins, $definition->selectors);
 
         $this->customJoins = [];
+        $this->selectors = [];
 
         foreach ($definition->joins as $customJoin) {
             $this->customJoins[$customJoin->name] = $customJoin;
         }
 
+        foreach ($definition->selectors as $selector) {
+            $this->selectors[$selector->name] = $selector;
+        }
+
         foreach ($definition->joins as $customJoin) {
             $this->pathResolver->checkCustomJoinTarget($customJoin);
+        }
+
+        // Every selector is checked (relation, order field, condition, ACL), even when no field uses it yet.
+        foreach ($definition->selectors as $selector) {
+            $this->createRegistry($entityType, $definition->joins, $definition->selectors)->ensureSelector($selector);
         }
 
         $rows = array_map(fn (Dimension $d) => $this->compileDimension($d, $entityType, $registry), $definition->rows);
@@ -245,60 +277,10 @@ class QueryCompiler
     private function compileRelatedMeasure(Measure $measure, string $entityType, JoinRegistry $registry): Expression
     {
         $link = (string) $measure->link;
-        $customJoin = $registry->getCustomJoin($link);
-        $middle = null;
-        $parentTypeCondition = null;
-
-        if ($customJoin) {
-            if ($measure->from !== '') {
-                throw new SchemaError("A custom link is always used from the data source.");
-            }
-
-            $this->pathResolver->checkCustomJoinTarget($customJoin);
-
-            $target = $customJoin->entityType;
-            $localKey = $this->pathResolver->resolveKey($entityType, $customJoin->getLocalPath(), $registry)->expression;
-            $foreignKey = $this->pathResolver->getKeyAttribute($target, $customJoin->foreignField);
-        } else {
-            $ownerType = $measure->from === '' ?
-                $entityType :
-                $this->pathResolver->resolve($entityType, $measure->from . '.id', $registry)->entityType;
-
-            if ($this->pathResolver->isFieldForbidden($ownerType, $link) || !$this->metadata->get(['entityDefs', $ownerType, 'links', $link])) {
-                throw new SchemaError("Invalid related link: {$link}");
-            }
-
-            $relation = $this->entityManager->getDefs()->getEntity($ownerType)->getRelation($link);
-
-            if (!$relation->hasForeignEntityType()) {
-                throw new SchemaError("Invalid related link: {$link}");
-            }
-
-            $target = $relation->getForeignEntityType();
-            $localKey = $this->pathResolver->resolve($entityType, ($measure->from === '' ? '' : $measure->from . '.') . 'id', $registry)->expression;
-
-            if ($relation->isManyToMany()) {
-                $middle = [
-                    'entityType' => ucfirst($relation->getRelationshipName()),
-                    'nearKey' => $relation->getMidKey(),
-                    'farKey' => $relation->getForeignMidKey(),
-                    'conditions' => $relation->getConditions(),
-                ];
-                $foreignKey = 'acxMid.' . $relation->getMidKey();
-            } else if ($relation->isHasMany() || $relation->isHasChildren()) {
-                $foreignKey = $relation->getForeignKey();
-
-                if ($relation->isHasChildren()) {
-                    $parentTypeCondition = [($relation->getParam('foreignType') ?? 'parentType') => $ownerType];
-                }
-            } else {
-                throw new SchemaError("Not a one-to-many or many-to-many link: {$link}. Use its fields directly.");
-            }
-        }
-
-        if (!$this->acl->checkScope($target, Table::ACTION_READ)) {
-            throw new SchemaError("No access to related entity: {$link}");
-        }
+        $relation = $this->pathResolver->resolveToMany($entityType, $measure->from, $link, $registry);
+        $target = $relation->entityType;
+        $foreignKey = $relation->foreignKey;
+        $localKey = $relation->localKey;
 
         // The related entity's own query, with its ACL, joins and formulas.
         $subRegistry = new JoinRegistry($this->limits->maxJoins());
@@ -318,18 +300,7 @@ class QueryCompiler
             ->withAccessControlFilter()
             ->buildQueryBuilder();
 
-        if ($middle) {
-            $conditions = [
-                "acxMid.{$middle['farKey']}:" => 'id',
-                'acxMid.deleted' => false,
-            ];
-
-            foreach ($middle['conditions'] as $key => $conditionValue) {
-                $conditions["acxMid.{$key}"] = $conditionValue;
-            }
-
-            $sub->join($middle['entityType'], 'acxMid', $conditions);
-        }
+        $relation->applyTo($sub);
 
         $subRegistry->applyTo($sub);
 
@@ -349,13 +320,8 @@ class QueryCompiler
         }
 
         $sub->select($select)
-            ->where(["{$foreignKey}!=" => null])
             ->group([$foreignKey])
             ->order([]);
-
-        if ($parentTypeCondition) {
-            $sub->where($parentTypeCondition);
-        }
 
         $alias = $registry->nextAlias('acxR');
 
@@ -445,12 +411,49 @@ class QueryCompiler
         );
     }
 
+    /**
+     * Label of a record selector (its own label, or e.g. "Meetings (LATEST)") and the entity type it selects.
+     *
+     * @return array{string, string}
+     */
+    private function describeSelector(string $entityType, RecordSelector $selector): array
+    {
+        $owner = $entityType;
+
+        foreach ($selector->from === '' ? [] : explode('.', $selector->from) as $i => $segment) {
+            $owner = ($i === 0 && isset($this->customJoins[$segment])) ?
+                $this->customJoins[$segment]->entityType :
+                ($this->pathResolver->getManyToOneTarget($owner, $segment) ?? $owner);
+        }
+
+        $customJoin = $this->customJoins[$selector->link] ?? null;
+
+        $target = $customJoin ?
+            $customJoin->entityType :
+            ($this->metadata->get(['entityDefs', $owner, 'links', $selector->link, 'entity']) ?? $owner);
+
+        $linkLabel = $customJoin ?
+            ($customJoin->label ?: $this->language->translateLabel($target, 'scopeNamesPlural')) :
+            $this->language->translateLabel($selector->link, 'links', $owner);
+
+        return [$selector->label ?? "{$linkLabel} ({$selector->rule})", $target];
+    }
+
     public function buildPathLabel(string $entityType, string $path, ?string $granularity = null): string
     {
         $parts = [];
         $current = $entityType;
 
         foreach (explode('.', $path) as $i => $segment) {
+            $selector = $i === 0 ? ($this->selectors[$segment] ?? null) : null;
+
+            if ($selector) {
+                [$label, $current] = $this->describeSelector($entityType, $selector);
+                $parts[] = $label;
+
+                continue;
+            }
+
             $customJoin = $i === 0 ? ($this->customJoins[$segment] ?? null) : null;
 
             if ($customJoin) {

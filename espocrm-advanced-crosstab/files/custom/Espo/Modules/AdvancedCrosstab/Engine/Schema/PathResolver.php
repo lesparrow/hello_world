@@ -60,8 +60,13 @@ class PathResolver
         $linkPath = '';
         $links = array_slice($segments, 0, -1);
 
-        // A custom link (join to any entity) as the first segment.
-        if ($links && ($customJoin = $registry->getCustomJoin($links[0]))) {
+        // A record selector (one record picked among related records) as the first segment.
+        if ($links && ($selector = $registry->getSelector($links[0]))) {
+            [$alias, $entityType] = $registry->ensureSelector($selector);
+            $linkPath = $selector->name;
+            array_shift($links);
+        } else if ($links && ($customJoin = $registry->getCustomJoin($links[0]))) {
+            // A custom link (join to any entity) as the first segment.
             [$alias, $entityType] = $this->ensureCustomJoin($rootEntityType, $customJoin, $registry);
             $linkPath = $customJoin->name;
             array_shift($links);
@@ -248,6 +253,81 @@ class PathResolver
         }
 
         return in_array($field, $this->forbiddenFieldCache[$entityType], true);
+    }
+
+    /**
+     * A to-many relation of the entity at path `from` ('' = data source): a one-to-many, many-to-many or children
+     * link, or a custom link (from the data source only).
+     *
+     * @throws SchemaError
+     */
+    public function resolveToMany(string $rootEntityType, string $from, string $link, JoinRegistry $registry): ToManyRelation
+    {
+        $customJoin = $registry->getCustomJoin($link);
+
+        if ($customJoin) {
+            if ($from !== '') {
+                throw new SchemaError("A custom link is always used from the data source.");
+            }
+
+            $this->checkCustomJoinTarget($customJoin);
+
+            $target = $customJoin->entityType;
+
+            $relation = new ToManyRelation(
+                entityType: $target,
+                localKey: $this->resolveKey($rootEntityType, $customJoin->getLocalPath(), $registry)->expression,
+                foreignKey: $this->getKeyAttribute($target, $customJoin->foreignField),
+            );
+        } else {
+            $ownerType = $from === '' ?
+                $rootEntityType :
+                $this->resolve($rootEntityType, $from . '.id', $registry)->entityType;
+
+            if ($this->isFieldForbidden($ownerType, $link) || !$this->metadata->get(['entityDefs', $ownerType, 'links', $link])) {
+                throw new SchemaError("Invalid related link: {$link}");
+            }
+
+            $relationDefs = $this->entityManager->getDefs()->getEntity($ownerType)->getRelation($link);
+
+            if (!$relationDefs->hasForeignEntityType()) {
+                throw new SchemaError("Invalid related link: {$link}");
+            }
+
+            $target = $relationDefs->getForeignEntityType();
+            $localKey = $this->resolve($rootEntityType, ($from === '' ? '' : $from . '.') . 'id', $registry)->expression;
+
+            if ($relationDefs->isManyToMany()) {
+                $relation = new ToManyRelation(
+                    entityType: $target,
+                    localKey: $localKey,
+                    foreignKey: 'acxMid.' . $relationDefs->getMidKey(),
+                    middle: [
+                        'entityType' => ucfirst($relationDefs->getRelationshipName()),
+                        'nearKey' => $relationDefs->getMidKey(),
+                        'farKey' => $relationDefs->getForeignMidKey(),
+                        'conditions' => $relationDefs->getConditions(),
+                    ],
+                );
+            } else if ($relationDefs->isHasMany() || $relationDefs->isHasChildren()) {
+                $relation = new ToManyRelation(
+                    entityType: $target,
+                    localKey: $localKey,
+                    foreignKey: $relationDefs->getForeignKey(),
+                    parentTypeCondition: $relationDefs->isHasChildren() ?
+                        [($relationDefs->getParam('foreignType') ?? 'parentType') => $ownerType] :
+                        null,
+                );
+            } else {
+                throw new SchemaError("Not a one-to-many or many-to-many link: {$link}. Use its fields directly.");
+            }
+        }
+
+        if (!$this->acl->checkScope($target, Table::ACTION_READ)) {
+            throw new SchemaError("No access to related entity: {$link}");
+        }
+
+        return $relation;
     }
 
     public function getManyToOneTarget(string $entityType, string $link): ?string

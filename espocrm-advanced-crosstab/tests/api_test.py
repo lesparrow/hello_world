@@ -517,12 +517,131 @@ def test_preview():
     check('preview respects ACL', status == 200 and alice['count'] == expected, f"{alice and alice['count']} vs {expected}")
 
 
+def test_record_selectors():
+    print('Record selectors: one related record per record, chosen by a rule')
+    sel = lambda name, link, rule, order=None, cond=None, frm=None: {k: v for k, v in {
+        'name': name, 'link': link, 'rule': rule, 'orderBy': order, 'condition': cond, 'from': frm}.items() if v is not None}
+
+    # Reference: the same selection written with a window function (ORDER BY value, id; first row).
+    def ranked(table, key, order, direction, where='', joins='', parent=None):
+        parent_cond = f"AND x.parent_type = '{parent}' " if parent else ''
+        return (f"(SELECT x.*, {key} AS owner_id, ROW_NUMBER() OVER (PARTITION BY {key} ORDER BY x.{order} {direction}, x.id {direction}) rn "
+                f"FROM {table} x {joins} WHERE x.deleted = 0 AND x.{order} IS NOT NULL AND {key} IS NOT NULL {parent_cond}{where})")
+
+    last_opp = ranked('opportunity', 'x.account_id', 'close_date', 'DESC')
+    result = run({
+        'entityType': 'Account',
+        'selectors': [sel('lastOpp', 'opportunities', 'LAST', 'closeDate')],
+        'rows': [{'path': 'lastOpp.stage'}],
+        'measures': [
+            {'key': 'accounts', 'aggregation': 'COUNT'},
+            {'key': 'amount', 'aggregation': 'SUM', 'expression': 'lastOpp.amount'},
+            {'key': 'wonAmount', 'aggregation': 'SUM', 'expression': 'lastOpp.amount', 'condition': "lastOpp.stage == 'Closed Won'"},
+        ],
+    })
+    expected = sql(f"SELECT r.stage, COUNT(*), SUM(r.amount) FROM account a LEFT JOIN {last_opp} r ON r.owner_id = a.id AND r.rn = 1 "
+                   "WHERE a.deleted = 0 GROUP BY r.stage")
+    total = sql("SELECT COUNT(*) FROM account WHERE deleted = 0")[0][0]
+    check('LAST: data-source rows not duplicated', close(cell(result, [], [], 0), total), f"{cell(result, [], [], 0)} vs {total}")
+    ok = all(close(cell(result, [stage if stage != 'NULL' else ''], [], 0), count) and
+             (amount == 'NULL' or close(cell(result, [stage if stage != 'NULL' else ''], [], 1), amount))
+             for stage, count, amount in expected)
+    check('LAST by date: same record as ORDER BY date DESC LIMIT 1', ok, f"{expected} / {result['cells']}")
+    expected = sql(f"SELECT SUM(r.amount) FROM account a JOIN {last_opp} r ON r.owner_id = a.id AND r.rn = 1 "
+                   "WHERE a.deleted = 0 AND r.stage = 'Closed Won'")[0][0]
+    check('all fields come from the same selected record', close(cell(result, [], [], 2), expected),
+          f"{cell(result, [], [], 2)} vs {expected}")
+
+    first_opp = ranked('opportunity', 'x.account_id', 'close_date', 'ASC')
+    result = run({'entityType': 'Account', 'selectors': [sel('firstOpp', 'opportunities', 'FIRST', 'closeDate')],
+                  'rows': [], 'measures': [{'key': 'a', 'aggregation': 'SUM', 'expression': 'firstOpp.amount'}]})
+    expected = sql(f"SELECT SUM(r.amount) FROM account a JOIN {first_opp} r ON r.owner_id = a.id AND r.rn = 1 WHERE a.deleted = 0")[0][0]
+    check('FIRST by date', close(cell(result, [], [], 0), expected), f"{cell(result, [], [], 0)} vs {expected}")
+
+    biggest_win = ranked('opportunity', 'x.account_id', 'amount', 'DESC', "AND x.stage = 'Closed Won'")
+    result = run({'entityType': 'Account',
+                  'selectors': [sel('bigWin', 'opportunities', 'MAX', 'amount', "stage == 'Closed Won'")],
+                  'rows': [{'path': 'bigWin.leadSource'}],
+                  'measures': [{'key': 'a', 'aggregation': 'SUM', 'expression': 'bigWin.amount'},
+                               {'key': 'n', 'aggregation': 'COUNT', 'expression': 'bigWin.id'}]})
+    expected = sql(f"SELECT SUM(r.amount), COUNT(r.id) FROM account a JOIN {biggest_win} r ON r.owner_id = a.id AND r.rn = 1 WHERE a.deleted = 0")[0]
+    check('MAX by amount with a condition', close(cell(result, [], [], 0), expected[0]) and close(cell(result, [], [], 1), expected[1]),
+          f"{cell(result, [], [], 0)}, {cell(result, [], [], 1)} vs {expected}")
+
+    smallest = ranked('opportunity', 'x.account_id', 'amount', 'ASC')
+    result = run({'entityType': 'Account', 'selectors': [sel('small', 'opportunities', 'MIN', 'amount')],
+                  'rows': [], 'measures': [{'key': 'a', 'aggregation': 'SUM', 'expression': 'small.amount'}]})
+    expected = sql(f"SELECT SUM(r.amount) FROM account a JOIN {smallest} r ON r.owner_id = a.id AND r.rn = 1 WHERE a.deleted = 0")[0][0]
+    check('MIN by amount', close(cell(result, [], [], 0), expected), f"{cell(result, [], [], 0)} vs {expected}")
+
+    first_contact = ranked('contact', 'ac.account_id', 'created_at', 'ASC',
+                           joins='JOIN account_contact ac ON ac.contact_id = x.id AND ac.deleted = 0')
+    result = run({'entityType': 'Account', 'selectors': [sel('firstContact', 'contacts', 'EARLIEST')],
+                  'rows': [{'path': 'firstContact.lastName'}], 'measures': [{'key': 'n', 'aggregation': 'COUNT'}]})
+    expected = sql(f"SELECT r.last_name, COUNT(*) FROM account a JOIN {first_contact} r ON r.owner_id = a.id AND r.rn = 1 "
+                   "WHERE a.deleted = 0 GROUP BY r.last_name")
+    ok = bool(expected) and all(close(cell(result, [name], [], 0), count) for name, count in expected)
+    check('EARLIEST through a many-to-many link (createdAt by default)', ok, f"{expected[:5]}")
+
+    latest_meeting = ranked('meeting', 'x.parent_id', 'date_start', 'DESC', parent='Account')
+    result = run({'entityType': 'Account', 'selectors': [sel('lastMeeting', 'meetings', 'LATEST', 'dateStart')],
+                  'rows': [{'path': 'lastMeeting.status'}], 'measures': [{'key': 'n', 'aggregation': 'COUNT'}]})
+    expected = sql(f"SELECT r.status, COUNT(*) FROM account a JOIN {latest_meeting} r ON r.owner_id = a.id AND r.rn = 1 "
+                   "WHERE a.deleted = 0 GROUP BY r.status")
+    ok = bool(expected) and all(close(cell(result, [status], [], 0), count) for status, count in expected)
+    check('LATEST through a parent (children) link', ok, f"{expected}")
+
+    # From a related entity: each opportunity compared with the biggest opportunity of its account.
+    result = run({'entityType': 'Opportunity',
+                  'selectors': [sel('accountBiggest', 'opportunities', 'MAX', 'amount', frm='account')],
+                  'rows': [], 'measures': [{'key': 'n', 'aggregation': 'COUNT', 'condition': 'amount == accountBiggest.amount'}]})
+    expected = sql("SELECT COUNT(*) FROM opportunity o JOIN account a ON a.id = o.account_id AND a.deleted = 0 WHERE o.deleted = 0 "
+                   "AND o.amount = (SELECT MAX(x.amount) FROM opportunity x WHERE x.deleted = 0 AND x.account_id = o.account_id)")[0][0]
+    check('selector starting from a related entity (from)', close(cell(result, [], [], 0), expected), f"{cell(result, [], [], 0)} vs {expected}")
+
+    # Filter on the selected record, and drill-down.
+    definition = {'entityType': 'Account', 'selectors': [sel('lastOpp', 'opportunities', 'LAST', 'closeDate')],
+                  'rows': [], 'measures': [{'key': 'n', 'aggregation': 'COUNT'}],
+                  'filter': {'type': 'condition', 'path': 'lastOpp.stage', 'operator': 'equals', 'value': 'Closed Won'}}
+    result = run(definition)
+    expected = sql(f"SELECT COUNT(*) FROM account a JOIN {last_opp} r ON r.owner_id = a.id AND r.rn = 1 "
+                   "WHERE a.deleted = 0 AND r.stage = 'Closed Won'")[0][0]
+    check('filter on the selected record', close(cell(result, [], [], 0), expected), f"{cell(result, [], [], 0)} vs {expected}")
+    payload = json.dumps({'definition': definition, 'rowPath': [], 'columnPath': [], 'measure': 'n'})
+    status, records, reason = call('GET', 'AdvancedCrosstab/action/drillDown', query={'payload': payload, 'maxSize': 5})
+    check('drill-down with a selector', status == 200 and int(records['total']) == int(expected), f"{status} {reason}")
+
+    # ACL: only the related records the user can read are candidates.
+    alice = user_id('alice')
+    result = run({'entityType': 'Account', 'selectors': [sel('lastOpp', 'opportunities', 'LAST', 'closeDate')],
+                  'rows': [], 'measures': [{'key': 'a', 'aggregation': 'SUM', 'expression': 'lastOpp.amount'}]}, ALICE)
+    own = ranked('opportunity', 'x.account_id', 'close_date', 'DESC', f"AND x.assigned_user_id = '{alice}'")
+    expected = sql(f"SELECT SUM(r.amount) FROM account a JOIN {own} r ON r.owner_id = a.id AND r.rn = 1 "
+                   "JOIN entity_team et ON et.entity_id = a.id AND et.entity_type = 'Account' AND et.deleted = 0 "
+                   "JOIN team t ON t.id = et.team_id AND t.name = 'North' WHERE a.deleted = 0")[0][0]
+    check('selection restricted by ACL', close(cell(result, [], [], 0), expected), f"{cell(result, [], [], 0)} vs {expected}")
+
+    bad = lambda selectors, **extra: call('POST', 'AdvancedCrosstab/action/run', {'definition': {
+        'entityType': 'Account', 'selectors': selectors, 'rows': [], 'measures': [{'key': 'n', 'aggregation': 'COUNT'}], **extra}})[0]
+    check('unknown rule rejected', bad([sel('s', 'opportunities', 'RANDOM', 'amount')]) == 400)
+    check('missing order field rejected', bad([sel('s', 'opportunities', 'MAX')]) == 400)
+    check('text order field rejected', bad([sel('s', 'opportunities', 'MAX', 'description')]) == 400)
+    check('many-to-one link rejected', bad([sel('s', 'assignedUser', 'LAST', 'createdAt')]) == 400)
+    check('name hiding a field rejected', bad([sel('industry', 'opportunities', 'LAST', 'closeDate')]) == 400)
+    check('SQL in condition rejected', bad([sel('s', 'opportunities', 'LAST', 'closeDate', "stage == 'x'; DROP TABLE account")]) == 400)
+
+    status, body, _ = call('POST', 'AdvancedCrosstab/action/validateFormula', {
+        'entityType': 'Account', 'kind': 'record', 'formula': 'lastOpp.amount * 2',
+        'selectors': [sel('lastOpp', 'opportunities', 'LAST', 'closeDate')]})
+    check('formula validation knows record selectors', status == 200 and body['valid'], str(body))
+
+
 if __name__ == '__main__':
     for test in [test_totals, test_ratio_correctness, test_display_and_conditional, test_multi_level_relations,
                  test_filters, test_acl, test_validation_and_injection, test_dates_compare_topn, test_drill_down,
                  test_saved_report_and_export, test_rollup_consistency,
                  test_spreadsheet_syntax_and_list_filters, test_related_measures, test_custom_joins,
-                 test_preview]:
+                 test_preview, test_record_selectors]:
         try:
             test()
         except Exception as e:  # noqa

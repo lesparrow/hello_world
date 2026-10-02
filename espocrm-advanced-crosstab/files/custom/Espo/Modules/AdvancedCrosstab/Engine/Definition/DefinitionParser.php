@@ -6,6 +6,7 @@ use Espo\Core\Utils\Metadata;
 use Espo\Modules\AdvancedCrosstab\Engine\Filter\FilterOperators;
 use Espo\Modules\AdvancedCrosstab\Engine\Limits;
 use Espo\Modules\AdvancedCrosstab\Engine\Schema\CustomJoin;
+use Espo\Modules\AdvancedCrosstab\Engine\Schema\RecordSelector;
 use stdClass;
 
 /**
@@ -55,6 +56,7 @@ class DefinitionParser
         }
 
         $joins = $this->parseJoins($data['joins'] ?? [], $entityType);
+        $selectors = $this->parseSelectors($data['selectors'] ?? [], $entityType, $joins);
         $measures = $this->parseMeasures($data['measures'] ?? []);
 
         $this->validateMeasureReferences($rows, $columns, $measures);
@@ -98,6 +100,7 @@ class DefinitionParser
             raw: $data,
             listWhere: $listWhere,
             joins: $joins,
+            selectors: $selectors,
         );
     }
 
@@ -373,6 +376,99 @@ class DefinitionParser
                 foreignField: $this->parseFieldName($item['foreignField'] ?? null),
                 label: $this->parseLabel($item['label'] ?? null),
             );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param CustomJoin[] $joins
+     * @return RecordSelector[]
+     */
+    public function parseSelectorList(mixed $list, string $entityType, array $joins = []): array
+    {
+        return $this->parseSelectors(self::toArray(is_array($list) ? $list : []), $entityType, $joins);
+    }
+
+    /**
+     * @param CustomJoin[] $joins
+     * @return RecordSelector[]
+     */
+    private function parseSelectors(mixed $list, string $entityType, array $joins): array
+    {
+        if ($list === null) {
+            return [];
+        }
+
+        if (!is_array($list) || !array_is_list($list) || count($list) > 8) {
+            throw DefinitionError::create("Invalid record selectors.");
+        }
+
+        $joinNames = array_map(fn (CustomJoin $join) => $join->name, $joins);
+        $result = [];
+        $names = [];
+
+        foreach ($list as $item) {
+            if (!is_array($item)) {
+                throw DefinitionError::create("Invalid record selector.");
+            }
+
+            $name = $item['name'] ?? null;
+
+            if (
+                !is_string($name) ||
+                !preg_match('/^[a-zA-Z][a-zA-Z0-9]{0,39}$/', $name) ||
+                in_array($name, $names, true) ||
+                in_array($name, $joinNames, true)
+            ) {
+                throw DefinitionError::create("Invalid or duplicate record selector name.");
+            }
+
+            // The name is the first segment of paths: it must not hide a field or link of the data source.
+            if (
+                $this->metadata->get(['entityDefs', $entityType, 'fields', $name]) ||
+                $this->metadata->get(['entityDefs', $entityType, 'links', $name])
+            ) {
+                throw DefinitionError::create("Record selector name is already a field of the data source: {$name}");
+            }
+
+            $rule = is_string($item['rule'] ?? null) ? strtoupper($item['rule']) : null;
+
+            if (!in_array($rule, RecordSelector::RULE_LIST, true)) {
+                throw DefinitionError::create("Invalid record selector rule: {$name}");
+            }
+
+            $from = (string) ($item['from'] ?? '');
+            $link = $item['link'] ?? null;
+
+            if (!is_string($link) || !preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $link)) {
+                throw DefinitionError::create("Invalid record selector relation: {$name}");
+            }
+
+            $orderBy = $item['orderBy'] ?? null;
+            $orderBy = $orderBy === null || $orderBy === '' ? null : $this->parsePath($orderBy);
+
+            if ($orderBy === null && !in_array($rule, [RecordSelector::RULE_EARLIEST, RecordSelector::RULE_LATEST], true)) {
+                throw DefinitionError::create("The record selector needs a field to order by: {$name}");
+            }
+
+            $names[] = $name;
+            $result[] = new RecordSelector(
+                name: $name,
+                from: $from === '' ? '' : $this->parsePath($from),
+                link: $link,
+                rule: $rule,
+                orderBy: $orderBy,
+                condition: $this->parseFormulaString($item['condition'] ?? null, false),
+                label: $this->parseLabel($item['label'] ?? null),
+            );
+        }
+
+        // A selector starts from the data source or from a many-to-one / custom link path, not from another selector.
+        foreach ($result as $selector) {
+            if ($selector->from !== '' && in_array(explode('.', $selector->from)[0], $names, true)) {
+                throw DefinitionError::create("A record selector can't start from another record selector: {$selector->name}");
+            }
         }
 
         return $result;
