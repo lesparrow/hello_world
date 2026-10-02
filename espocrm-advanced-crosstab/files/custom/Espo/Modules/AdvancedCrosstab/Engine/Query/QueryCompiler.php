@@ -436,7 +436,9 @@ class QueryCompiler
             ($customJoin->label ?: $this->language->translateLabel($target, 'scopeNamesPlural')) :
             $this->language->translateLabel($selector->link, 'links', $owner);
 
-        return [$selector->label ?? "{$linkLabel} ({$selector->rule})", $target];
+        $rule = $this->language->translateLabel($selector->rule, 'selectorRules', 'AdvancedCrosstab');
+
+        return [$selector->label ?? "{$linkLabel} ({$rule})", $target];
     }
 
     public function buildPathLabel(string $entityType, string $path, ?string $granularity = null): string

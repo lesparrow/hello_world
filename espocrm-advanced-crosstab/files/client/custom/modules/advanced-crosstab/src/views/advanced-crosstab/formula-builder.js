@@ -208,6 +208,7 @@ define('advanced-crosstab:views/advanced-crosstab/formula-builder', ['view', 'ad
                 kind: this.kind,
                 measureKeys: (this.options.measures || []).map(m => m.key),
                 joins: this.options.noCustomJoins ? [] : Schema.getCustomJoins(this.options.entityType),
+                selectors: this.options.noCustomJoins ? [] : Schema.getSelectors(this.options.entityType),
             });
 
             if (formula !== this.getValue()) {

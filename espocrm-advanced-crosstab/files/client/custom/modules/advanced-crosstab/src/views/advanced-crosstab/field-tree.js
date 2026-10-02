@@ -74,6 +74,28 @@ define('advanced-crosstab:views/advanced-crosstab/field-tree', ['view', 'advance
             }
 
             const customJoins = depth === 0 && !this.options.noCustomJoins ? Schema.getCustomJoins(this.entityType) : [];
+            const selectors = depth === 0 && !this.options.noCustomJoins ? Schema.getSelectors(this.entityType) : [];
+
+            for (const selector of selectors) {
+                const target = this.schema.getSelectorTarget(this.entityType, selector);
+
+                if (!target) {
+                    continue;
+                }
+
+                html.push(`
+                    <li class="acx-tree-link acx-tree-selector" data-path="${this.escapeString(selector.name)}"
+                        data-entity-type="${this.escapeString(target)}" data-depth="1">
+                        <a role="button" data-action="toggleLink" title="${this.escapeString(this.schema.describeSelectorRule(this.entityType, selector))}">
+                            <span class="fas fa-caret-right acx-caret"></span>
+                            <span class="acx-selector-badge">1</span>
+                            ${this.escapeString(this.schema.getSelectorLabel(this.entityType, selector))}
+                            <span class="text-muted small">${this.escapeString(this.translate('selected record', 'labels', 'AdvancedCrosstab'))}</span>
+                        </a>
+                        <ul class="acx-tree-list hidden"></ul>
+                    </li>
+                `);
+            }
 
             for (const join of customJoins) {
                 html.push(`
@@ -176,6 +198,14 @@ define('advanced-crosstab:views/advanced-crosstab/field-tree', ['view', 'advance
 
             for (const join of this.options.noCustomJoins ? [] : Schema.getCustomJoins(this.entityType)) {
                 walk(join.entityType, join.name + '.', this.schema.getCustomJoinLabel(join) + ' › ', 1);
+            }
+
+            for (const selector of this.options.noCustomJoins ? [] : Schema.getSelectors(this.entityType)) {
+                const target = this.schema.getSelectorTarget(this.entityType, selector);
+
+                if (target) {
+                    walk(target, selector.name + '.', this.schema.getSelectorLabel(this.entityType, selector) + ' › ', 1);
+                }
             }
 
             this.rootList.innerHTML = results.length ?

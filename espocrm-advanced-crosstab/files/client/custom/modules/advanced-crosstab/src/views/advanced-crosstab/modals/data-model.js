@@ -45,6 +45,10 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                     <polyline points="34,1 44,6 34,11" class="acx-marrow acx-custom"/></svg>
                     <span class="acx-mcard">«join»</span>
                     {{translate 'modelLegendCustom' category='messages' scope='AdvancedCrosstab'}}</span>
+                <span class="acx-model-legend"><svg width="46" height="12"><line x1="2" y1="6" x2="36" y2="6" class="acx-mline acx-selector"/>
+                    <polyline points="34,1 44,6 34,11" class="acx-marrow acx-selector"/></svg>
+                    <span class="acx-mcard">1 → 0..1</span>
+                    {{translate 'modelLegendSelector' category='messages' scope='AdvancedCrosstab'}}</span>
                 <span class="acx-model-legend"><span class="badge acx-use-badge">R</span><span class="badge acx-use-badge">C</span><span
                     class="badge acx-use-badge">M</span><span class="badge acx-use-badge">F</span>
                     {{translate 'modelLegendUsage' category='messages' scope='AdvancedCrosstab'}}</span>
@@ -79,6 +83,14 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
             this.addActionHandler('resetLayout', () => this.resetLayout());
             this.addActionHandler('openAggregate', (e, target) => {
                 this.toggleAggregate(target.closest('[data-box]').dataset.box, target.dataset.link);
+            });
+            this.addActionHandler('pickOne', (e, target) => {
+                const from = target.dataset.from !== undefined ? target.dataset.from : target.closest('[data-box]').dataset.box;
+
+                this.options.onAddSelector({from: from, link: target.dataset.link}, selector => {
+                    this.openSelectorBox(selector);
+                    this.drawLinks();
+                });
             });
             this.addActionHandler('linkEntity', (e, target) => {
                 const from = target.closest('[data-box]').dataset.box;
@@ -124,6 +136,11 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
             this.canvas.querySelectorAll('.acx-mbox').forEach(el => el.remove());
 
             this.addBox({path: '', entityType: this.rootEntityType, depth: 0, parent: null, link: null, x: 20, y: 20});
+
+            // Record selectors are always shown (their links can then be re-opened).
+            for (const selector of this.options.getSelectors()) {
+                this.openSelectorBox(selector);
+            }
 
             // Re-open previously opened relations, parents first.
             opened.sort((a, b) => a.split('.').length - b.split('.').length).forEach(path => {
@@ -176,6 +193,8 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
             }
 
             const pathLabel = box.kind === 'custom' ? this.describeJoin(box.join) :
+                box.kind === 'selector' ? this.schema.describeSelectorRule(this.rootEntityType, box.selector) +
+                    (box.selector.condition ? ' · ' + box.selector.condition : '') :
                 (box.path ? this.schema.getPathLabel(this.rootEntityType, box.path) : this.t('Data source'));
             // A custom link on a non-unique field can also aggregate all its matching records (from the data source).
             const canAggregate = box.kind === 'custom' && box.join.foreignField !== 'id' && !box.join.from;
@@ -223,14 +242,16 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                     </li>`;
             }).join('') : '';
 
-            const stereotype = box.path === '' ? 'data source' : (box.kind === 'custom' ? 'join' : 'entity');
+            const stereotype = box.path === '' ? 'data source' : (box.kind === 'custom' ? 'join' : box.kind === 'selector' ? 'selector' : 'entity');
 
             return `
                 <div class="acx-mbox-head" data-drag="1">
-                    <div class="acx-uml-stereotype">«${this.escapeString(this.t({'data source': 'umlDataSource', join: 'umlJoin', entity: 'umlEntity'}[stereotype]))}»</div>
-                    <span class="fas fa-${box.path === '' ? 'database' : (box.kind === 'custom' ? 'link' : 'cube')}"></span>
-                    <strong>${this.escapeString(box.kind === 'custom' ?
-                        this.schema.getCustomJoinLabel(box.join) : this.schema.translateEntity(box.entityType, false))}</strong>
+                    <div class="acx-uml-stereotype">«${this.escapeString(this.t({'data source': 'umlDataSource', join: 'umlJoin', entity: 'umlEntity', selector: 'umlSelector'}[stereotype]))}»</div>
+                    ${box.kind === 'selector' ? '<span class="acx-selector-badge">1</span>' :
+                        `<span class="fas fa-${box.path === '' ? 'database' : (box.kind === 'custom' ? 'link' : 'cube')}"></span>`}
+                    <strong>${this.escapeString(box.kind === 'custom' ? this.schema.getCustomJoinLabel(box.join) :
+                        box.kind === 'selector' ? this.schema.getSelectorLabel(this.rootEntityType, box.selector) :
+                        this.schema.translateEntity(box.entityType, false))}</strong>
                     ${box.path === '' ? '' : `<a role="button" class="acx-mbox-close" data-action="closeBox" title="${this.escapeString(this.translate('Close'))}">&times;</a>`}
                     <div class="acx-mbox-path small">${this.escapeString(pathLabel)}</div>
                 </div>
@@ -245,6 +266,8 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                 <div class="acx-mbox-footer">
                     <a role="button" data-action="linkEntity"><span class="fas fa-link"></span>
                         ${this.escapeString(this.t('Link another entity'))}…</a>
+                    ${canAggregate ? `<br><a role="button" data-action="pickOne" data-from="" data-link="${this.escapeString(box.join.name)}">
+                        <span class="acx-selector-badge">1</span> ${this.escapeString(this.t('Pick one related record'))}…</a>` : ''}
                 </div>
             `;
         }
@@ -318,6 +341,8 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                                     [*]${link.manyToMany ? ' ⇄ [*]' : ''}</span>
                             </span>
                             <span>
+                                ${box.kind !== 'selector' ? `<a role="button" class="acx-mlink-switch acx-pick-one" data-action="pickOne"
+                                    data-link="${this.escapeString(link.name)}" title="${this.escapeString(this.t('Pick one related record'))}">1</a>` : ''}
                                 <a role="button" class="acx-mlink-switch" data-action="openAggregate" data-link="${this.escapeString(link.name)}"
                                     title="${this.escapeString(this.t('Aggregate its records (Σ)'))}"><strong>Σ</strong></a>
                                 ${box.path === '' ? `<a role="button" class="acx-mlink-switch" data-action="changeSource"
@@ -497,6 +522,68 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
             });
         }
 
+        /**
+         * Opens the boxes of a path (many-to-one links, a custom link as first segment) so a box can hang from it.
+         */
+        ensurePathBoxes(path) {
+            if (!path || this.boxes[path]) {
+                return;
+            }
+
+            const parts = path.split('.');
+
+            for (let i = 1; i <= parts.length; i++) {
+                const current = parts.slice(0, i).join('.');
+                const customJoin = i === 1 ? this.options.getJoins().find(j => j.name === parts[0]) : null;
+
+                if (this.boxes[current]) {
+                    continue;
+                }
+
+                if (customJoin) {
+                    this.openCustomJoinBox(customJoin);
+                } else if (this.boxes[parts.slice(0, i - 1).join('.')]) {
+                    this.openLink(parts.slice(0, i - 1).join('.'), parts[i - 1]);
+                }
+            }
+        }
+
+        /**
+         * The record picked by a record selector: a class box hanging from the to-many association it selects from.
+         */
+        openSelectorBox(selector) {
+            if (this.boxes[selector.name]) {
+                return;
+            }
+
+            const from = selector.from || '';
+
+            this.ensurePathBoxes(from);
+
+            const parent = this.boxes[from];
+            const entityType = this.schema.getSelectorTarget(this.rootEntityType, selector);
+
+            if (!parent || !entityType) {
+                return;
+            }
+
+            const isCustom = !!this.options.getJoins().find(j => j.name === selector.link);
+            const {x, y} = this.findSlot(from, isCustom ? '.acx-mbox-footer' : `[data-tomany-row="${CSS.escape(selector.link)}"]`);
+
+            this.addBox({
+                path: selector.name,
+                entityType: entityType,
+                depth: parent.depth + 1,
+                parent: from,
+                link: selector.link,
+                x: x,
+                y: y,
+                kind: 'selector',
+                selector: selector,
+                viaCustom: isCustom,
+            });
+        }
+
         toggleAggregate(parentPath, linkName) {
             const path = '~' + (parentPath ? parentPath + '.' : '') + linkName;
 
@@ -636,6 +723,24 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
 
                 const childHeadY = childElement.offsetTop + 26;
 
+                if (box.kind === 'selector') {
+                    const anchor = box.viaCustom ? parentElement.querySelector('.acx-mbox-footer') :
+                        parentElement.querySelector(`[data-tomany-row="${CSS.escape(box.link)}"]`);
+                    const ax = parentElement.offsetLeft + parentElement.offsetWidth;
+                    const ay = anchor ? parentElement.offsetTop + anchor.offsetTop + anchor.offsetHeight / 2 : parentElement.offsetTop + 22;
+
+                    parts.push(this.connector(ax, ay, childElement.offsetLeft, childHeadY, {
+                        label: box.selector.rule + ' · ' + (box.selector.orderBy || 'createdAt') +
+                            (Schema.isDescendingRule(box.selector.rule) ? ' ↓' : ' ↑'),
+                        stereotype: '«select»',
+                        source: '1',
+                        target: '0..1',
+                        variant: 'selector',
+                    }));
+
+                    continue;
+                }
+
                 if (box.kind === 'custom' || box.kind === 'aggregate') {
                     const isCustom = box.kind === 'custom';
                     const anchor = isCustom ?
@@ -690,7 +795,7 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                 </marker>`;
 
             return `<defs>
-                ${arrow('')}${arrow('custom')}${arrow('dashed')}
+                ${arrow('')}${arrow('custom')}${arrow('dashed')}${arrow('selector')}
                 <marker id="acx-diamond" viewBox="0 0 20 12" refX="1" refY="6" markerWidth="20" markerHeight="12"
                     markerUnits="userSpaceOnUse" orient="auto">
                     <polygon points="1,6 10,1 19,6 10,11" class="acx-mdiamond"/>

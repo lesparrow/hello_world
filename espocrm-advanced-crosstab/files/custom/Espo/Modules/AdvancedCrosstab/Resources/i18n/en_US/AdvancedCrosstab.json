@@ -162,7 +162,25 @@
         "groups": "cells",
         "Properties": "Properties",
         "Show all": "Show all",
-        "No records": "No records"
+        "No records": "No records",
+        "Record selectors": "Record selectors",
+        "Pick one related record": "Pick one related record",
+        "Selection rule": "Selection rule",
+        "Order by": "Order by",
+        "Direction": "Direction",
+        "Only among records where": "Only among records where",
+        "optional": "optional",
+        "Relation of": "Relation of",
+        "highest value first": "highest value first",
+        "lowest value first": "lowest value first",
+        "field": "field",
+        "where": "where",
+        "selected record": "selected record",
+        "Edit record selector": "Edit record selector",
+        "Record selector": "Record selector",
+        "Invalid formula": "Invalid formula",
+        "umlSelector": "selector",
+        "Record selector is in use": "The record selector is used by the crosstab: remove its fields first."
     },
     "granularities": {
         "year": "Year",
@@ -347,10 +365,31 @@
         "guide.columns": "Add a column dimension (optional)",
         "guide.measures": "Add measures: counts, sums, formulas",
         "guide.pipeline": "Check the pipeline: record counts at each step and data preview",
-        "guide.shortcuts": "Shortcuts: Ctrl+S save · Ctrl+Enter refresh · Ctrl+Z / Ctrl+Shift+Z undo / redo · drag chips to reorder or move between rows and columns"
+        "guide.shortcuts": "Shortcuts: Ctrl+S save · Ctrl+Enter refresh · Ctrl+Z / Ctrl+Shift+Z undo / redo · drag chips to reorder or move between rows and columns",
+        "selectorHelp": "Among the related records of each record, pick ONE record by a rule. All the fields you use from the selector come from that same record.",
+        "noToManyRelation": "This entity has no one-to-many or many-to-many relation (link another entity on a non-unique field to select among its records).",
+        "selectorRuleHint.FIRST": "lowest value of the field (e.g. first by date)",
+        "selectorRuleHint.LAST": "highest value of the field (e.g. last by date)",
+        "selectorRuleHint.MIN": "smallest value (e.g. smallest amount)",
+        "selectorRuleHint.MAX": "largest value (e.g. biggest amount)",
+        "selectorRuleHint.EARLIEST": "first created (Created At)",
+        "selectorRuleHint.LATEST": "last created (Created At)",
+        "selectorExplain": "For each {owner}: among its {relation}, the record ranked first by {order} {direction} is kept (ties: by ID). Records without a value are skipped. Every field of the selector comes from this one record, never one record per field.",
+        "noSelectors": "None. Pick one record among related records (e.g. the last opportunity by date) with ＋ or the 1 button of the data model.",
+        "modelLegendSelector": "«select» one related record (record selector)",
+        "component.selector": "① Record selector",
+        "componentHint.selector": "Pick one related record by a rule: FIRST / LAST / MIN / MAX / EARLIEST / LATEST"
     },
     "layouts": {
         "compact": "Compact",
         "tabular": "Tabular (cascade)"
+    },
+    "selectorRules": {
+        "FIRST": "First",
+        "LAST": "Last",
+        "MIN": "Minimum",
+        "MAX": "Maximum",
+        "EARLIEST": "Earliest",
+        "LATEST": "Latest"
     }
 }

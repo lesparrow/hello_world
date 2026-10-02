@@ -13,6 +13,12 @@ define('advanced-crosstab:lib/schema', [], function () {
     /** Custom links of the crosstab being edited, by data source entity type. */
     const customJoinStore = {};
 
+    /** Record selectors of the crosstab being edited, by data source entity type. */
+    const selectorStore = {};
+
+    const SELECTOR_RULES = ['LAST', 'FIRST', 'MAX', 'MIN', 'LATEST', 'EARLIEST'];
+    const DESCENDING_RULES = ['LAST', 'MAX', 'LATEST'];
+
     /**
      * Metadata-driven schema: entities, fields and many-to-one relations available to the current user.
      * Mirrors the server rules (the server always re-validates).
@@ -34,6 +40,93 @@ define('advanced-crosstab:lib/schema', [], function () {
         static get DATE_TYPES() { return DATE_TYPES; }
         static get MAX_DEPTH() { return MAX_DEPTH; }
         static get KEY_TYPES() { return KEY_TYPES; }
+        static get SELECTOR_RULES() { return SELECTOR_RULES; }
+
+        static isDescendingRule(rule) {
+            return DESCENDING_RULES.includes(rule);
+        }
+
+        /**
+         * @param {string} rootEntityType
+         * @param {{name: string, from?: string, link: string, rule: string, orderBy?: string, condition?: string, label?: string}[]} selectors
+         */
+        static setSelectors(rootEntityType, selectors) {
+            selectorStore[rootEntityType] = selectors || [];
+        }
+
+        static getSelectors(rootEntityType) {
+            return selectorStore[rootEntityType] || [];
+        }
+
+        getSelector(rootEntityType, name) {
+            return Schema.getSelectors(rootEntityType).find(item => item.name === name) || null;
+        }
+
+        /**
+         * Owner entity type of a selector (data source, or the entity at its `from` path).
+         */
+        getSelectorOwner(rootEntityType, selector) {
+            return selector.from ? this.resolvePath(rootEntityType, selector.from + '.id').entityType : rootEntityType;
+        }
+
+        /**
+         * Entity type of the record a selector picks.
+         */
+        getSelectorTarget(rootEntityType, selector) {
+            const join = this.getCustomJoin(rootEntityType, selector.link);
+
+            if (join) {
+                return join.entityType;
+            }
+
+            return this.metadata.get(['entityDefs', this.getSelectorOwner(rootEntityType, selector), 'links', selector.link, 'entity']) || null;
+        }
+
+        getSelectorRelationLabel(rootEntityType, selector) {
+            const join = this.getCustomJoin(rootEntityType, selector.link);
+
+            if (join) {
+                return this.getCustomJoinLabel(join);
+            }
+
+            const owner = this.getSelectorOwner(rootEntityType, selector);
+            const link = this.getToManyLinkList(owner).find(item => item.name === selector.link);
+
+            return (selector.from ? this.getPathLabel(rootEntityType, selector.from) + ' › ' : '') +
+                (link ? link.label : selector.link);
+        }
+
+        /**
+         * E.g. "Opportunities (LAST by Close Date)".
+         */
+        describeSelectorRule(rootEntityType, selector) {
+            const target = this.getSelectorTarget(rootEntityType, selector);
+            const rule = this.language.translate(selector.rule, 'selectorRules', 'AdvancedCrosstab');
+            const orderBy = selector.orderBy || 'createdAt';
+
+            return rule + ' · ' + (target ? this.getPathLabel(target, orderBy) : orderBy) + ' ' +
+                (DESCENDING_RULES.includes(selector.rule) ? '↓' : '↑');
+        }
+
+        getSelectorLabel(rootEntityType, selector) {
+            return selector.label || (this.getSelectorRelationLabel(rootEntityType, selector) + ' (' +
+                this.language.translate(selector.rule, 'selectorRules', 'AdvancedCrosstab') + ')');
+        }
+
+        /**
+         * The first segment of a path, when it is a record selector or a custom link: {entityType, label}.
+         */
+        getAliasSegment(rootEntityType, name) {
+            const selector = this.getSelector(rootEntityType, name);
+
+            if (selector) {
+                return {entityType: this.getSelectorTarget(rootEntityType, selector), label: this.getSelectorLabel(rootEntityType, selector), selector};
+            }
+
+            const join = this.getCustomJoin(rootEntityType, name);
+
+            return join ? {entityType: join.entityType, label: this.getCustomJoinLabel(join), join} : null;
+        }
 
         /**
          * @param {string} rootEntityType
@@ -212,10 +305,10 @@ define('advanced-crosstab:lib/schema', [], function () {
             const parts = (path || '').split('.');
             let entityType = rootEntityType;
             let links = parts.slice(0, -1);
-            const customJoin = links.length ? this.getCustomJoin(rootEntityType, links[0]) : null;
+            const alias = links.length ? this.getAliasSegment(rootEntityType, links[0]) : null;
 
-            if (customJoin) {
-                entityType = customJoin.entityType;
+            if (alias && alias.entityType) {
+                entityType = alias.entityType;
                 links = links.slice(1);
             }
 
@@ -243,11 +336,11 @@ define('advanced-crosstab:lib/schema', [], function () {
             const parts = path.split('.');
             const labels = [];
             let entityType = rootEntityType;
-            const customJoin = parts.length > 1 ? this.getCustomJoin(rootEntityType, parts[0]) : null;
+            const alias = parts.length > 1 ? this.getAliasSegment(rootEntityType, parts[0]) : null;
 
-            if (customJoin) {
-                labels.push(this.getCustomJoinLabel(customJoin));
-                entityType = customJoin.entityType;
+            if (alias && alias.entityType) {
+                labels.push(alias.label);
+                entityType = alias.entityType;
                 parts.shift();
             }
 

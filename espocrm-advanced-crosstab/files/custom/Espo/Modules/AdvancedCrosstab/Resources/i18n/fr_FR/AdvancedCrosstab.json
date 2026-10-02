@@ -162,7 +162,25 @@
         "groups": "cellules",
         "Properties": "Propriétés",
         "Show all": "Tout afficher",
-        "No records": "Aucun enregistrement"
+        "No records": "Aucun enregistrement",
+        "Record selectors": "Sélecteurs d'enregistrement",
+        "Pick one related record": "Choisir un enregistrement lié",
+        "Selection rule": "Règle de sélection",
+        "Order by": "Trier par",
+        "Direction": "Sens",
+        "Only among records where": "Uniquement parmi les enregistrements où",
+        "optional": "facultatif",
+        "Relation of": "Relation de",
+        "highest value first": "valeur la plus haute d'abord",
+        "lowest value first": "valeur la plus basse d'abord",
+        "field": "champ",
+        "where": "où",
+        "selected record": "enregistrement choisi",
+        "Edit record selector": "Modifier le sélecteur d'enregistrement",
+        "Record selector": "Sélecteur d'enregistrement",
+        "Invalid formula": "Formule invalide",
+        "umlSelector": "sélecteur",
+        "Record selector is in use": "Le sélecteur est utilisé par le tableau croisé : retirez d'abord ses champs."
     },
     "granularities": {
         "year": "Année",
@@ -347,10 +365,31 @@
         "guide.columns": "Ajoutez une dimension en colonne (facultatif)",
         "guide.measures": "Ajoutez des mesures : comptages, sommes, formules",
         "guide.pipeline": "Vérifiez le pipeline : nombre d'enregistrements à chaque étape et aperçu des données",
-        "guide.shortcuts": "Raccourcis : Ctrl+S enregistrer · Ctrl+Entrée actualiser · Ctrl+Z / Ctrl+Maj+Z annuler / rétablir · glissez les éléments pour les réordonner ou les déplacer entre lignes et colonnes"
+        "guide.shortcuts": "Raccourcis : Ctrl+S enregistrer · Ctrl+Entrée actualiser · Ctrl+Z / Ctrl+Maj+Z annuler / rétablir · glissez les éléments pour les réordonner ou les déplacer entre lignes et colonnes",
+        "selectorHelp": "Parmi les enregistrements liés de chaque enregistrement, en choisir UN selon une règle. Tous les champs utilisés depuis le sélecteur proviennent de ce même enregistrement.",
+        "noToManyRelation": "Cette entité n'a pas de relation 1-N ou N-N (liez une autre entité sur un champ non unique pour choisir parmi ses enregistrements).",
+        "selectorRuleHint.FIRST": "plus petite valeur du champ (ex. premier par date)",
+        "selectorRuleHint.LAST": "plus grande valeur du champ (ex. dernier par date)",
+        "selectorRuleHint.MIN": "plus petite valeur (ex. plus petit montant)",
+        "selectorRuleHint.MAX": "plus grande valeur (ex. plus gros montant)",
+        "selectorRuleHint.EARLIEST": "créé en premier (Créé le)",
+        "selectorRuleHint.LATEST": "créé en dernier (Créé le)",
+        "selectorExplain": "Pour chaque {owner} : parmi ses {relation}, on garde l'enregistrement classé premier selon {order} {direction} (égalité : par ID). Les enregistrements sans valeur sont ignorés. Tous les champs du sélecteur proviennent de cet unique enregistrement, jamais d'un enregistrement différent par champ.",
+        "noSelectors": "Aucun. Choisissez un enregistrement parmi les enregistrements liés (ex. la dernière opportunité par date) avec ＋ ou le bouton 1 du modèle de données.",
+        "modelLegendSelector": "«select» un enregistrement lié (sélecteur d'enregistrement)",
+        "component.selector": "① Sélecteur d'enregistrement",
+        "componentHint.selector": "Choisir un enregistrement lié selon une règle : PREMIER / DERNIER / MIN / MAX / PLUS ANCIEN / PLUS RÉCENT"
     },
     "layouts": {
         "compact": "Compacte",
         "tabular": "Tabulaire (cascade)"
+    },
+    "selectorRules": {
+        "FIRST": "Premier",
+        "LAST": "Dernier",
+        "MIN": "Minimum",
+        "MAX": "Maximum",
+        "EARLIEST": "Plus ancien",
+        "LATEST": "Plus récent"
     }
 }

@@ -14,6 +14,7 @@ define('advanced-crosstab:views/advanced-crosstab/pipeline', ['view', 'advanced-
     const COMPONENTS = [
         {name: 'join', icon: 'fas fa-link', stage: 'lookups'},
         {name: 'related', icon: 'fas fa-sigma', text: 'Σ', stage: 'lookups'},
+        {name: 'selector', icon: 'fas fa-crosshairs', text: '1', stage: 'lookups'},
         {name: 'filter', icon: 'fas fa-filter', stage: 'filter'},
         {name: 'calculated', icon: 'fas fa-calculator', stage: 'calculate'},
         {name: 'row', icon: 'fas fa-grip-lines', stage: 'aggregate'},
@@ -185,7 +186,7 @@ define('advanced-crosstab:views/advanced-crosstab/pipeline', ['view', 'advanced-
             const entityType = d.entityType;
             const result = this.options.getResult();
             const error = this.options.getError();
-            const customNames = (d.joins || []).map(j => j.name);
+            const customNames = (d.joins || []).map(j => j.name).concat((d.selectors || []).map(sel => sel.name));
 
             // Many-to-one links travelled by fields (account, account.parent…).
             const linkPaths = new Set();
@@ -232,6 +233,7 @@ define('advanced-crosstab:views/advanced-crosstab/pipeline', ['view', 'advanced-
             const related = d.measures.filter(m => m.kind === 'related');
             const lookups = [...linkPaths].sort().map(path => '⟶ ' + this.schema.getPathLabel(entityType, path))
                 .concat((d.joins || []).map(j => '«join» ' + this.schema.getCustomJoinLabel(j)))
+                .concat((d.selectors || []).map(sel => '① ' + this.schema.getSelectorLabel(entityType, sel)))
                 .concat(related.map(m => 'Σ ' + m.label));
 
             if (d.primaryFilter) {

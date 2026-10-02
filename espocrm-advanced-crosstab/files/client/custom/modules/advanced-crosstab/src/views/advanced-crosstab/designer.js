@@ -60,6 +60,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                                 <select class="form-control" data-name="entityType"></select>
                             </div>
                             <div class="acx-section" data-role="joins" data-stage="lookups"></div>
+                            <div class="acx-section" data-role="selectors" data-stage="lookups"></div>
                             <div class="acx-section" data-role="rows" data-stage="aggregate"></div>
                             <div class="acx-section" data-role="columns" data-stage="aggregate"></div>
                             <div class="acx-section" data-role="measures" data-stage="aggregate calculate lookups"></div>
@@ -130,8 +131,10 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.definition.options = this.definition.options || {};
             this.definition.options.view = this.definition.options.view || {mode: 'table', chartType: 'column'};
             this.definition.joins = this.definition.joins || [];
+            this.definition.selectors = this.definition.selectors || [];
 
             Schema.setCustomJoins(this.definition.entityType, this.definition.joins);
+            Schema.setSelectors(this.definition.entityType, this.definition.selectors);
 
             this.dirty = this.isNew;
             this.result = null;
@@ -179,6 +182,10 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.addActionHandler('dataModel', () => this.openDataModel());
             this.addActionHandler('addJoin', () => this.openCustomJoin(''));
             this.addActionHandler('removeJoin', (e, target) => this.removeCustomJoin(target.dataset.name));
+            this.addActionHandler('addSelector', () => this.openRecordSelector({}));
+            this.addActionHandler('editSelector', (e, target) =>
+                this.openRecordSelector({index: parseInt(target.dataset.index)}));
+            this.addActionHandler('removeSelector', (e, target) => this.removeSelector(target.dataset.name));
             this.addActionHandler('removeListFilters', () => {
                 this.definition.listWhere = null;
                 this.renderListFilters();
@@ -207,6 +214,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                     [{key: 'count', label: this.translate('Count', 'labels', 'AdvancedCrosstab'), kind: 'native', aggregation: 'COUNT'}],
                 filter: preset.filter || null,
                 joins: preset.joins || [],
+                selectors: preset.selectors || [],
                 options: {
                     rowTotals: true,
                     columnTotals: true,
@@ -315,6 +323,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.renderDimensionList('columns');
             this.renderMeasureList();
             this.renderJoins();
+            this.renderSelectors();
             this.renderPrimaryFilters();
             this.renderListFilters();
             this.renderViewControls();
@@ -537,6 +546,8 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.definition = this.createDefaultDefinition(entityType);
 
             Schema.setCustomJoins(entityType, this.definition.joins);
+            this.definition.selectors = this.definition.selectors || [];
+            Schema.setSelectors(entityType, this.definition.selectors);
             this.definition.options = {...options, view: options.view};
 
             this.clearView('filters');
@@ -1085,7 +1096,9 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 entityType: this.definition.entityType,
                 getUsage: () => this.getPathUsage(),
                 getJoins: () => this.definition.joins,
+                getSelectors: () => this.definition.selectors,
                 onAddJoin: (from, callback) => this.openCustomJoin(from, callback),
+                onAddSelector: (params, callback) => this.openRecordSelector({...params, callback}),
                 onUse: (target, path, info) => {
                     if (target === 'related') {
                         this.addRelatedMeasure(info.link, info.from || '', path, info);
@@ -1158,6 +1171,131 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             }).then(view => view.render());
         }
 
+        // --- Record selectors: one record picked among related records -------------------------------------------
+
+        renderSelectors() {
+            const container = this.element.querySelector('[data-role="selectors"]');
+            const selectors = this.definition.selectors;
+            const root = this.definition.entityType;
+
+            const items = selectors.map((selector, index) => {
+                const meta = this.schema.getSelectorRelationLabel(root, selector) + ' · ' +
+                    this.schema.describeSelectorRule(root, selector) +
+                    (selector.condition ? ' · ' + this.t('where') + ' ' + selector.condition : '');
+
+                return `<li class="acx-chip acx-selector-chip">
+                    <span class="acx-chip-body" data-action="editSelector" data-index="${index}">
+                        <span class="acx-chip-label"><span class="acx-selector-badge">1</span>
+                            ${this.escapeString(this.schema.getSelectorLabel(root, selector))}</span>
+                        <span class="acx-chip-meta" title="${this.escapeString(meta)}">${this.escapeString(meta)}</span>
+                    </span>
+                    <span class="acx-chip-actions"><a role="button" data-action="removeSelector" data-name="${this.escapeString(selector.name)}"
+                        title="${this.escapeString(this.translate('Remove'))}"><span class="fas fa-times"></span></a></span>
+                </li>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="acx-section-title">
+                    <span>${this.escapeString(this.t('Record selectors'))}</span>
+                    <a role="button" data-action="addSelector" title="${this.escapeString(this.t('Pick one related record'))}">
+                        <span class="fas fa-plus"></span></a>
+                </div>
+                <ul class="acx-chips">${items}</ul>
+                ${selectors.length ? '' : `<div class="acx-empty-hint">${this.escapeString(this.t('noSelectors', 'messages'))}</div>`}
+            `;
+        }
+
+        /**
+         * @param {{index?: number, from?: string, link?: string, callback?: function(Object)}} params
+         */
+        openRecordSelector(params) {
+            const existing = params.index !== undefined ? this.definition.selectors[params.index] : null;
+            const usedNames = this.definition.joins.map(j => j.name)
+                .concat(this.definition.selectors.filter(s => s !== existing).map(s => s.name));
+
+            // Own key: it can open on top of the data model dialog.
+            this.createView('selectorDialog', 'advanced-crosstab:views/advanced-crosstab/modals/record-selector', {
+                rootEntityType: this.definition.entityType,
+                from: params.from || '',
+                link: params.link || null,
+                selector: existing,
+                usedNames: usedNames,
+                onApply: selector => {
+                    if (existing) {
+                        this.renameSelectorReferences(existing.name, selector.name);
+                        this.definition.selectors[params.index] = selector;
+                    } else {
+                        this.definition.selectors.push(selector);
+                    }
+
+                    Schema.setSelectors(this.definition.entityType, this.definition.selectors);
+                    this.renderPanels();
+                    this.selectStage(this.stage);
+                    this.markChanged();
+
+                    if (params.callback) {
+                        params.callback(selector);
+                    }
+                },
+            }).then(view => view.render());
+        }
+
+        /**
+         * A renamed selector: paths and formulas that use `old.` now use `new.`.
+         */
+        renameSelectorReferences(oldName, newName) {
+            if (oldName === newName) {
+                return;
+            }
+
+            const pattern = new RegExp('(^|[^a-zA-Z0-9_.])' + oldName + '\\.', 'g');
+            const rename = value => typeof value === 'string' ? value.replace(pattern, '$1' + newName + '.') : value;
+
+            const walk = node => {
+                if (Array.isArray(node)) {
+                    return node.map(walk);
+                }
+
+                if (node && typeof node === 'object') {
+                    const result = {};
+
+                    for (const [key, value] of Object.entries(node)) {
+                        result[key] = ['path', 'expression', 'formula', 'condition'].includes(key) ? rename(value) : walk(value);
+                    }
+
+                    return result;
+                }
+
+                return node;
+            };
+
+            ['rows', 'columns', 'measures', 'filter'].forEach(key => {
+                this.definition[key] = walk(this.definition[key]);
+            });
+
+            this.clearView('filters');
+            this.setupFilterView();
+            this.getView('filters').render();
+        }
+
+        removeSelector(name) {
+            const used = new RegExp('(^|[^a-zA-Z0-9_.])' + name + '\\.');
+            const definition = Espo.Utils.cloneDeep(this.definition);
+
+            delete definition.selectors;
+
+            if (used.test(JSON.stringify(definition))) {
+                Espo.Ui.warning(this.t('Record selector is in use'));
+
+                return;
+            }
+
+            this.definition.selectors = this.definition.selectors.filter(s => s.name !== name);
+            Schema.setSelectors(this.definition.entityType, this.definition.selectors);
+            this.renderSelectors();
+            this.markChanged();
+        }
+
         removeCustomJoin(name) {
             const used = new RegExp('(^|[^a-zA-Z0-9_])' + name + '\\.');
             const definition = Espo.Utils.cloneDeep(this.definition);
@@ -1167,6 +1305,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             const json = JSON.stringify(definition);
 
             if (used.test(json) || definition.measures.some(m => m.kind === 'related' && m.link === name) ||
+                (definition.selectors || []).some(sel => sel.link === name || (sel.from || '').split('.')[0] === name) ||
                 this.definition.joins.some(j => j.from && (j.from === name || j.from.startsWith(name + '.')))) {
                 Espo.Ui.warning(this.t('Custom link is in use'));
 
@@ -1330,6 +1469,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
         addComponent(name) {
             const actions = {
                 join: () => this.openCustomJoin(''),
+                selector: () => this.openRecordSelector({}),
                 related: () => this.openDataModel(),
                 filter: () => this.createView('dialog', 'advanced-crosstab:views/advanced-crosstab/modals/field-picker', {
                     entityType: this.definition.entityType,
@@ -1392,6 +1532,8 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.definition = JSON.parse(this.history[index]);
 
             Schema.setCustomJoins(this.definition.entityType, this.definition.joins);
+            this.definition.selectors = this.definition.selectors || [];
+            Schema.setSelectors(this.definition.entityType, this.definition.selectors);
 
             this.restoring = true;
 
