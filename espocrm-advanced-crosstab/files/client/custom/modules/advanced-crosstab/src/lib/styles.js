@@ -140,9 +140,19 @@ define('advanced-crosstab:lib/styles', [], function () {
         .acx-model-links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
         .acx-mline { fill: none; stroke: rgba(42,120,214,.8); stroke-width: 2; }
         .acx-mline.acx-dashed { stroke: rgba(127,127,127,.75); stroke-dasharray: 6 4; }
-        .acx-massoc { fill: var(--panel-bg, #fff); stroke: rgba(42,120,214,.8); stroke-width: 1.5; }
-        .acx-massoc.acx-dashed { stroke: rgba(127,127,127,.75); stroke-dasharray: 4 3; }
         .acx-massoc-text { fill: currentColor; font-size: 11px; font-style: italic; }
+        .acx-massoc-text.acx-halo { stroke: var(--panel-bg, #fff); stroke-width: 4px; stroke-linejoin: round; }
+        .acx-marrow { fill: none; stroke: rgba(42,120,214,.9); stroke-width: 1.6; }
+        .acx-marrow.acx-dashed { stroke: rgba(127,127,127,.85); }
+        .acx-marrow.acx-custom { stroke: rgba(130,80,200,.9); }
+        .acx-mdiamond { fill: var(--panel-bg, #fff); stroke: rgba(127,127,127,.9); stroke-width: 1.5; }
+        .acx-model-legend svg { overflow: visible; vertical-align: middle; }
+        .acx-uml-stereotype { font-size: 10px; font-style: italic; opacity: .65; text-align: center; line-height: 12px; }
+        .acx-uml-type { flex: 0 1 auto; min-width: 0; max-width: 48%; margin-left: auto; padding-left: 6px; opacity: .55; font-size: 11px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-family-monospace, monospace); }
+        .acx-mbox-fields li:hover .acx-uml-type { display: none; }
+        .acx-mbox-fields .acx-mfield-name { flex: 1 1 auto; min-width: 0; }
+        .acx-mbox-head strong { display: inline-block; }
         .acx-mcard { fill: currentColor; font-size: 11px; font-weight: 600; opacity: .8; }
         .acx-mbox { position: absolute; border-radius: 6px; border: 1px solid rgba(127,127,127,.4);
             background-color: var(--panel-bg, #fff); box-shadow: 0 2px 8px rgba(0,0,0,.12); font-size: 12px; z-index: 1; }
@@ -159,8 +169,8 @@ define('advanced-crosstab:lib/styles', [], function () {
             line-height: 20px; min-height: 22px; }
         .acx-mbox-fields li:hover { background: rgba(42,120,214,.10); }
         .acx-mfield-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .acx-mfield-actions { flex: 0 0 auto; visibility: hidden; }
-        .acx-mbox-fields li:hover .acx-mfield-actions { visibility: visible; }
+        .acx-mfield-actions { flex: 0 0 auto; display: none; }
+        .acx-mbox-fields li:hover .acx-mfield-actions { display: inline; }
         .acx-mfield-actions .btn { padding: 0 5px; font-size: 10px; line-height: 16px; height: 18px; min-height: 0; }
         .acx-use-badge { font-size: 9px; padding: 1px 4px; margin-left: 2px; background-color: rgba(42,120,214,.85); }
         .acx-mbox-section { padding: 4px 8px 0; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; opacity: .65;
@@ -175,7 +185,6 @@ define('advanced-crosstab:lib/styles', [], function () {
         .acx-mbox-tomany .acx-mlink-tomany { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .acx-mlink-switch:hover { opacity: 1; }
         .acx-mline.acx-custom { stroke: rgba(130,80,200,.85); stroke-dasharray: 8 3; }
-        .acx-massoc.acx-custom { stroke: rgba(130,80,200,.85); }
         .acx-legend-line.acx-custom { border-top: 2px dashed rgba(130,80,200,.85); }
         .acx-mbox-custom { border-color: rgba(130,80,200,.7); }
         .acx-mbox-custom .acx-mbox-head { background: rgba(130,80,200,.10); }

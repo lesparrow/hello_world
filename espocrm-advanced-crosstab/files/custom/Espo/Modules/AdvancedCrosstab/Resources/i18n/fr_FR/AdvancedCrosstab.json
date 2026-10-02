@@ -146,7 +146,11 @@
         "Entity to link": "Entité à lier",
         "Number of records": "Nombre d'enregistrements",
         "aggregated per record": "agrégé par enregistrement",
-        "Aggregate its records (Σ)": "Agréger ses enregistrements (Σ) : sommes, comptages, moyennes…"
+        "Aggregate its records (Σ)": "Agréger ses enregistrements (Σ) : sommes, comptages, moyennes…",
+        "umlDataSource": "source de données",
+        "umlEntity": "entité",
+        "umlJoin": "jointure",
+        "umlAggregate": "agrégat"
     },
     "granularities": {
         "year": "Année",
@@ -270,8 +274,8 @@
         "exportReady": "L'export du tableau croisé **{title}** est prêt : [télécharger]({url}).",
         "selectReport": "Choisissez un tableau croisé dans les options du panneau.",
         "pivotButtonTitle": "Analyser cette liste dans un tableau croisé, avec ses filtres actuels",
-        "modelLegendManyToOne": "Association N vers 1 : ses champs sont utilisables",
-        "modelLegendToMany": "Un vers N : Σ agréger ou ⇄ analyser depuis",
+        "modelLegendManyToOne": "Association navigable (N vers 1) : ses attributs sont utilisables",
+        "modelLegendToMany": "Agrégation (1 vers N) : Σ agréger ou ⇄ analyser depuis",
         "modelLegendUsage": "Lignes · Colonnes · Mesures · Filtres",
         "modelOneToMany": "Association un vers N. Σ agrège ses enregistrements par enregistrement (somme, comptage, moyenne…) sans rien compter deux fois ; ⇄ lance l'analyse depuis cette entité.",
         "modelManyToMany": "Association N vers N. Σ agrège ses enregistrements par enregistrement ; ⇄ lance l'analyse depuis cette entité.",
@@ -282,7 +286,7 @@
         "customJoinHelp": "Liez cette entité à n'importe quelle autre entité sur une paire de champs, même sans relation EspoCRM (ex. Code fiche = Fiche action › Code). Les champs de l'entité liée deviennent utilisables en lignes, colonnes, mesures et filtres, et ses propres liaisons peuvent être suivies.",
         "customJoinById": "Liaison sur l'ID : chaque enregistrement correspond à au plus un enregistrement de l'autre entité.",
         "customJoinByField": "Si plusieurs enregistrements de l'autre entité correspondent, le premier est utilisé pour les lignes, colonnes et filtres (rien n'est compté deux fois). Pour utiliser tous les enregistrements correspondants, ajoutez une mesure Σ depuis la boîte liée du modèle de données.",
-        "modelLegendCustom": "Liaison personnalisée sur n'importe quels champs",
+        "modelLegendCustom": "Dépendance : liaison personnalisée sur n'importe quels attributs",
         "modelUse.related": "Agréger tous les enregistrements liés (Σ)"
     },
     "layouts": {

@@ -8,9 +8,16 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
         datetime: 'far fa-clock', datetimeOptional: 'far fa-calendar-alt', link: 'fas fa-link',
         personName: 'fas fa-user', duration: 'fas fa-hourglass-half', id: 'fas fa-key',
     };
+    // UML attribute types.
+    const UML_TYPES = {
+        varchar: 'String', text: 'Text', email: 'Email', phone: 'Phone', url: 'Url', enum: 'Enum', multiEnum: 'Enum[*]',
+        array: 'String[*]', bool: 'Boolean', int: 'Integer', autoincrement: 'Integer', float: 'Decimal',
+        currency: 'Money', date: 'Date', datetime: 'DateTime', datetimeOptional: 'DateTime', duration: 'Duration',
+        personName: 'Name', number: 'String', id: 'Id',
+    };
 
     /**
-     * Visual data model, Merise MCD style: the data source entity, its many-to-one associations (opened on demand,
+     * Visual data model as a UML class diagram: the data source entity, its many-to-one associations (opened on demand,
      * up to Schema.MAX_DEPTH levels) and its one-to-many associations. Any field of any opened entity can be sent to
      * the crosstab's rows, columns, measures or filters; the relation path (e.g. account.parent.industry) is built
      * from the boxes' positions in the model.
@@ -26,11 +33,17 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
 
         templateContent = `
             <div class="acx-model-toolbar">
-                <span class="acx-model-legend"><span class="acx-legend-line"></span>
+                <span class="acx-model-legend"><svg width="46" height="12"><line x1="2" y1="6" x2="36" y2="6" class="acx-mline"/>
+                    <polyline points="34,1 44,6 34,11" class="acx-marrow"/></svg>
+                    <span class="acx-mcard">* → 0..1</span>
                     {{translate 'modelLegendManyToOne' category='messages' scope='AdvancedCrosstab'}}</span>
-                <span class="acx-model-legend"><span class="acx-legend-line acx-dashed"></span>
+                <span class="acx-model-legend"><svg width="46" height="12"><polygon points="2,6 9,1 16,6 9,11" class="acx-mdiamond"/>
+                    <line x1="16" y1="6" x2="44" y2="6" class="acx-mline acx-dashed"/></svg>
+                    <span class="acx-mcard">1 ◇ *</span>
                     {{translate 'modelLegendToMany' category='messages' scope='AdvancedCrosstab'}}</span>
-                <span class="acx-model-legend"><span class="acx-legend-line acx-custom"></span>
+                <span class="acx-model-legend"><svg width="46" height="12"><line x1="2" y1="6" x2="36" y2="6" class="acx-mline acx-custom"/>
+                    <polyline points="34,1 44,6 34,11" class="acx-marrow acx-custom"/></svg>
+                    <span class="acx-mcard">«join»</span>
                     {{translate 'modelLegendCustom' category='messages' scope='AdvancedCrosstab'}}</span>
                 <span class="acx-model-legend"><span class="badge acx-use-badge">R</span><span class="badge acx-use-badge">C</span><span
                     class="badge acx-use-badge">M</span><span class="badge acx-use-badge">F</span>
@@ -183,6 +196,7 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                             ${this.escapeString(field.label)}
                             <span class="acx-use-badges" data-path="${this.escapeString(path)}">${this.badges(usage[path])}</span>
                         </span>
+                        <span class="acx-uml-type">: ${this.escapeString(this.umlType(box.entityType, field))}</span>
                         <span class="acx-mfield-actions">
                             ${dimensionAllowed ? this.useButton('rows', 'R', field.name) + this.useButton('columns', 'C', field.name) : ''}
                             ${this.useButton('measures', 'M', field.name)}
@@ -204,13 +218,16 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                             <span class="fas fa-${open ? 'minus' : 'plus'}-circle"></span>
                             ${this.escapeString(link.label)}
                             <span class="text-muted small">→ ${this.escapeString(this.schema.translateEntity(link.entityType, false))}
-                                (${required ? '1,1' : '0,1'})</span>
+                                [${required ? '1' : '0..1'}]</span>
                         </a>
                     </li>`;
             }).join('') : '';
 
+            const stereotype = box.path === '' ? 'data source' : (box.kind === 'custom' ? 'join' : 'entity');
+
             return `
                 <div class="acx-mbox-head" data-drag="1">
+                    <div class="acx-uml-stereotype">«${this.escapeString(this.t({'data source': 'umlDataSource', join: 'umlJoin', entity: 'umlEntity'}[stereotype]))}»</div>
                     <span class="fas fa-${box.path === '' ? 'database' : (box.kind === 'custom' ? 'link' : 'cube')}"></span>
                     <strong>${this.escapeString(box.kind === 'custom' ?
                         this.schema.getCustomJoinLabel(box.join) : this.schema.translateEntity(box.entityType, false))}</strong>
@@ -253,11 +270,14 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                         <span class="${TYPE_ICONS[field.type] || 'fas fa-circle'} text-muted acx-type-icon"></span>
                         ${this.escapeString(field.label)}
                     </span>
+                    <span class="acx-uml-type">: ${this.escapeString(field.name === 'id' ?
+                        'Integer' : this.umlType(box.entityType, field))}</span>
                     <span class="acx-mfield-actions">${this.useButton('related', 'Σ', field.name)}</span>
                 </li>`).join('');
 
             return `
                 <div class="acx-mbox-head" data-drag="1">
+                    <div class="acx-uml-stereotype">«${this.escapeString(this.t('umlAggregate'))}»</div>
                     <span class="fas fa-layer-group"></span>
                     <strong>Σ ${this.escapeString(link.label)}</strong>
                     <a role="button" class="acx-mbox-close" data-action="closeBox" title="${this.escapeString(this.translate('Close'))}">&times;</a>
@@ -295,7 +315,7 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                                 <span class="fas fa-ellipsis-h text-muted"></span>
                                 ${this.escapeString(link.label)}
                                 <span class="text-muted small">→ ${this.escapeString(this.schema.translateEntity(link.entityType, false))}
-                                    (${link.manyToMany ? '0,N / 0,N' : '0,N / 0,1'})</span>
+                                    [*]${link.manyToMany ? ' ⇄ [*]' : ''}</span>
                             </span>
                             <span>
                                 <a role="button" class="acx-mlink-switch" data-action="openAggregate" data-link="${this.escapeString(link.name)}"
@@ -307,6 +327,27 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                         </li>`).join('')}
                 </ul>
             `;
+        }
+
+        /**
+         * UML type of an attribute: primitive types, the target class for a link, Id {id} for the identifier.
+         */
+        umlType(entityType, field) {
+            if (field.type === 'id') {
+                return 'Id {id}';
+            }
+
+            if (field.type === 'link' || field.type === 'linkOne') {
+                const target = this.schema.getLinkTarget(entityType, field.name);
+
+                return target ? this.schema.translateEntity(target, false) : 'Ref';
+            }
+
+            if (field.type === 'linkParent') {
+                return 'Ref';
+            }
+
+            return UML_TYPES[field.type] || (field.type.charAt(0).toUpperCase() + field.type.slice(1));
         }
 
         useButton(target, letter, field) {
@@ -575,10 +616,11 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
         }
 
         /**
-         * MCD notation: entity —(cardinality)— (association) —(cardinality)— entity.
+         * UML notation: navigable associations (open arrowhead) with multiplicities at both ends, aggregation
+         * (hollow diamond on the owner) for Σ, a dashed «join» dependency for custom links.
          */
         drawLinks() {
-            const parts = [];
+            const parts = [this.markers()];
 
             for (const box of Object.values(this.boxes)) {
                 if (box.parent === null || box.parent === undefined) {
@@ -592,7 +634,7 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                     continue;
                 }
 
-                const childHeadY = childElement.offsetTop + 22;
+                const childHeadY = childElement.offsetTop + 26;
 
                 if (box.kind === 'custom' || box.kind === 'aggregate') {
                     const isCustom = box.kind === 'custom';
@@ -602,11 +644,22 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                     const ax = parentElement.offsetLeft + parentElement.offsetWidth;
                     const ay = anchor ? parentElement.offsetTop + anchor.offsetTop + anchor.offsetHeight / 2 : parentElement.offsetTop + 22;
 
-                    parts.push(this.connector(ax, ay, childElement.offsetLeft, childHeadY,
-                        isCustom ? box.join.localField + ' = ' + box.join.foreignField : box.related.label,
-                        '0,N',
-                        isCustom ? (box.join.foreignField === 'id' ? '0,1' : '0,N') : (box.related.manyToMany ? '0,N' : '0,1'),
-                        isCustom ? 'custom' : 'dashed'));
+                    parts.push(isCustom ?
+                        this.connector(ax, ay, childElement.offsetLeft, childHeadY, {
+                            label: box.join.localField + ' = ' + box.join.foreignField,
+                            stereotype: '«join»',
+                            source: '*',
+                            target: box.join.foreignField === 'id' ? '0..1' : '*',
+                            variant: 'custom',
+                        }) :
+                        this.connector(ax, ay, childElement.offsetLeft, childHeadY, {
+                            label: box.related.label,
+                            stereotype: 'Σ',
+                            source: box.related.manyToMany ? '*' : '0..1',
+                            target: '*',
+                            variant: 'dashed',
+                            diamond: true,
+                        }));
 
                     continue;
                 }
@@ -618,28 +671,51 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                 const parentBox = this.boxes[box.parent];
                 const required = !!this.getMetadata().get(['entityDefs', parentBox.entityType, 'fields', box.link, 'required']);
 
-                parts.push(this.connector(x1, y1, x2, childHeadY,
-                    this.schema.translateField(parentBox.entityType, box.link), required ? '1,1' : '0,1', '0,N', ''));
+                parts.push(this.connector(x1, y1, x2, childHeadY, {
+                    label: this.schema.translateField(parentBox.entityType, box.link),
+                    source: '*',
+                    target: required ? '1' : '0..1',
+                    variant: '',
+                }));
             }
 
             this.svg.innerHTML = parts.join('');
         }
 
-        connector(x1, y1, x2, y2, label, cardinality1, cardinality2, variant) {
-            const style = variant ? ' acx-' + variant : '';
+        markers() {
+            const arrow = variant => `
+                <marker id="acx-arrow${variant}" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12"
+                    markerUnits="userSpaceOnUse" orient="auto">
+                    <polyline points="1,1 11,6 1,11" class="acx-marrow${variant ? ' acx-' + variant : ''}"/>
+                </marker>`;
 
+            return `<defs>
+                ${arrow('')}${arrow('custom')}${arrow('dashed')}
+                <marker id="acx-diamond" viewBox="0 0 20 12" refX="1" refY="6" markerWidth="20" markerHeight="12"
+                    markerUnits="userSpaceOnUse" orient="auto">
+                    <polygon points="1,6 10,1 19,6 10,11" class="acx-mdiamond"/>
+                </marker>
+            </defs>`;
+        }
+
+        /**
+         * @param {{label: string, stereotype?: string, source: string, target: string, variant: string, diamond?: boolean}} o
+         */
+        connector(x1, y1, x2, y2, o) {
+            const style = o.variant ? ' acx-' + o.variant : '';
             const mx = (x1 + x2) / 2;
             const my = (y1 + y2) / 2;
             const dx = Math.max(30, Math.abs(x2 - x1) / 2);
-            const text = this.escapeString(label.length > 22 ? label.slice(0, 21) + '…' : label);
-            const rx = Math.max(34, text.length * 3.6 + 12);
+            const label = (o.stereotype ? o.stereotype + ' ' : '') + o.label;
+            const text = this.escapeString(label.length > 26 ? label.slice(0, 25) + '…' : label);
 
             return `
-                <path d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}" class="acx-mline${style}"/>
-                <ellipse cx="${mx}" cy="${my}" rx="${rx}" ry="13" class="acx-massoc${style}"/>
-                <text x="${mx}" y="${my + 4}" text-anchor="middle" class="acx-massoc-text">${text}</text>
-                <text x="${x1 + 6}" y="${y1 - 6}" class="acx-mcard">${cardinality1}</text>
-                <text x="${x2 - 6}" y="${y2 - 6}" text-anchor="end" class="acx-mcard">${cardinality2}</text>
+                <path d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}" class="acx-mline${style}"
+                    marker-end="url(#acx-arrow${o.variant})"${o.diamond ? ' marker-start="url(#acx-diamond)"' : ''}/>
+                <text x="${mx}" y="${my - 6}" text-anchor="middle" class="acx-massoc-text acx-halo">${text}</text>
+                <text x="${mx}" y="${my - 6}" text-anchor="middle" class="acx-massoc-text">${text}</text>
+                <text x="${x1 + (o.diamond ? 22 : 6)}" y="${y1 - 6}" class="acx-mcard">${this.escapeString(o.source)}</text>
+                <text x="${x2 - 14}" y="${y2 + 16}" text-anchor="end" class="acx-mcard">${this.escapeString(o.target)}</text>
             `;
         }
 

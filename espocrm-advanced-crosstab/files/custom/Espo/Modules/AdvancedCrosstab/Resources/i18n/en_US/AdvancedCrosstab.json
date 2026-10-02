@@ -146,7 +146,11 @@
         "Entity to link": "Entity to link",
         "Number of records": "Number of records",
         "aggregated per record": "aggregated per record",
-        "Aggregate its records (Σ)": "Aggregate its records (Σ): sums, counts, averages…"
+        "Aggregate its records (Σ)": "Aggregate its records (Σ): sums, counts, averages…",
+        "umlDataSource": "data source",
+        "umlEntity": "entity",
+        "umlJoin": "join",
+        "umlAggregate": "aggregate"
     },
     "granularities": {
         "year": "Year",
@@ -270,8 +274,8 @@
         "exportReady": "Advanced Crosstab export **{title}** is ready: [download]({url}).",
         "selectReport": "Select a crosstab in the panel options.",
         "pivotButtonTitle": "Analyse this list in a crosstab, with its current filters",
-        "modelLegendManyToOne": "Many-to-one association: its fields can be used",
-        "modelLegendToMany": "One-to-many: Σ aggregate or ⇄ analyse from it",
+        "modelLegendManyToOne": "Navigable association (many-to-one): its attributes can be used",
+        "modelLegendToMany": "Aggregation (one-to-many): Σ aggregate or ⇄ analyse from it",
         "modelLegendUsage": "Rows · Columns · Measures · Filters",
         "modelOneToMany": "One-to-many association. Σ aggregates its records per record (sum, count, average…) without counting anything twice; ⇄ starts the analysis from that entity instead.",
         "modelManyToMany": "Many-to-many association. Σ aggregates its records per record; ⇄ starts the analysis from that entity instead.",
@@ -282,7 +286,7 @@
         "customJoinHelp": "Link this entity to any other entity on a pair of fields, even without an EspoCRM relationship (e.g. Code fiche = Fiche action › Code). The linked entity's fields can then be used as rows, columns, measures and filters, and its own links can be followed.",
         "customJoinById": "Linked on the ID: each record matches at most one record of the other entity.",
         "customJoinByField": "If several records of the other entity match, the first one is used for rows, columns and filters (so nothing is counted twice). To use all matching records, add a Σ measure from the linked box in the data model.",
-        "modelLegendCustom": "Custom link on any fields",
+        "modelLegendCustom": "Dependency: custom link on any attributes",
         "modelUse.related": "Aggregate all related records (Σ)"
     },
     "layouts": {
