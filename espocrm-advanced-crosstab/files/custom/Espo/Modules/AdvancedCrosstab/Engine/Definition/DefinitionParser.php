@@ -5,6 +5,7 @@ namespace Espo\Modules\AdvancedCrosstab\Engine\Definition;
 use Espo\Core\Utils\Metadata;
 use Espo\Modules\AdvancedCrosstab\Engine\Filter\FilterOperators;
 use Espo\Modules\AdvancedCrosstab\Engine\Limits;
+use Espo\Modules\AdvancedCrosstab\Engine\Schema\CustomJoin;
 use stdClass;
 
 /**
@@ -53,6 +54,7 @@ class DefinitionParser
             throw DefinitionError::create("Duplicate dimension ID.");
         }
 
+        $joins = $this->parseJoins($data['joins'] ?? [], $entityType);
         $measures = $this->parseMeasures($data['measures'] ?? []);
 
         $this->validateMeasureReferences($rows, $columns, $measures);
@@ -95,6 +97,7 @@ class DefinitionParser
             subtotals: ($options['subtotals'] ?? true) !== false,
             raw: $data,
             listWhere: $listWhere,
+            joins: $joins,
         );
     }
 
@@ -220,7 +223,7 @@ class DefinitionParser
 
             $kind = $item['kind'] ?? Measure::KIND_NATIVE;
 
-            if (!in_array($kind, [Measure::KIND_NATIVE, Measure::KIND_AGGREGATE, Measure::KIND_DISPLAY], true)) {
+            if (!in_array($kind, [Measure::KIND_NATIVE, Measure::KIND_AGGREGATE, Measure::KIND_DISPLAY, Measure::KIND_RELATED], true)) {
                 throw DefinitionError::create("Invalid measure type.");
             }
 
@@ -228,10 +231,28 @@ class DefinitionParser
             $expression = null;
             $formula = null;
 
-            if ($kind === Measure::KIND_NATIVE) {
+            $link = null;
+            $from = '';
+
+            if ($kind === Measure::KIND_RELATED) {
+                $link = $item['link'] ?? null;
+                $from = (string) ($item['from'] ?? '');
+
+                if (!is_string($link) || !preg_match('/^[a-zA-Z][a-zA-Z0-9_]*$/', $link)) {
+                    throw DefinitionError::create("Invalid related link.");
+                }
+
+                if ($from !== '') {
+                    $from = $this->parsePath($from);
+                }
+            }
+
+            if ($kind === Measure::KIND_NATIVE || $kind === Measure::KIND_RELATED) {
                 $aggregation = strtoupper((string) ($item['aggregation'] ?? 'COUNT'));
 
-                if (!in_array($aggregation, Measure::AGGREGATION_LIST, true)) {
+                $allowed = $kind === Measure::KIND_RELATED ? Measure::RELATED_AGGREGATION_LIST : Measure::AGGREGATION_LIST;
+
+                if (!in_array($aggregation, $allowed, true)) {
                     throw DefinitionError::create("Invalid aggregation.");
                 }
 
@@ -262,6 +283,8 @@ class DefinitionParser
                 hidden: !empty($item['hidden']),
                 compare: $compare,
                 compareMode: ($item['compareMode'] ?? 'percent') === 'difference' ? 'difference' : 'percent',
+                link: $link,
+                from: $from,
             );
         }
 
@@ -288,6 +311,80 @@ class DefinitionParser
                 }
             }
         }
+    }
+
+    /**
+     * @return CustomJoin[]
+     */
+    public function parseJoinList(mixed $list, string $entityType): array
+    {
+        return $this->parseJoins(self::toArray(is_array($list) ? $list : []), $entityType);
+    }
+
+    /**
+     * @return CustomJoin[]
+     */
+    private function parseJoins(mixed $list, string $entityType): array
+    {
+        if ($list === null) {
+            return [];
+        }
+
+        if (!is_array($list) || !array_is_list($list) || count($list) > 8) {
+            throw DefinitionError::create("Invalid custom links.");
+        }
+
+        $result = [];
+        $names = [];
+
+        foreach ($list as $item) {
+            if (!is_array($item)) {
+                throw DefinitionError::create("Invalid custom link.");
+            }
+
+            $name = $item['name'] ?? null;
+
+            if (!is_string($name) || !preg_match('/^[a-zA-Z][a-zA-Z0-9]{0,39}$/', $name) || in_array($name, $names, true)) {
+                throw DefinitionError::create("Invalid or duplicate custom link name.");
+            }
+
+            // A custom link name is the first segment of paths: it must not hide a field or link of the data source.
+            if (
+                $this->metadata->get(['entityDefs', $entityType, 'fields', $name]) ||
+                $this->metadata->get(['entityDefs', $entityType, 'links', $name])
+            ) {
+                throw DefinitionError::create("Custom link name is already a field of the data source: {$name}");
+            }
+
+            $target = $item['entityType'] ?? null;
+
+            if (!is_string($target) || !preg_match('/^[A-Z][a-zA-Z0-9]*$/', $target) || !$this->metadata->get(['scopes', $target, 'entity'])) {
+                throw DefinitionError::create("Invalid entity of custom link: {$name}");
+            }
+
+            $from = (string) ($item['from'] ?? '');
+
+            $names[] = $name;
+            $result[] = new CustomJoin(
+                name: $name,
+                from: $from === '' ? '' : $this->parsePath($from),
+                localField: $this->parseFieldName($item['localField'] ?? null),
+                entityType: $target,
+                foreignField: $this->parseFieldName($item['foreignField'] ?? null),
+                label: $this->parseLabel($item['label'] ?? null),
+            );
+        }
+
+        return $result;
+    }
+
+    private function parseFieldName(mixed $value): string
+    {
+        if (!is_string($value) || !preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $value)) {
+            throw DefinitionError::create("Invalid custom link field.");
+        }
+
+        return $value;
     }
 
     private function parseFormat(mixed $raw): array

@@ -137,7 +137,16 @@
         "Reset layout": "Réorganiser",
         "Associations": "Associations (N vers 1)",
         "Analyse from this entity": "Analyser depuis cette entité",
-        "One-to-many associations": "Associations un vers N (changer de source)"
+        "One-to-many associations": "Associations un vers N",
+        "Link another entity": "Lier une autre entité",
+        "Links": "Liaisons avec d'autres entités",
+        "No custom links": "Aucune liaison personnalisée. Les entités liées restent accessibles via le modèle de données.",
+        "Custom link is in use": "Cette liaison est utilisée par une ligne, colonne, mesure ou un filtre : retirez-les d'abord.",
+        "custom link": "liaison perso.",
+        "Entity to link": "Entité à lier",
+        "Number of records": "Nombre d'enregistrements",
+        "aggregated per record": "agrégé par enregistrement",
+        "Aggregate its records (Σ)": "Agréger ses enregistrements (Σ) : sommes, comptages, moyennes…"
     },
     "granularities": {
         "year": "Année",
@@ -169,7 +178,8 @@
     "measureKinds": {
         "native": "Agrégation (SOMME, NOMBRE…)",
         "aggregate": "Mesure calculée (formule agrégée)",
-        "display": "Calculée à partir d'autres mesures"
+        "display": "Calculée à partir d'autres mesures",
+        "related": "Agrégation d'enregistrements liés"
     },
     "modes": {
         "table": "Tableau croisé",
@@ -261,14 +271,19 @@
         "selectReport": "Choisissez un tableau croisé dans les options du panneau.",
         "pivotButtonTitle": "Analyser cette liste dans un tableau croisé, avec ses filtres actuels",
         "modelLegendManyToOne": "Association N vers 1 : ses champs sont utilisables",
-        "modelLegendToMany": "Un vers N : analysez plutôt depuis cette entité",
+        "modelLegendToMany": "Un vers N : Σ agréger ou ⇄ analyser depuis",
         "modelLegendUsage": "Lignes · Colonnes · Mesures · Filtres",
-        "modelOneToMany": "Association un vers N. Ses champs ne peuvent pas servir de dimensions d'ici (les lignes seraient comptées plusieurs fois). Lancez plutôt l'analyse depuis cette entité : l'entité actuelle y est accessible.",
-        "modelManyToMany": "Association N vers N. Ses champs ne peuvent pas servir de dimensions d'ici (les lignes seraient comptées plusieurs fois).",
+        "modelOneToMany": "Association un vers N. Σ agrège ses enregistrements par enregistrement (somme, comptage, moyenne…) sans rien compter deux fois ; ⇄ lance l'analyse depuis cette entité.",
+        "modelManyToMany": "Association N vers N. Σ agrège ses enregistrements par enregistrement ; ⇄ lance l'analyse depuis cette entité.",
         "modelUse.rows": "Ajouté aux lignes",
         "modelUse.columns": "Ajouté aux colonnes",
         "modelUse.measures": "Ajouté aux mesures",
-        "modelUse.filters": "Ajouté aux filtres"
+        "modelUse.filters": "Ajouté aux filtres",
+        "customJoinHelp": "Liez cette entité à n'importe quelle autre entité sur une paire de champs, même sans relation EspoCRM (ex. Code fiche = Fiche action › Code). Les champs de l'entité liée deviennent utilisables en lignes, colonnes, mesures et filtres, et ses propres liaisons peuvent être suivies.",
+        "customJoinById": "Liaison sur l'ID : chaque enregistrement correspond à au plus un enregistrement de l'autre entité.",
+        "customJoinByField": "Si plusieurs enregistrements de l'autre entité correspondent, le premier est utilisé pour les lignes, colonnes et filtres (rien n'est compté deux fois). Pour utiliser tous les enregistrements correspondants, ajoutez une mesure Σ depuis la boîte liée du modèle de données.",
+        "modelLegendCustom": "Liaison personnalisée sur n'importe quels champs",
+        "modelUse.related": "Agréger tous les enregistrements liés (Σ)"
     },
     "layouts": {
         "compact": "Compacte",

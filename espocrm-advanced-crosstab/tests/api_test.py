@@ -394,11 +394,112 @@ def test_spreadsheet_syntax_and_list_filters():
     check('forbidden field in list filters rejected', status == 403, f"{status} {reason}")
 
 
+def test_related_measures():
+    print('Related measures over one-to-many / many-to-many links (no double counting)')
+    rel = lambda key, link, agg, expr=None, cond=None: {k: v for k, v in {
+        'key': key, 'label': key, 'kind': 'related', 'link': link, 'aggregation': agg,
+        'expression': expr, 'condition': cond}.items() if v is not None}
+    result = run({
+        'entityType': 'Account',
+        'rows': [{'path': 'industry'}],
+        'measures': [
+            {'key': 'accounts', 'aggregation': 'COUNT'},
+            rel('oppAmount', 'opportunities', 'SUM', 'amount'),
+            rel('oppCount', 'opportunities', 'COUNT'),
+            rel('wonAmount', 'opportunities', 'SUM', 'amount', "stage == 'Closed Won'"),
+            rel('oppAvg', 'opportunities', 'AVG', 'amount'),
+            rel('contacts', 'contacts', 'COUNT'),
+            rel('meetings', 'meetings', 'COUNT'),
+        ],
+    })
+    ACC = "FROM account a WHERE a.deleted = 0"
+    check('data-source rows not duplicated', close(cell(result, [], [], 0), sql(f"SELECT COUNT(*) {ACC}")[0][0]))
+    expected = sql("SELECT SUM(o.amount) FROM opportunity o JOIN account a ON a.id = o.account_id AND a.deleted = 0 WHERE o.deleted = 0")[0][0]
+    check('one-to-many SUM', close(cell(result, [], [], 1), expected), f"{cell(result, [], [], 1)} vs {expected}")
+    expected = sql("SELECT SUM(o.amount) FROM opportunity o JOIN account a ON a.id = o.account_id AND a.deleted = 0 "
+                   "WHERE o.deleted = 0 AND a.industry = 'Retail'")[0][0]
+    check('one-to-many SUM per row', close(cell(result, ['Retail'], [], 1), expected))
+    expected = sql("SELECT COUNT(*) FROM opportunity o JOIN account a ON a.id = o.account_id AND a.deleted = 0 WHERE o.deleted = 0")[0][0]
+    check('one-to-many COUNT', close(cell(result, [], [], 2), expected))
+    expected = sql("SELECT SUM(o.amount) FROM opportunity o JOIN account a ON a.id = o.account_id AND a.deleted = 0 "
+                   "WHERE o.deleted = 0 AND o.stage = 'Closed Won'")[0][0]
+    check('related measure with condition', close(cell(result, [], [], 3), expected))
+    expected = sql("SELECT AVG(o.amount) FROM opportunity o JOIN account a ON a.id = o.account_id AND a.deleted = 0 WHERE o.deleted = 0")[0][0]
+    check('related AVG over all records', close(cell(result, [], [], 4), expected), f"{cell(result, [], [], 4)} vs {expected}")
+    expected = sql("SELECT COUNT(*) FROM account_contact ac JOIN contact c ON c.id = ac.contact_id AND c.deleted = 0 "
+                   "JOIN account a ON a.id = ac.account_id AND a.deleted = 0 WHERE ac.deleted = 0")[0][0]
+    check('many-to-many COUNT', close(cell(result, [], [], 5), expected))
+    expected = sql("SELECT COUNT(*) FROM meeting m JOIN account a ON a.id = m.parent_id AND a.deleted = 0 "
+                   "WHERE m.deleted = 0 AND m.parent_type = 'Account'")[0][0]
+    check('parent (hasChildren) COUNT', close(cell(result, [], [], 6), expected))
+
+    alice = user_id('alice')
+    result = run({'entityType': 'Account', 'rows': [], 'measures': [rel('oppCount', 'opportunities', 'COUNT')]}, ALICE)
+    expected = sql(
+        "SELECT COUNT(*) FROM opportunity o JOIN account a ON a.id = o.account_id AND a.deleted = 0 "
+        "JOIN entity_team et ON et.entity_id = a.id AND et.entity_type = 'Account' AND et.deleted = 0 "
+        "JOIN team t ON t.id = et.team_id AND t.name = 'North' "
+        f"WHERE o.deleted = 0 AND o.assigned_user_id = '{alice}'")[0][0]
+    check('related records restricted by ACL', close(cell(result, [], [], 0), expected), f"{cell(result, [], [], 0)} vs {expected}")
+
+    status, _, reason = call('POST', 'AdvancedCrosstab/action/run', {'definition': {'entityType': 'Account', 'rows': [],
+        'measures': [rel('p', 'opportunities', 'AVG', 'probability')]}}, ALICE)
+    check('forbidden field of related entity rejected', status == 400, f"{status} {reason}")
+
+
+def test_custom_joins():
+    print('Custom links to any entity on any field')
+    join_by_id = {'name': 'acc2', 'localField': 'account', 'entityType': 'Account', 'foreignField': 'id'}
+    result = run({'entityType': 'Opportunity', 'joins': [join_by_id], 'rows': [{'path': 'acc2.industry'}],
+                  'measures': MEASURES})
+    expected = sql(f"SELECT SUM(o.amount) {OPP} AND a.industry = 'Retail'")[0][0]
+    check('link on id (like a relationship)', close(cell(result, ['Retail'], []), expected))
+
+    # Campaign names are not unique ('Web' twice): first match only, rows never duplicated.
+    join_by_name = {'name': 'camp', 'localField': 'leadSource', 'entityType': 'Campaign', 'foreignField': 'name'}
+    result = run({'entityType': 'Opportunity', 'joins': [join_by_name], 'rows': [{'path': 'camp.type'}], 'measures': MEASURES})
+    total = sql(f"SELECT COUNT(*) {OPP}")[0][0]
+    check('link on non-unique field: no duplication', close(cell(result, [], [], 1), total))
+    expected = sql(f"SELECT COUNT(*) {OPP} AND o.lead_source = 'Web'")[0][0]
+    check('link on non-unique field: first match (Web → cp1)', close(cell(result, ['Web'], [], 1), expected))
+
+    result = run({'entityType': 'Opportunity', 'joins': [join_by_name], 'rows': [{'path': 'stage'}], 'measures': MEASURES,
+                  'filter': {'type': 'condition', 'path': 'camp.type', 'operator': 'equals', 'value': 'Television'}})
+    expected = sql(f"SELECT COUNT(*) {OPP} AND o.lead_source = 'Call'")[0][0]
+    check('filter through custom link', close(cell(result, [], [], 1), expected))
+
+    reverse = {'name': 'opps', 'localField': 'name', 'entityType': 'Opportunity', 'foreignField': 'leadSource'}
+    result = run({'entityType': 'Campaign', 'joins': [reverse], 'rows': [{'path': 'type'}],
+                  'measures': [{'key': 'n', 'kind': 'related', 'link': 'opps', 'aggregation': 'COUNT'},
+                               {'key': 'amount', 'kind': 'related', 'link': 'opps', 'aggregation': 'SUM', 'expression': 'amount'}]})
+    expected = sql(f"SELECT COUNT(*) {OPP} AND o.lead_source = 'Web'")[0][0]
+    check('related measure through custom link', close(cell(result, ['Email'], [], 0), expected))
+    expected = sql(f"SELECT COUNT(*) {OPP} AND o.lead_source IN ('Web', 'Call', 'Partner')")[0][0]
+    expected_total = int(expected) + int(sql(f"SELECT COUNT(*) {OPP} AND o.lead_source = 'Web'")[0][0])
+    check('related through custom link: each campaign counts its matches', close(cell(result, [], [], 0), expected_total))
+
+    v = call('POST', 'AdvancedCrosstab/action/validateFormula', {'entityType': 'Opportunity', 'formula': "camp.type == 'Web'",
+                                                                'kind': 'condition', 'joins': [join_by_name]})[1]
+    check('formula validation knows custom links', v['valid'], str(v))
+
+    status, _, reason = call('POST', 'AdvancedCrosstab/action/run', {'definition': {
+        'entityType': 'Opportunity', 'joins': [dict(join_by_name, name='account')], 'rows': [], 'measures': MEASURES}})
+    check('link name hiding a field rejected', status == 400, f"{status} {reason}")
+    status, _, reason = call('POST', 'AdvancedCrosstab/action/run', {'definition': {
+        'entityType': 'Opportunity', 'joins': [{'name': 'x', 'localField': 'leadSource', 'entityType': 'Contract',
+                                                'foreignField': 'name'}], 'rows': [], 'measures': MEASURES}}, ALICE)
+    check('link to an entity without access rejected', status in (400, 403), f"{status} {reason}")
+    status, _, reason = call('POST', 'AdvancedCrosstab/action/run', {'definition': {
+        'entityType': 'Opportunity', 'joins': [{'name': 'x', 'localField': 'leadSource', 'entityType': 'Opportunity',
+                                                'foreignField': 'probability'}], 'rows': [{'path': 'x.name'}], 'measures': MEASURES}}, ALICE)
+    check('link on a forbidden field rejected', status == 400, f"{status} {reason}")
+
+
 if __name__ == '__main__':
     for test in [test_totals, test_ratio_correctness, test_display_and_conditional, test_multi_level_relations,
                  test_filters, test_acl, test_validation_and_injection, test_dates_compare_topn, test_drill_down,
                  test_saved_report_and_export, test_rollup_consistency,
-                 test_spreadsheet_syntax_and_list_filters]:
+                 test_spreadsheet_syntax_and_list_filters, test_related_measures, test_custom_joins]:
         try:
             test()
         except Exception as e:  # noqa

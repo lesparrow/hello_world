@@ -131,7 +131,9 @@ class ReportService
                 return ['valid' => true];
             }
 
-            $registry = new JoinRegistry($this->limits->maxJoins());
+            // Custom links of the crosstab being edited, so formulas can use them.
+            $registry = (new JoinRegistry($this->limits->maxJoins()))
+                ->withCustomJoins($this->definitionParser->parseJoinList($data->joins ?? [], $entityType));
 
             if ($kind === 'aggregate') {
                 $expression = $this->expressionCompiler->compileAggregate($formula, $entityType, $registry);

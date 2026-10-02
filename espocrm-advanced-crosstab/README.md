@@ -35,6 +35,31 @@ All aggregation runs in the database. The browser only receives aggregated cells
 | Formatting | Number, integer, decimal, percent, currency and duration (h:mm). Decimals, prefix and suffix are configurable. Values use EspoCRM's thousand separator and decimal mark. |
 | Languages | English and French. |
 
+## Link with any entity (v2.3)
+
+Any entity can be brought into a crosstab, whether or not EspoCRM has a relationship for it:
+
+| Kind of link | How | What it gives |
+|---|---|---|
+| **Many-to-one** relationship (Opportunity → Account) | Open it in the data model, or pick its fields in any field tree | Its fields as rows, columns, measures and filters, up to 3 levels deep |
+| **Custom link** to *any* entity on *any* pair of fields (e.g. `LigneBesoinPlants.codeFiche = FicheAction.code`) | **Links to other entities ＋** in the sidebar, or **Link another entity…** at the bottom of any box in the data model | The linked entity behaves like a related entity: its fields and its own many-to-one links can be used everywhere (`xFicheAction.dRANEF`). |
+| **One-to-many / many-to-many** relationships (Account → Opportunities, Account ↔ Contacts, Account → Meetings) | **Σ** next to the association in the data model | **Related measures**: sum, count, average, min or max of the related records per record, with an optional condition (`stage == 'Closed Won'`). The ⇄ button still switches the data source to that entity. |
+
+Correctness and security:
+
+- **Nothing is counted twice.** A custom link on a non-unique field uses the first matching record (lowest ID) for
+  rows, columns and filters. Related measures are computed in a subquery grouped per record
+  (`LEFT JOIN (SELECT key, SUM(x) … GROUP BY key)`), so the data-source rows are never multiplied. The tests check
+  this against SQL, for example 8 accounts stay 8 next to their 279,462 opportunities.
+- **The ACL applies to linked entities.** The user needs read access to the linked entity and its key fields.
+  Records of the linked or related entity that the user can't read are excluded, and field-level restrictions apply
+  to every field used.
+- A custom link name can't hide a field or link of the data source, and links can't form a cycle.
+
+| | |
+|---|---|
+| ![Link another entity](docs/screenshots/link-any-entity.png) | ![Related measures](docs/screenshots/related-measures.png) |
+
 ## Visual data model (v2.2)
 
 Next to **Data source**, the **Data model** button opens a diagram of the entities, drawn like a Merise MCD:
@@ -178,9 +203,12 @@ Defaults are in `Resources/metadata/app/advancedCrosstab.json`. They can be over
 
 ## Known limitations
 
-- Only many-to-one links (`link` fields) can be traversed. Following one-to-many or many-to-many links would
-  duplicate rows and make sums wrong. For those, start the crosstab from the "many" side; for example, to analyse
-  opportunities per account, use Opportunity as the data source.
+- Dimensions and filters follow many-to-one links and custom links. One-to-many and many-to-many links are used
+  through related (Σ) measures, which aggregate per record. To group *by* a field of the "many" side, start the
+  crosstab from that entity (⇄).
+- A custom link on a field that is not unique uses the first matching record for dimensions and filters. Use a Σ
+  measure to aggregate all the matching records.
+- Related measures don't support COUNT DISTINCT, and drilling down from one lists the data-source records.
 - Inline conditions written inside an aggregate formula (`SUM(x, cond)`) are not applied when drilling down. The
   measure's own condition is.
 - Datetime fields are converted to the user's *current* UTC offset. Records on the other side of a daylight-saving

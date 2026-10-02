@@ -8,6 +8,10 @@ define('advanced-crosstab:lib/schema', [], function () {
     const NUMERIC_TYPES = ['int', 'float', 'currency', 'autoincrement', 'duration', 'enumInt', 'enumFloat'];
     const DATE_TYPES = ['date', 'datetime', 'datetimeOptional'];
     const MAX_DEPTH = 3;
+    const KEY_TYPES = ['id', 'link', 'varchar', 'enum', 'int', 'autoincrement', 'number', 'url'];
+
+    /** Custom links of the crosstab being edited, by data source entity type. */
+    const customJoinStore = {};
 
     /**
      * Metadata-driven schema: entities, fields and many-to-one relations available to the current user.
@@ -29,6 +33,36 @@ define('advanced-crosstab:lib/schema', [], function () {
         static get NUMERIC_TYPES() { return NUMERIC_TYPES; }
         static get DATE_TYPES() { return DATE_TYPES; }
         static get MAX_DEPTH() { return MAX_DEPTH; }
+        static get KEY_TYPES() { return KEY_TYPES; }
+
+        /**
+         * @param {string} rootEntityType
+         * @param {{name: string, from: string, localField: string, entityType: string, foreignField: string, label?: string}[]} joins
+         */
+        static setCustomJoins(rootEntityType, joins) {
+            customJoinStore[rootEntityType] = joins || [];
+        }
+
+        static getCustomJoins(rootEntityType) {
+            return customJoinStore[rootEntityType] || [];
+        }
+
+        getCustomJoin(rootEntityType, name) {
+            return Schema.getCustomJoins(rootEntityType).find(join => join.name === name) || null;
+        }
+
+        getCustomJoinLabel(join) {
+            return join.label || this.translateEntity(join.entityType, false);
+        }
+
+        /**
+         * Fields usable as link keys: id, links (their ID) and plain text/number columns.
+         */
+        getKeyFieldList(entityType) {
+            return [{name: 'id', type: 'id', label: 'ID'}].concat(
+                this.getFieldList(entityType, 'dimension').filter(field => KEY_TYPES.includes(field.type))
+            );
+        }
 
         getEntityTypeList() {
             const scopes = this.metadata.get('scopes') || {};
@@ -177,8 +211,15 @@ define('advanced-crosstab:lib/schema', [], function () {
         resolvePath(rootEntityType, path) {
             const parts = (path || '').split('.');
             let entityType = rootEntityType;
+            let links = parts.slice(0, -1);
+            const customJoin = links.length ? this.getCustomJoin(rootEntityType, links[0]) : null;
 
-            for (const link of parts.slice(0, -1)) {
+            if (customJoin) {
+                entityType = customJoin.entityType;
+                links = links.slice(1);
+            }
+
+            for (const link of links) {
                 const target = this.getLinkTarget(entityType, link);
 
                 if (!target) {
@@ -202,6 +243,13 @@ define('advanced-crosstab:lib/schema', [], function () {
             const parts = path.split('.');
             const labels = [];
             let entityType = rootEntityType;
+            const customJoin = parts.length > 1 ? this.getCustomJoin(rootEntityType, parts[0]) : null;
+
+            if (customJoin) {
+                labels.push(this.getCustomJoinLabel(customJoin));
+                entityType = customJoin.entityType;
+                parts.shift();
+            }
 
             for (const part of parts) {
                 labels.push(this.translateField(entityType, part));

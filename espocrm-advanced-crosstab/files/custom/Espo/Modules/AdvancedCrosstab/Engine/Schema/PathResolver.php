@@ -9,7 +9,9 @@ use Espo\Core\Utils\Metadata;
 use Espo\Entities\User;
 use Espo\Modules\AdvancedCrosstab\Engine\Limits;
 use Espo\ORM\EntityManager;
+use Espo\ORM\Query\Part\Condition;
 use Espo\ORM\Query\Part\Expression;
+use Espo\ORM\Query\Part\Join;
 
 /**
  * Resolves field paths such as `amount`, `account.industry` or `account.parent.industry`
@@ -56,8 +58,16 @@ class PathResolver
         $entityType = $rootEntityType;
         $alias = null;
         $linkPath = '';
+        $links = array_slice($segments, 0, -1);
 
-        foreach (array_slice($segments, 0, -1) as $link) {
+        // A custom link (join to any entity) as the first segment.
+        if ($links && ($customJoin = $registry->getCustomJoin($links[0]))) {
+            [$alias, $entityType] = $this->ensureCustomJoin($rootEntityType, $customJoin, $registry);
+            $linkPath = $customJoin->name;
+            array_shift($links);
+        }
+
+        foreach ($links as $link) {
             $foreignEntityType = $this->getManyToOneTarget($entityType, $link);
 
             if (!$foreignEntityType || $this->isFieldForbidden($entityType, $link)) {
@@ -89,6 +99,143 @@ class PathResolver
         $field = end($segments);
 
         return $this->resolveField($path, $entityType, $field, $alias);
+    }
+
+    public const KEY_TYPES = ['id', 'link', 'varchar', 'enum', 'int', 'autoincrement', 'number', 'url'];
+
+    /**
+     * Joins the target of a custom link (once) and returns [alias, entityType].
+     *
+     * - joined on `id`: LEFT JOIN target ON target.id = local key;
+     * - joined on another field: LEFT JOIN (SELECT MIN(id) id, field k FROM target WHERE <ACL> GROUP BY field) d
+     *   ON d.k = local key, then LEFT JOIN target ON target.id = d.id — at most one target record per row, so
+     *   rows are never duplicated (the first matching record is used).
+     *
+     * @return array{string, string}
+     */
+    public function ensureCustomJoin(string $rootEntityType, CustomJoin $customJoin, JoinRegistry $registry): array
+    {
+        $entityType = $customJoin->entityType;
+
+        if ($registry->has($customJoin->name)) {
+            return [$registry->getAlias($customJoin->name), $entityType];
+        }
+
+        $this->checkCustomJoinTarget($customJoin);
+
+        $registry->startResolving($customJoin->name);
+
+        try {
+            $local = $this->resolveKey($rootEntityType, $customJoin->getLocalPath(), $registry);
+        } finally {
+            $registry->endResolving($customJoin->name);
+        }
+
+        $alias = $registry->nextAlias();
+        $conditions = ["{$alias}.deleted" => false];
+
+        if ($customJoin->isById()) {
+            $conditions["{$alias}.id:"] = $local->expression->getValue();
+        } else {
+            $dedupAlias = $registry->nextAlias('acxD');
+            $foreignColumn = $this->getKeyAttribute($entityType, $customJoin->foreignField);
+
+            $subQuery = $this->selectBuilderFactory
+                ->create()
+                ->from($entityType)
+                ->forUser($this->user)
+                ->withAccessControlFilter()
+                ->buildQueryBuilder()
+                ->select([
+                    [Expression::min(Expression::column('id'))->getValue(), 'id'],
+                    [$foreignColumn, 'k'],
+                ])
+                ->where(["{$foreignColumn}!=" => null])
+                ->group([$foreignColumn])
+                ->build();
+
+            $registry->addJoin(
+                $customJoin->name . '#dedup',
+                Join::createWithSubQuery($subQuery, $dedupAlias)->withConditions(
+                    Condition::equal(Expression::column("{$dedupAlias}.k"), $local->expression)
+                ),
+                $dedupAlias
+            );
+
+            $conditions["{$alias}.id:"] = "{$dedupAlias}.id";
+        }
+
+        if ($this->acl->getLevel($entityType, Table::ACTION_READ) !== Table::LEVEL_ALL) {
+            $conditions["{$alias}.id=s"] = $this->selectBuilderFactory
+                ->create()
+                ->from($entityType)
+                ->forUser($this->user)
+                ->withAccessControlFilter()
+                ->buildQueryBuilder()
+                ->select(['id'])
+                ->build();
+        }
+
+        $registry->add($customJoin->name, $entityType, $conditions, $alias);
+
+        return [$alias, $entityType];
+    }
+
+    /**
+     * Validates the target side of a custom link: entity access, key field type and field ACL.
+     */
+    public function checkCustomJoinTarget(CustomJoin $customJoin): void
+    {
+        $entityType = $customJoin->entityType;
+
+        if (
+            !$this->metadata->get(['scopes', $entityType, 'entity']) ||
+            !$this->acl->checkScope($entityType, Table::ACTION_READ)
+        ) {
+            throw new SchemaError("No access to entity of custom link: {$customJoin->name}");
+        }
+
+        if ($customJoin->foreignField === 'id') {
+            return;
+        }
+
+        $type = $this->metadata->get(['entityDefs', $entityType, 'fields', $customJoin->foreignField, 'type']);
+
+        if (
+            !in_array($type, self::KEY_TYPES, true) ||
+            $this->metadata->get(['entityDefs', $entityType, 'fields', $customJoin->foreignField, 'notStorable']) ||
+            $this->isFieldForbidden($entityType, $customJoin->foreignField)
+        ) {
+            throw new SchemaError("Invalid field: {$entityType}.{$customJoin->foreignField}");
+        }
+    }
+
+    /**
+     * A key usable for a join: id, link (its ID), or a plain text/number column.
+     */
+    public function resolveKey(string $rootEntityType, string $path, JoinRegistry $registry): ResolvedField
+    {
+        $field = $this->resolve($rootEntityType, $path, $registry);
+
+        if (!in_array($field->fieldType, self::KEY_TYPES, true)) {
+            throw new SchemaError("This field can't be used to link entities: {$path}");
+        }
+
+        return $field;
+    }
+
+    /**
+     * Column of a key field on its own table (no alias).
+     */
+    public function getKeyAttribute(string $entityType, string $field): string
+    {
+        if ($field === 'id') {
+            return 'id';
+        }
+
+        $type = $this->metadata->get(['entityDefs', $entityType, 'fields', $field, 'type']);
+
+        return $type === 'link' ? $field . 'Id' : $field;
     }
 
     /**

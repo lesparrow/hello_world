@@ -30,6 +30,8 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                     {{translate 'modelLegendManyToOne' category='messages' scope='AdvancedCrosstab'}}</span>
                 <span class="acx-model-legend"><span class="acx-legend-line acx-dashed"></span>
                     {{translate 'modelLegendToMany' category='messages' scope='AdvancedCrosstab'}}</span>
+                <span class="acx-model-legend"><span class="acx-legend-line acx-custom"></span>
+                    {{translate 'modelLegendCustom' category='messages' scope='AdvancedCrosstab'}}</span>
                 <span class="acx-model-legend"><span class="badge acx-use-badge">R</span><span class="badge acx-use-badge">C</span><span
                     class="badge acx-use-badge">M</span><span class="badge acx-use-badge">F</span>
                     {{translate 'modelLegendUsage' category='messages' scope='AdvancedCrosstab'}}</span>
@@ -62,6 +64,17 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
             this.addActionHandler('closeBox', (e, target) => this.closeBox(target.closest('[data-box]').dataset.box));
             this.addActionHandler('changeSource', (e, target) => this.changeSource(target.dataset.entityType));
             this.addActionHandler('resetLayout', () => this.resetLayout());
+            this.addActionHandler('openAggregate', (e, target) => {
+                this.toggleAggregate(target.closest('[data-box]').dataset.box, target.dataset.link);
+            });
+            this.addActionHandler('linkEntity', (e, target) => {
+                const from = target.closest('[data-box]').dataset.box;
+
+                this.options.onAddJoin(from, join => {
+                    this.openCustomJoinBox(join);
+                    this.drawLinks();
+                });
+            });
         }
 
         afterRender() {
@@ -91,7 +104,8 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
         }
 
         resetLayout() {
-            const opened = Object.values(this.boxes).filter(box => box.path !== '').map(box => box.path);
+            const opened = Object.values(this.boxes).filter(box => box.path !== '' && !box.kind).map(box => box.path);
+            const aggregates = Object.values(this.boxes).filter(box => box.kind === 'aggregate');
 
             this.boxes = {};
             this.canvas.querySelectorAll('.acx-mbox').forEach(el => el.remove());
@@ -108,6 +122,17 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                 }
             });
 
+            // Custom links are always shown.
+            for (const join of this.options.getJoins()) {
+                this.openCustomJoinBox(join);
+            }
+
+            for (const box of aggregates) {
+                if (this.boxes[box.parent] && !this.boxes[box.path]) {
+                    this.openAggregate(box.parent, box.related.name);
+                }
+            }
+
             this.drawLinks();
         }
 
@@ -118,7 +143,8 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
 
             const element = document.createElement('div');
 
-            element.className = 'acx-mbox' + (box.path === '' ? ' acx-mbox-root' : '');
+            element.className = 'acx-mbox' + (box.path === '' ? ' acx-mbox-root' : '') +
+                (box.kind ? ' acx-mbox-' + box.kind : '');
             element.dataset.box = box.path;
             element.style.left = box.x + 'px';
             element.style.top = box.y + 'px';
@@ -132,7 +158,14 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
         }
 
         renderBox(box) {
-            const pathLabel = box.path ? this.schema.getPathLabel(this.rootEntityType, box.path) : this.t('Data source');
+            if (box.kind === 'aggregate') {
+                return this.renderAggregateBox(box);
+            }
+
+            const pathLabel = box.kind === 'custom' ? this.describeJoin(box.join) :
+                (box.path ? this.schema.getPathLabel(this.rootEntityType, box.path) : this.t('Data source'));
+            // A custom link on a non-unique field can also aggregate all its matching records (from the data source).
+            const canAggregate = box.kind === 'custom' && box.join.foreignField !== 'id' && !box.join.from;
             const usage = this.options.getUsage();
             const prefix = box.path ? box.path + '.' : '';
 
@@ -154,6 +187,7 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                             ${dimensionAllowed ? this.useButton('rows', 'R', field.name) + this.useButton('columns', 'C', field.name) : ''}
                             ${this.useButton('measures', 'M', field.name)}
                             ${this.useButton('filters', 'F', field.name)}
+                            ${canAggregate ? this.useButton('related', 'Σ', field.name) : ''}
                         </span>
                     </li>`;
             }).join('');
@@ -177,8 +211,9 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
 
             return `
                 <div class="acx-mbox-head" data-drag="1">
-                    <span class="fas fa-${box.path === '' ? 'database' : 'cube'}"></span>
-                    <strong>${this.escapeString(this.schema.translateEntity(box.entityType, false))}</strong>
+                    <span class="fas fa-${box.path === '' ? 'database' : (box.kind === 'custom' ? 'link' : 'cube')}"></span>
+                    <strong>${this.escapeString(box.kind === 'custom' ?
+                        this.schema.getCustomJoinLabel(box.join) : this.schema.translateEntity(box.entityType, false))}</strong>
                     ${box.path === '' ? '' : `<a role="button" class="acx-mbox-close" data-action="closeBox" title="${this.escapeString(this.translate('Close'))}">&times;</a>`}
                     <div class="acx-mbox-path small">${this.escapeString(pathLabel)}</div>
                 </div>
@@ -189,7 +224,51 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                 <ul class="acx-mbox-fields">${fieldItems}</ul>
                 ${linkItems ? `<div class="acx-mbox-section">${this.escapeString(this.t('Associations'))}</div>
                     <ul class="acx-mbox-links">${linkItems}</ul>` : ''}
-                ${box.path === '' && this.toManyLinks.length ? this.renderToMany() : ''}
+                ${this.renderToMany(box)}
+                <div class="acx-mbox-footer">
+                    <a role="button" data-action="linkEntity"><span class="fas fa-link"></span>
+                        ${this.escapeString(this.t('Link another entity'))}…</a>
+                </div>
+            `;
+        }
+
+        describeJoin(join) {
+            const fromType = join.from ? this.schema.resolvePath(this.rootEntityType, join.from + '.id').entityType : this.rootEntityType;
+
+            return this.schema.translateField(fromType, join.localField) + ' = ' +
+                this.schema.translateEntity(join.entityType, false) + '.' + this.schema.translateField(join.entityType, join.foreignField);
+        }
+
+        /**
+         * Records of a one-to-many / many-to-many link, aggregated per record of the owning entity (Σ).
+         */
+        renderAggregateBox(box) {
+            const link = box.related;
+            const fields = [{name: 'id', type: 'id', label: this.t('Number of records')}]
+                .concat(this.schema.getFieldList(box.entityType, 'any').filter(f => f.type !== 'text'));
+
+            const items = fields.map(field => `
+                <li data-field-label="${this.escapeString(field.label.toLowerCase() + ' ' + field.name.toLowerCase())}">
+                    <span class="acx-mfield-name" title="${this.escapeString(field.name)}">
+                        <span class="${TYPE_ICONS[field.type] || 'fas fa-circle'} text-muted acx-type-icon"></span>
+                        ${this.escapeString(field.label)}
+                    </span>
+                    <span class="acx-mfield-actions">${this.useButton('related', 'Σ', field.name)}</span>
+                </li>`).join('');
+
+            return `
+                <div class="acx-mbox-head" data-drag="1">
+                    <span class="fas fa-layer-group"></span>
+                    <strong>Σ ${this.escapeString(link.label)}</strong>
+                    <a role="button" class="acx-mbox-close" data-action="closeBox" title="${this.escapeString(this.translate('Close'))}">&times;</a>
+                    <div class="acx-mbox-path small">${this.escapeString(this.schema.translateEntity(box.entityType))} ·
+                        ${this.escapeString(this.t('aggregated per record'))}</div>
+                </div>
+                <div class="acx-mbox-search">
+                    <input type="search" class="form-control input-sm" data-role="field-search"
+                        placeholder="${this.escapeString(this.t('Search fields'))}">
+                </div>
+                <ul class="acx-mbox-fields">${items}</ul>
             `;
         }
 
@@ -197,21 +276,34 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
          * One-to-many / many-to-many associations of the data source (dashed): not usable as dimensions from here;
          * the analysis can start from the entity on the "many" side instead.
          */
-        renderToMany() {
+        renderToMany(box) {
+            const links = this.schema.getToManyLinkList(box.entityType);
+
+            if (!links.length || box.kind === 'custom') {
+                return '';
+            }
+
+            const prefix = box.path ? box.path + '.' : '';
+
             return `
                 <div class="acx-mbox-section">${this.escapeString(this.t('One-to-many associations'))}</div>
                 <ul class="acx-mbox-links acx-mbox-tomany">
-                    ${this.toManyLinks.map(link => `
-                        <li class="acx-mlink" title="${this.escapeString(this.t(link.manyToMany ? 'modelManyToMany' : 'modelOneToMany', 'messages'))}">
+                    ${links.map(link => `
+                        <li class="acx-mlink${this.boxes['~' + prefix + link.name] ? ' active' : ''}" data-tomany-row="${this.escapeString(link.name)}"
+                            title="${this.escapeString(this.t(link.manyToMany ? 'modelManyToMany' : 'modelOneToMany', 'messages'))}">
                             <span class="acx-mlink-tomany">
                                 <span class="fas fa-ellipsis-h text-muted"></span>
                                 ${this.escapeString(link.label)}
                                 <span class="text-muted small">→ ${this.escapeString(this.schema.translateEntity(link.entityType, false))}
                                     (${link.manyToMany ? '0,N / 0,N' : '0,N / 0,1'})</span>
                             </span>
-                            <a role="button" class="acx-mlink-switch" data-action="changeSource"
-                                data-entity-type="${this.escapeString(link.entityType)}"
-                                title="${this.escapeString(this.t('Analyse from this entity'))}"><span class="fas fa-random"></span></a>
+                            <span>
+                                <a role="button" class="acx-mlink-switch" data-action="openAggregate" data-link="${this.escapeString(link.name)}"
+                                    title="${this.escapeString(this.t('Aggregate its records (Σ)'))}"><strong>Σ</strong></a>
+                                ${box.path === '' ? `<a role="button" class="acx-mlink-switch" data-action="changeSource"
+                                    data-entity-type="${this.escapeString(link.entityType)}"
+                                    title="${this.escapeString(this.t('Analyse from this entity'))}"><span class="fas fa-random"></span></a>` : ''}
+                            </span>
                         </li>`).join('')}
                 </ul>
             `;
@@ -281,8 +373,19 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                 return;
             }
 
-            const parentElement = this.canvas.querySelector(`.acx-mbox[data-box="${CSS.escape(parentPath)}"]`);
-            const row = parentElement.querySelector(`[data-link-row="${CSS.escape(link)}"]`);
+            const {x, y} = this.findSlot(parentPath, `[data-link-row="${CSS.escape(link)}"]`);
+
+            this.addBox({path, entityType, depth: parent.depth + 1, parent: parentPath, link, x, y});
+            this.rerenderBox(parentPath);
+        }
+
+        /**
+         * Position for a new box: right of its parent, level with the row it comes from, in a free slot.
+         */
+        findSlot(parentPath, rowSelector) {
+            const parent = this.boxes[parentPath];
+            const parentElement = this.boxElement(parentPath);
+            const row = rowSelector && parentElement ? parentElement.querySelector(rowSelector) : null;
             const x = parent.x + BOX_WIDTH + COLUMN_GAP;
             let y = Math.max(10, parent.y + (row ? row.offsetTop - 20 : 0));
 
@@ -304,11 +407,96 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                 }
             }
 
-            this.addBox({path, entityType, depth: parent.depth + 1, parent: parentPath, link, x, y});
+            return {x, y};
+        }
+
+        openCustomJoinBox(join) {
+            if (this.boxes[join.name]) {
+                return;
+            }
+
+            // The entity the link starts from must be on the diagram.
+            if (join.from && !this.boxes[join.from]) {
+                const parts = join.from.split('.');
+
+                for (let i = 1; i <= parts.length; i++) {
+                    const path = parts.slice(0, i).join('.');
+                    const customJoin = i === 1 ? this.options.getJoins().find(j => j.name === parts[0]) : null;
+
+                    if (this.boxes[path]) {
+                        continue;
+                    }
+
+                    if (customJoin) {
+                        this.openCustomJoinBox(customJoin);
+                    } else {
+                        this.openLink(parts.slice(0, i - 1).join('.'), parts[i - 1]);
+                    }
+                }
+            }
+
+            const parent = this.boxes[join.from];
+
+            if (!parent) {
+                return;
+            }
+
+            const {x, y} = this.findSlot(join.from, '.acx-mbox-footer');
+
+            this.addBox({
+                path: join.name,
+                entityType: join.entityType,
+                depth: parent.depth + 1,
+                parent: join.from,
+                link: join.name,
+                x: x,
+                y: y,
+                kind: 'custom',
+                join: join,
+            });
+        }
+
+        toggleAggregate(parentPath, linkName) {
+            const path = '~' + (parentPath ? parentPath + '.' : '') + linkName;
+
+            if (this.boxes[path]) {
+                this.closeBox(path);
+
+                return;
+            }
+
+            this.openAggregate(parentPath, linkName);
+            this.drawLinks();
+        }
+
+        openAggregate(parentPath, linkName) {
+            const parent = this.boxes[parentPath];
+            const link = this.schema.getToManyLinkList(parent.entityType).find(item => item.name === linkName);
+
+            if (!link) {
+                return;
+            }
+
+            const {x, y} = this.findSlot(parentPath, `[data-tomany-row="${CSS.escape(linkName)}"]`);
+
+            this.addBox({
+                path: '~' + (parentPath ? parentPath + '.' : '') + linkName,
+                entityType: link.entityType,
+                depth: Schema.MAX_DEPTH,
+                parent: parentPath,
+                link: linkName,
+                x: x,
+                y: y,
+                kind: 'aggregate',
+                related: {...link, from: parentPath},
+            });
+
             this.rerenderBox(parentPath);
         }
 
         closeBox(path) {
+            const parentPath = this.boxes[path] ? this.boxes[path].parent : null;
+
             for (const childPath of Object.keys(this.boxes)) {
                 if (childPath === path || childPath.startsWith(path + '.')) {
                     delete this.boxes[childPath];
@@ -316,9 +504,7 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                 }
             }
 
-            const parentPath = path.split('.').slice(0, -1).join('.');
-
-            if (this.boxes[parentPath]) {
+            if (parentPath !== null && this.boxes[parentPath]) {
                 this.rerenderBox(parentPath);
             }
 
@@ -328,8 +514,29 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
 
         useField(target, boxPath, field) {
             const box = this.boxes[boxPath];
-            const path = (boxPath ? boxPath + '.' : '') + field;
             const type = field === 'id' ? 'id' : this.schema.getFieldType(box.entityType, field);
+
+            if (target === 'related') {
+                const isCustom = box.kind === 'custom';
+                const relatedLabel = isCustom ? this.schema.getCustomJoinLabel(box.join) : box.related.label;
+                const label = field === 'id' ? this.t('Number of records') : this.schema.translateField(box.entityType, field);
+
+                this.options.onUse('related', field, {
+                    type: type,
+                    entityType: box.entityType,
+                    field: field,
+                    label: label,
+                    link: isCustom ? box.join.name : box.related.name,
+                    from: isCustom ? '' : box.related.from,
+                    relatedLabel: relatedLabel,
+                });
+
+                Espo.Ui.success(this.t('modelUse.measures', 'messages') + ': Σ ' + relatedLabel + ' › ' + label);
+
+                return;
+            }
+
+            const path = (boxPath ? boxPath + '.' : '') + field;
 
             this.options.onUse(target, path, {
                 type: type,
@@ -386,6 +593,24 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                 }
 
                 const childHeadY = childElement.offsetTop + 22;
+
+                if (box.kind === 'custom' || box.kind === 'aggregate') {
+                    const isCustom = box.kind === 'custom';
+                    const anchor = isCustom ?
+                        parentElement.querySelector('.acx-mbox-footer') :
+                        parentElement.querySelector(`[data-tomany-row="${CSS.escape(box.link)}"]`);
+                    const ax = parentElement.offsetLeft + parentElement.offsetWidth;
+                    const ay = anchor ? parentElement.offsetTop + anchor.offsetTop + anchor.offsetHeight / 2 : parentElement.offsetTop + 22;
+
+                    parts.push(this.connector(ax, ay, childElement.offsetLeft, childHeadY,
+                        isCustom ? box.join.localField + ' = ' + box.join.foreignField : box.related.label,
+                        '0,N',
+                        isCustom ? (box.join.foreignField === 'id' ? '0,1' : '0,N') : (box.related.manyToMany ? '0,N' : '0,1'),
+                        isCustom ? 'custom' : 'dashed'));
+
+                    continue;
+                }
+
                 const row = parentElement.querySelector(`[data-link-row="${CSS.escape(box.link)}"]`);
                 const x1 = parentElement.offsetLeft + parentElement.offsetWidth;
                 const y1 = row ? parentElement.offsetTop + row.offsetTop + row.offsetHeight / 2 : parentElement.offsetTop + 22;
@@ -394,22 +619,24 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
                 const required = !!this.getMetadata().get(['entityDefs', parentBox.entityType, 'fields', box.link, 'required']);
 
                 parts.push(this.connector(x1, y1, x2, childHeadY,
-                    this.schema.translateField(parentBox.entityType, box.link), required ? '1,1' : '0,1', '0,N', false));
+                    this.schema.translateField(parentBox.entityType, box.link), required ? '1,1' : '0,1', '0,N', ''));
             }
 
             this.svg.innerHTML = parts.join('');
         }
 
-        connector(x1, y1, x2, y2, label, cardinality1, cardinality2, dashed) {
+        connector(x1, y1, x2, y2, label, cardinality1, cardinality2, variant) {
+            const style = variant ? ' acx-' + variant : '';
+
             const mx = (x1 + x2) / 2;
             const my = (y1 + y2) / 2;
             const dx = Math.max(30, Math.abs(x2 - x1) / 2);
-            const text = this.escapeString(label.length > 18 ? label.slice(0, 17) + '…' : label);
+            const text = this.escapeString(label.length > 22 ? label.slice(0, 21) + '…' : label);
             const rx = Math.max(34, text.length * 3.6 + 12);
 
             return `
-                <path d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}" class="acx-mline${dashed ? ' acx-dashed' : ''}"/>
-                <ellipse cx="${mx}" cy="${my}" rx="${rx}" ry="13" class="acx-massoc${dashed ? ' acx-dashed' : ''}"/>
+                <path d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}" class="acx-mline${style}"/>
+                <ellipse cx="${mx}" cy="${my}" rx="${rx}" ry="13" class="acx-massoc${style}"/>
                 <text x="${mx}" y="${my + 4}" text-anchor="middle" class="acx-massoc-text">${text}</text>
                 <text x="${x1 + 6}" y="${y1 - 6}" class="acx-mcard">${cardinality1}</text>
                 <text x="${x2 - 6}" y="${y2 - 6}" text-anchor="end" class="acx-mcard">${cardinality2}</text>

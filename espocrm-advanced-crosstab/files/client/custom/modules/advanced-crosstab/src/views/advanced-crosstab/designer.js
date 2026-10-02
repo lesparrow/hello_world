@@ -46,6 +46,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                                 </div>
                                 <select class="form-control" data-name="entityType"></select>
                             </div>
+                            <div class="acx-section" data-role="joins"></div>
                             <div class="acx-section" data-role="rows"></div>
                             <div class="acx-section" data-role="columns"></div>
                             <div class="acx-section" data-role="measures"></div>
@@ -113,6 +114,9 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.definition.measures = this.definition.measures || [];
             this.definition.options = this.definition.options || {};
             this.definition.options.view = this.definition.options.view || {mode: 'table', chartType: 'column'};
+            this.definition.joins = this.definition.joins || [];
+
+            Schema.setCustomJoins(this.definition.entityType, this.definition.joins);
 
             this.dirty = this.isNew;
             this.result = null;
@@ -148,6 +152,8 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.addActionHandler('toggleMeasure', (e, target) => this.toggleMeasure(parseInt(target.dataset.index)));
             this.addActionHandler('quickMeasure', () => this.quickMeasure());
             this.addActionHandler('dataModel', () => this.openDataModel());
+            this.addActionHandler('addJoin', () => this.openCustomJoin(''));
+            this.addActionHandler('removeJoin', (e, target) => this.removeCustomJoin(target.dataset.name));
             this.addActionHandler('removeListFilters', () => {
                 this.definition.listWhere = null;
                 this.renderListFilters();
@@ -174,6 +180,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 measures: preset.measures ||
                     [{key: 'count', label: this.translate('Count', 'labels', 'AdvancedCrosstab'), kind: 'native', aggregation: 'COUNT'}],
                 filter: preset.filter || null,
+                joins: preset.joins || [],
                 options: {
                     rowTotals: true,
                     columnTotals: true,
@@ -280,6 +287,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.renderDimensionList('rows');
             this.renderDimensionList('columns');
             this.renderMeasureList();
+            this.renderJoins();
             this.renderPrimaryFilters();
             this.renderListFilters();
             this.renderViewControls();
@@ -397,6 +405,12 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
         }
 
         describeMeasure(measure) {
+            if (measure.kind === 'related') {
+                const condition = measure.condition ? ' WHERE ' + measure.condition : '';
+
+                return measure.aggregation + '(' + this.getRelatedLabel(measure) + ': ' + (measure.expression || 'id') + ')' + condition;
+            }
+
             if (measure.kind === 'native') {
                 const condition = measure.condition ? ' WHERE ' + measure.condition : '';
 
@@ -411,9 +425,13 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             const container = this.element.querySelector('[data-role="measures"]');
 
             const items = list.map((measure, index) => {
-                const aggregation = measure.kind === 'native' ?
+                const aggregationList = measure.kind === 'related' ?
+                    ['SUM', 'COUNT', 'AVG', 'MIN', 'MAX'] :
+                    ['SUM', 'COUNT', 'COUNT_DISTINCT', 'AVG', 'MIN', 'MAX'];
+
+                const aggregation = measure.kind === 'native' || measure.kind === 'related' ?
                     `<select class="acx-chip-select" data-measure-aggregation="${index}" title="${this.escapeString(this.t('Aggregation'))}">` +
-                    ['SUM', 'COUNT', 'COUNT_DISTINCT', 'AVG', 'MIN', 'MAX'].map(a =>
+                    aggregationList.map(a =>
                         `<option value="${a}"${a === measure.aggregation ? ' selected' : ''}>${this.escapeString(this.t(a, 'aggregations'))}</option>`).join('') +
                     '</select>' : '';
 
@@ -487,6 +505,8 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             const options = this.definition.options;
 
             this.definition = this.createDefaultDefinition(entityType);
+
+            Schema.setCustomJoins(entityType, this.definition.joins);
             this.definition.options = {...options, view: options.view};
 
             this.clearView('filters');
@@ -582,8 +602,11 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             const existing = index === null ? null : this.definition.measures[index];
             const position = index === null ? this.definition.measures.length : index;
 
+            const related = existing && existing.kind === 'related' ? this.getRelatedTarget(existing) : null;
+
             this.createView('dialog', 'advanced-crosstab:views/advanced-crosstab/modals/measure', {
-                entityType: this.definition.entityType,
+                entityType: related ? related.entityType : this.definition.entityType,
+                relatedLabel: related ? this.getRelatedLabel(existing) : null,
                 measure: existing,
                 kind: kind,
                 // Display formulas may reference the measures defined before them.
@@ -1023,8 +1046,12 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.createView('dialog', 'advanced-crosstab:views/advanced-crosstab/modals/data-model', {
                 entityType: this.definition.entityType,
                 getUsage: () => this.getPathUsage(),
+                getJoins: () => this.definition.joins,
+                onAddJoin: (from, callback) => this.openCustomJoin(from, callback),
                 onUse: (target, path, info) => {
-                    if (target === 'rows' || target === 'columns') {
+                    if (target === 'related') {
+                        this.addRelatedMeasure(info.link, info.from || '', path, info);
+                    } else if (target === 'rows' || target === 'columns') {
                         this.addDimensionFromPath(target, path, info);
                     } else if (target === 'measures') {
                         this.addMeasureFromPath(path, info);
@@ -1037,6 +1064,143 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                     this.changeEntityType(entityType);
                 },
             }).then(view => view.render());
+        }
+
+        // --- Links to any entity and related measures ---------------------------------------------------------------
+
+        renderJoins() {
+            const container = this.element.querySelector('[data-role="joins"]');
+            const joins = this.definition.joins;
+
+            const items = joins.map(join => {
+                const fromLabel = (join.from ? this.schema.getPathLabel(this.definition.entityType, join.from) + ' › ' : '') +
+                    this.schema.translateField(join.from ?
+                        this.schema.resolvePath(this.definition.entityType, join.from + '.id').entityType :
+                        this.definition.entityType, join.localField);
+                const toLabel = this.schema.translateEntity(join.entityType, false) + ' › ' +
+                    this.schema.translateField(join.entityType, join.foreignField);
+
+                return `<li class="acx-chip acx-join-chip">
+                    <span class="acx-chip-body">
+                        <span class="acx-chip-label"><span class="fas fa-link"></span> ${this.escapeString(this.schema.getCustomJoinLabel(join))}</span>
+                        <span class="acx-chip-meta" title="${this.escapeString(fromLabel + ' = ' + toLabel)}">${this.escapeString(fromLabel + ' = ' + toLabel)}</span>
+                    </span>
+                    <span class="acx-chip-actions"><a role="button" data-action="removeJoin" data-name="${this.escapeString(join.name)}"
+                        title="${this.escapeString(this.translate('Remove'))}"><span class="fas fa-times"></span></a></span>
+                </li>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="acx-section-title">
+                    <span>${this.escapeString(this.t('Links'))}</span>
+                    <a role="button" data-action="addJoin" title="${this.escapeString(this.t('Link another entity'))}">
+                        <span class="fas fa-plus"></span></a>
+                </div>
+                <ul class="acx-chips">${items}</ul>
+                ${joins.length ? '' : `<div class="acx-empty-hint">${this.escapeString(this.t('No custom links'))}</div>`}
+            `;
+        }
+
+        openCustomJoin(from, callback) {
+            // Own key: it can open on top of the data model dialog.
+            this.createView('joinDialog', 'advanced-crosstab:views/advanced-crosstab/modals/custom-join', {
+                rootEntityType: this.definition.entityType,
+                from: from || '',
+                joins: this.definition.joins,
+                onApply: join => {
+                    this.definition.joins.push(join);
+                    Schema.setCustomJoins(this.definition.entityType, this.definition.joins);
+                    this.renderJoins();
+                    this.markChanged();
+
+                    if (callback) {
+                        callback(join);
+                    }
+                },
+            }).then(view => view.render());
+        }
+
+        removeCustomJoin(name) {
+            const used = new RegExp('(^|[^a-zA-Z0-9_])' + name + '\\.');
+            const definition = Espo.Utils.cloneDeep(this.definition);
+
+            delete definition.joins;
+
+            const json = JSON.stringify(definition);
+
+            if (used.test(json) || definition.measures.some(m => m.kind === 'related' && m.link === name) ||
+                this.definition.joins.some(j => j.from && (j.from === name || j.from.startsWith(name + '.')))) {
+                Espo.Ui.warning(this.t('Custom link is in use'));
+
+                return;
+            }
+
+            this.definition.joins = this.definition.joins.filter(j => j.name !== name);
+            Schema.setCustomJoins(this.definition.entityType, this.definition.joins);
+            this.renderJoins();
+            this.markChanged();
+        }
+
+        /**
+         * The entity type and label of a related measure's link (to-many link or custom link).
+         */
+        getRelatedTarget(measure) {
+            const join = this.schema.getCustomJoin(this.definition.entityType, measure.link);
+
+            if (join) {
+                return {entityType: join.entityType, label: this.schema.getCustomJoinLabel(join)};
+            }
+
+            const owner = measure.from ?
+                this.schema.resolvePath(this.definition.entityType, measure.from + '.id').entityType :
+                this.definition.entityType;
+            const link = this.schema.getToManyLinkList(owner).find(item => item.name === measure.link);
+
+            return link ? {entityType: link.entityType, label: link.label} : {entityType: owner, label: measure.link};
+        }
+
+        getRelatedLabel(measure) {
+            return (measure.from ? this.schema.getPathLabel(this.definition.entityType, measure.from) + ' › ' : '') +
+                this.getRelatedTarget(measure).label;
+        }
+
+        /**
+         * Aggregation over related records (one-to-many, many-to-many or custom link): SUM for numbers, COUNT otherwise.
+         */
+        addRelatedMeasure(link, from, path, info) {
+            const numeric = Schema.NUMERIC_TYPES.includes(info.type);
+            const used = this.definition.measures.map(m => m.key);
+            let key = (link + '_' + path).replace(/\.(.)/g, (m, c) => c.toUpperCase()).replace(/[^a-zA-Z0-9_]/g, '');
+            let i = 2;
+
+            while (used.includes(key)) {
+                key = key.replace(/\d+$/, '') + i++;
+            }
+
+            const measure = {
+                key: key,
+                label: info.relatedLabel + ' › ' + (path === 'id' ? this.t('Count') : info.label),
+                kind: 'related',
+                link: link,
+                aggregation: numeric ? 'SUM' : 'COUNT',
+            };
+
+            if (from) {
+                measure.from = from;
+            }
+
+            if (path !== 'id') {
+                measure.expression = path;
+            }
+
+            if (info.type === 'currency') {
+                measure.format = {type: 'currency'};
+            }
+
+            this.definition.measures.push(measure);
+            this.renderMeasureList();
+            this.renderViewControls();
+            this.markChanged();
         }
 
         toggleFullscreen() {

@@ -27,6 +27,8 @@ class Definition
         public readonly array $raw,
         /** @var ?array<int, array<string, mixed>> EspoCRM where items, e.g. the filters of a list view. */
         public readonly ?array $listWhere = null,
+        /** @var \Espo\Modules\AdvancedCrosstab\Engine\Schema\CustomJoin[] Custom links to any entity. */
+        public readonly array $joins = [],
     ) {}
 
     public function getMeasure(string $key): ?Measure

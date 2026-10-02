@@ -8,12 +8,18 @@ namespace Espo\Modules\AdvancedCrosstab\Engine\Definition;
  * - native:    AGGREGATION(record expression) [WHERE record condition]
  * - aggregate: a formula over aggregate functions, e.g. (SUM(amount) - SUM(cost)) / SUM(amount) * 100
  * - display:   a formula over other measures' keys, evaluated after aggregation, e.g. margin / revenue * 100
+ * - related:   aggregation over the records of a one-to-many / many-to-many link or a custom link
+ *              (e.g. per account: SUM of its opportunities' amount), pre-aggregated per record so nothing is
+ *              counted twice
  */
 class Measure
 {
     public const KIND_NATIVE = 'native';
     public const KIND_AGGREGATE = 'aggregate';
     public const KIND_DISPLAY = 'display';
+    public const KIND_RELATED = 'related';
+
+    public const RELATED_AGGREGATION_LIST = ['COUNT', 'SUM', 'AVG', 'MIN', 'MAX'];
 
     public const AGGREGATION_LIST = ['COUNT', 'COUNT_DISTINCT', 'SUM', 'AVG', 'MIN', 'MAX'];
 
@@ -37,6 +43,10 @@ class Measure
         public readonly ?string $compare,
         /** 'percent' | 'difference' */
         public readonly string $compareMode,
+        /** Related measures: link name (to-many link of the entity at `from`, or a custom link name). */
+        public readonly ?string $link = null,
+        /** Related measures: path of the entity owning the link ('' = data source). */
+        public readonly string $from = '',
     ) {}
 
     public function isAggregated(): bool

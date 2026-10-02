@@ -137,7 +137,16 @@
         "Reset layout": "Reset layout",
         "Associations": "Associations (many-to-one)",
         "Analyse from this entity": "Analyse from this entity",
-        "One-to-many associations": "One-to-many associations (switch data source)"
+        "One-to-many associations": "One-to-many associations",
+        "Link another entity": "Link another entity",
+        "Links": "Links to other entities",
+        "No custom links": "No custom links. Related entities are also reachable through the data model.",
+        "Custom link is in use": "This link is used by a row, column, measure or filter: remove those first.",
+        "custom link": "custom link",
+        "Entity to link": "Entity to link",
+        "Number of records": "Number of records",
+        "aggregated per record": "aggregated per record",
+        "Aggregate its records (Σ)": "Aggregate its records (Σ): sums, counts, averages…"
     },
     "granularities": {
         "year": "Year",
@@ -169,7 +178,8 @@
     "measureKinds": {
         "native": "Aggregation (SUM, COUNT…)",
         "aggregate": "Calculated measure (aggregate formula)",
-        "display": "Calculated from other measures"
+        "display": "Calculated from other measures",
+        "related": "Aggregation of related records"
     },
     "modes": {
         "table": "Crosstab",
@@ -261,14 +271,19 @@
         "selectReport": "Select a crosstab in the panel options.",
         "pivotButtonTitle": "Analyse this list in a crosstab, with its current filters",
         "modelLegendManyToOne": "Many-to-one association: its fields can be used",
-        "modelLegendToMany": "One-to-many: analyse from that entity instead",
+        "modelLegendToMany": "One-to-many: Σ aggregate or ⇄ analyse from it",
         "modelLegendUsage": "Rows · Columns · Measures · Filters",
-        "modelOneToMany": "One-to-many association. Its fields can't be crosstab dimensions from here (rows would be counted several times). Start the analysis from this entity instead: this one is reachable from it.",
-        "modelManyToMany": "Many-to-many association. Its fields can't be crosstab dimensions from here (rows would be counted several times).",
+        "modelOneToMany": "One-to-many association. Σ aggregates its records per record (sum, count, average…) without counting anything twice; ⇄ starts the analysis from that entity instead.",
+        "modelManyToMany": "Many-to-many association. Σ aggregates its records per record; ⇄ starts the analysis from that entity instead.",
         "modelUse.rows": "Added to rows",
         "modelUse.columns": "Added to columns",
         "modelUse.measures": "Added to measures",
-        "modelUse.filters": "Added to filters"
+        "modelUse.filters": "Added to filters",
+        "customJoinHelp": "Link this entity to any other entity on a pair of fields, even without an EspoCRM relationship (e.g. Code fiche = Fiche action › Code). The linked entity's fields can then be used as rows, columns, measures and filters, and its own links can be followed.",
+        "customJoinById": "Linked on the ID: each record matches at most one record of the other entity.",
+        "customJoinByField": "If several records of the other entity match, the first one is used for rows, columns and filters (so nothing is counted twice). To use all matching records, add a Σ measure from the linked box in the data model.",
+        "modelLegendCustom": "Custom link on any fields",
+        "modelUse.related": "Aggregate all related records (Σ)"
     },
     "layouts": {
         "compact": "Compact",

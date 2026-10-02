@@ -85,6 +85,7 @@ define('advanced-crosstab:views/advanced-crosstab/formula-builder', ['view', 'ad
                     selector: '[data-role="side"]',
                     entityType: this.options.entityType,
                     purpose: 'any',
+                    noCustomJoins: this.options.noCustomJoins,
                     // In aggregate formulas a picked field comes wrapped: SUM for numbers, COUNT otherwise.
                     onSelect: (path, info) => this.insert(this.kind !== 'aggregate' ? path :
                         (Schema.NUMERIC_TYPES.includes(info.type) ? `SUM(${path})|` : `COUNT(${path})|`)),
@@ -206,6 +207,7 @@ define('advanced-crosstab:views/advanced-crosstab/formula-builder', ['view', 'ad
                 formula: formula,
                 kind: this.kind,
                 measureKeys: (this.options.measures || []).map(m => m.key),
+                joins: this.options.noCustomJoins ? [] : Schema.getCustomJoins(this.options.entityType),
             });
 
             if (formula !== this.getValue()) {

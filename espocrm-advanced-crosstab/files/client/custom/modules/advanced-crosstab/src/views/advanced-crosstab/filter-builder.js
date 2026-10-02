@@ -294,6 +294,7 @@ define('advanced-crosstab:views/advanced-crosstab/filter-builder', ['view', 'adv
                 entityType: this.options.entityType,
                 formula: formula,
                 kind: 'condition',
+                joins: Schema.getCustomJoins(this.options.entityType),
             });
 
             status.className = 'small ' + (result.valid ? 'text-success' : 'text-danger');

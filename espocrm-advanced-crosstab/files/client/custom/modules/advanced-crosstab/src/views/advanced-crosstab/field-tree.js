@@ -73,6 +73,23 @@ define('advanced-crosstab:views/advanced-crosstab/field-tree', ['view', 'advance
                 html.push(this.fieldItem(prefix + field.name, field.label, field.type));
             }
 
+            const customJoins = depth === 0 && !this.options.noCustomJoins ? Schema.getCustomJoins(this.entityType) : [];
+
+            for (const join of customJoins) {
+                html.push(`
+                    <li class="acx-tree-link acx-tree-custom" data-path="${this.escapeString(join.name)}"
+                        data-entity-type="${this.escapeString(join.entityType)}" data-depth="1">
+                        <a role="button" data-action="toggleLink">
+                            <span class="fas fa-caret-right acx-caret"></span>
+                            <span class="fas fa-link acx-custom-link-icon"></span>
+                            ${this.escapeString(this.schema.getCustomJoinLabel(join))}
+                            <span class="text-muted small">${this.escapeString(this.translate('custom link', 'labels', 'AdvancedCrosstab'))}</span>
+                        </a>
+                        <ul class="acx-tree-list hidden"></ul>
+                    </li>
+                `);
+            }
+
             if (depth < Schema.MAX_DEPTH) {
                 for (const link of this.schema.getLinkList(entityType)) {
                     html.push(`
@@ -156,6 +173,10 @@ define('advanced-crosstab:views/advanced-crosstab/field-tree', ['view', 'advance
             };
 
             walk(this.entityType, '', '', 0);
+
+            for (const join of this.options.noCustomJoins ? [] : Schema.getCustomJoins(this.entityType)) {
+                walk(join.entityType, join.name + '.', this.schema.getCustomJoinLabel(join) + ' › ', 1);
+            }
 
             this.rootList.innerHTML = results.length ?
                 results.slice(0, 200).map(item => this.fieldItem(item.path, item.label, item.type)).join('') :

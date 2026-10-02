@@ -92,6 +92,8 @@ define('advanced-crosstab:views/advanced-crosstab/modals/measure', ['views/modal
                 format: {type: 'number'},
             });
             this.kind = this.measure.kind || 'native';
+            // Native and related measures both aggregate a record-level value.
+            this.isValueKind = this.kind === 'native' || this.kind === 'related';
             this.isNew = !this.options.measure;
 
             this.headerText = this.translate(this.isNew ? 'Add measure' : 'Edit measure', 'labels', 'AdvancedCrosstab') +
@@ -102,13 +104,14 @@ define('advanced-crosstab:views/advanced-crosstab/modals/measure', ['views/modal
                 {name: 'cancel', label: 'Cancel', onClick: () => this.close()},
             ];
 
-            const formulaKind = {native: 'record', aggregate: 'aggregate', display: 'display'}[this.kind];
+            const formulaKind = {native: 'record', related: 'record', aggregate: 'aggregate', display: 'display'}[this.kind];
 
             this.createView('formula', 'advanced-crosstab:views/advanced-crosstab/formula-builder', {
                 selector: '[data-role="formula"]',
                 entityType: this.options.entityType,
                 kind: formulaKind,
-                value: this.kind === 'native' ? (this.measure.expression || '') : (this.measure.formula || ''),
+                noCustomJoins: this.kind === 'related',
+                value: this.isValueKind ? (this.measure.expression || '') : (this.measure.formula || ''),
                 measures: this.options.measures || [],
                 formatter: this.formatter,
                 format: this.measure.format,
@@ -119,6 +122,7 @@ define('advanced-crosstab:views/advanced-crosstab/modals/measure', ['views/modal
                     selector: '[data-role="condition"]',
                     entityType: this.options.entityType,
                     kind: 'condition',
+                    noCustomJoins: this.kind === 'related',
                     value: this.measure.condition || '',
                 });
             }
@@ -135,7 +139,9 @@ define('advanced-crosstab:views/advanced-crosstab/modals/measure', ['views/modal
 
             $('label').value = this.measure.label || '';
             $('key').value = this.measure.key || '';
-            $('aggregation').innerHTML = options(AGGREGATIONS.map(a => [a, t(a, 'aggregations')]), this.measure.aggregation || 'SUM');
+            const aggregations = this.kind === 'related' ? AGGREGATIONS.filter(a => a !== 'COUNT_DISTINCT') : AGGREGATIONS;
+
+            $('aggregation').innerHTML = options(aggregations.map(a => [a, t(a, 'aggregations')]), this.measure.aggregation || 'SUM');
             $('formatType').innerHTML = options(FORMATS.map(f => [f, t(f, 'formats')]), format.type || 'number');
             $('decimals').value = format.decimals ?? '';
             $('currency').innerHTML = options([['', t('Default')]].concat(currencyList.filter(Boolean).map(c => [c, c])), format.currency || '');
@@ -154,12 +160,13 @@ define('advanced-crosstab:views/advanced-crosstab/modals/measure', ['views/modal
             conditionBox.classList.toggle('hidden', !this.measure.condition);
             $('hasCondition').addEventListener('change', () => conditionBox.classList.toggle('hidden', !$('hasCondition').checked));
 
-            this.element.querySelector('[data-role="aggregation-group"]').classList.toggle('hidden', this.kind !== 'native');
+            this.element.querySelector('[data-role="aggregation-group"]').classList.toggle('hidden', !this.isValueKind);
 
             const updateFormulaLabel = () => {
-                const label = this.kind === 'native' ?
+                const prefix = this.kind === 'related' && this.options.relatedLabel ? this.options.relatedLabel + ' · ' : '';
+                const label = prefix + (this.isValueKind ?
                     ($('aggregation').value === 'COUNT' ? t('Count records (optional expression)') : t('Value (field or record formula)')) :
-                    (this.kind === 'aggregate' ? t('Aggregate formula') : t('Display formula'));
+                    (this.kind === 'aggregate' ? t('Aggregate formula') : t('Display formula')));
 
                 this.element.querySelector('[data-role="formula-label"]').textContent = label;
             };
@@ -227,7 +234,15 @@ define('advanced-crosstab:views/advanced-crosstab/modals/measure', ['views/modal
             const formulaView = this.getView('formula');
             const formula = formulaView.getValue();
 
-            if (this.kind === 'native') {
+            if (this.kind === 'related') {
+                measure.link = this.measure.link;
+
+                if (this.measure.from) {
+                    measure.from = this.measure.from;
+                }
+            }
+
+            if (this.isValueKind) {
                 measure.aggregation = $('aggregation').value;
 
                 if (formula) {
