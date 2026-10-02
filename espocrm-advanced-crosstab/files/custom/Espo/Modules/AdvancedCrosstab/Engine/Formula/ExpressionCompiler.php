@@ -189,8 +189,32 @@ class ExpressionCompiler
 
         $upperType = strtoupper($type);
 
+        // Spreadsheet-style COUNT(x) in a record formula: 1 when x is not empty, else 0.
+        if ($upperType === 'COUNT' && ($mode === self::MODE_RECORD || $this->insideAggregate) && count($args) === 1) {
+            $value = $compile($args[0]);
+
+            return Expression::if(
+                Expression::and(Expression::isNotNull($value), Expression::notEqual($value, Expression::value(''))),
+                Expression::value(1),
+                Expression::value(0)
+            );
+        }
+
         if (isset(self::AGGREGATE_FUNCTIONS[$upperType])) {
             return $this->compileAggregateFunction($upperType, $args, $mode, $entityType, $registry, $condition);
+        }
+
+        // Spreadsheet-style logical functions: AND(a, b, …), OR(a, b, …), NOT(a).
+        if (in_array($upperType, ['AND', 'OR'], true) && $type === $upperType) {
+            $this->assertArgCount($type, $args, 1, 50);
+
+            return self::fn($upperType, ...array_map($compile, $args));
+        }
+
+        if ($type === 'NOT') {
+            $this->assertArgCount($type, $args, 1, 1);
+
+            return Expression::not($compile($args[0]));
         }
 
         if (isset(self::OPERATORS[$type])) {
@@ -239,6 +263,7 @@ class ExpressionCompiler
 
                 return Expression::round($compile($args[0]), isset($args[1]) ? (int) $this->literal($args[1]) : 0);
 
+            case 'CONTAINS':
             case 'string\\contains':
                 $this->assertArgCount($type, $args, 2, 2);
                 $needle = $this->literal($args[1]);

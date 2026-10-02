@@ -1,0 +1,26 @@
+{
+    "advancedCrosstab": {
+        "rows": [
+            {
+                "path": "dRANEFFiche"
+            }
+        ],
+        "columns": [
+            {
+                "path": "action"
+            }
+        ],
+        "measures": [
+            {
+                "key": "nombre",
+                "label": "Nombre Plants",
+                "kind": "native",
+                "aggregation": "SUM",
+                "expression": "nombre",
+                "format": {
+                    "type": "integer"
+                }
+            }
+        ]
+    }
+}

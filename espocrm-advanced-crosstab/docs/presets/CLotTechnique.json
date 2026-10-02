@@ -1,0 +1,26 @@
+{
+    "advancedCrosstab": {
+        "rows": [
+            {
+                "path": "dRANEF"
+            }
+        ],
+        "columns": [
+            {
+                "path": "plantationRegarni"
+            }
+        ],
+        "measures": [
+            {
+                "key": "montantEstimatif",
+                "label": "Montant Est.",
+                "kind": "native",
+                "aggregation": "SUM",
+                "expression": "montantEstimatif",
+                "format": {
+                    "type": "currency"
+                }
+            }
+        ]
+    }
+}

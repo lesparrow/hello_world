@@ -1,0 +1,33 @@
+{
+    "advancedCrosstab": {
+        "rows": [
+            {
+                "path": "dRANEF"
+            },
+            {
+                "path": "dPANEF"
+            }
+        ],
+        "columns": [
+            {
+                "path": "cSituation"
+            }
+        ],
+        "measures": [
+            {
+                "key": "preparationDuSol",
+                "label": "Prép. Sol",
+                "kind": "native",
+                "aggregation": "SUM",
+                "expression": "preparationDuSol"
+            },
+            {
+                "key": "plantation",
+                "label": "Plantation",
+                "kind": "native",
+                "aggregation": "SUM",
+                "expression": "plantation"
+            }
+        ]
+    }
+}

@@ -7,6 +7,8 @@ use Espo\Core\Acl\Table;
 use Espo\Core\Exceptions\Forbidden;
 use Espo\Core\Select\SearchParams;
 use Espo\Core\Select\SelectBuilderFactory;
+use Espo\Core\Select\Where\Item as WhereItem;
+use Espo\Core\Exceptions\BadRequest;
 use Espo\Core\Utils\Language;
 use Espo\Modules\AdvancedCrosstab\Engine\Definition\Definition;
 use Espo\Modules\AdvancedCrosstab\Engine\Definition\Dimension;
@@ -100,11 +102,21 @@ class QueryCompiler
             $builder->withSearchParams($searchParams);
         }
 
+        // Filters coming from an EspoCRM list view (search panel), applied by EspoCRM's where converter
+        // with its field permission checks (strict access control).
+        if ($definition->listWhere) {
+            $this->applyListWhere($builder, $definition->listWhere);
+        }
+
         if ($definition->primaryFilter) {
             $builder->withPrimaryFilter($definition->primaryFilter);
         }
 
-        $queryBuilder = $builder->buildQueryBuilder();
+        try {
+            $queryBuilder = $builder->buildQueryBuilder();
+        } catch (\InvalidArgumentException) {
+            throw new BadRequest("Invalid list filters.");
+        }
 
         $where = $definition->filter ?
             $this->filterCompiler->compile($definition->filter, $entityType, $registry) :
@@ -125,6 +137,66 @@ class QueryCompiler
             measureExpressions: $measureExpressions,
             measureConditions: $measureConditions,
         );
+    }
+
+    /**
+     * A list view sends its text search, preset filter and bool filters (e.g. "Only my") as `textFilter` /
+     * `primary` / `bool` items;
+     * EspoCRM applies those through its filter classes, the rest through its where converter.
+     *
+     * @param array<int, mixed> $listWhere
+     */
+    private function applyListWhere(\Espo\Core\Select\SelectBuilder $builder, array $listWhere): void
+    {
+        $items = [];
+
+        foreach ($listWhere as $item) {
+            if (!is_array($item)) {
+                throw new BadRequest("Invalid list filters.");
+            }
+
+            $type = $item['type'] ?? null;
+
+            if ($type === 'primary') {
+                if (!is_string($item['value'] ?? null) || !preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $item['value'])) {
+                    throw new BadRequest("Invalid list filters.");
+                }
+
+                $builder->withPrimaryFilter($item['value']);
+
+                continue;
+            }
+
+            if ($type === 'textFilter') {
+                if (is_string($item['value'] ?? null) && trim($item['value']) !== '') {
+                    $builder->withTextFilter(mb_substr($item['value'], 0, 255));
+                }
+
+                continue;
+            }
+
+            if ($type === 'bool') {
+                $list = array_values(array_filter((array) ($item['value'] ?? []), 'is_string'));
+
+                if ($list) {
+                    $builder->withBoolFilterList($list);
+                }
+
+                continue;
+            }
+
+            $items[] = $item;
+        }
+
+        if (!$items) {
+            return;
+        }
+
+        try {
+            $builder->withWhere(WhereItem::fromRawAndGroup($items));
+        } catch (\InvalidArgumentException|\TypeError) {
+            throw new BadRequest("Invalid list filters.");
+        }
     }
 
     private function compileMeasure(

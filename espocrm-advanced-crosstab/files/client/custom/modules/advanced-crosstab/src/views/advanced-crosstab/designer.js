@@ -47,6 +47,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                             <div class="acx-section" data-role="measures"></div>
                             <div class="acx-section">
                                 <div class="acx-section-title">{{translate 'Filters' scope='AdvancedCrosstab'}}</div>
+                                <div data-role="list-filters"></div>
                                 <select class="form-control input-sm" data-name="primaryFilter"></select>
                                 <div class="acx-mt" data-role="filters">{{{filters}}}</div>
                             </div>
@@ -69,12 +70,16 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                                 <div class="btn-group" data-role="modes"></div>
                                 <select class="form-control input-sm acx-inline-select hidden" data-name="chartType"></select>
                                 <select class="form-control input-sm acx-inline-select hidden" data-name="chartMeasure"></select>
+                                <select class="form-control input-sm acx-inline-select" data-name="layout"
+                                    title="{{translate 'Layout' scope='AdvancedCrosstab'}}"></select>
                                 <div class="btn-group btn-group-sm" data-role="table-tools">
                                     <button type="button" class="btn btn-default" data-action="expandAll"
                                         title="{{translate 'Expand all' scope='AdvancedCrosstab'}}"><span class="fas fa-plus-square"></span></button>
                                     <button type="button" class="btn btn-default" data-action="collapseAll"
                                         title="{{translate 'Collapse all' scope='AdvancedCrosstab'}}"><span class="fas fa-minus-square"></span></button>
                                 </div>
+                                <button type="button" class="btn btn-default btn-sm" data-action="fullscreen"
+                                    title="{{translate 'Full screen' scope='AdvancedCrosstab'}}"><span class="fas fa-expand"></span></button>
                                 <button type="button" class="btn btn-default btn-sm" data-action="refresh"
                                     title="{{translate 'Refresh' scope='AdvancedCrosstab'}}"><span class="fas fa-sync-alt"></span></button>
                                 <span class="acx-info" data-role="info"></span>
@@ -137,20 +142,40 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.addActionHandler('editMeasure', (e, target) => this.editMeasure(parseInt(target.dataset.index)));
             this.addActionHandler('removeMeasure', (e, target) => this.removeItem('measures', parseInt(target.dataset.index)));
             this.addActionHandler('toggleMeasure', (e, target) => this.toggleMeasure(parseInt(target.dataset.index)));
+            this.addActionHandler('quickMeasure', () => this.quickMeasure());
+            this.addActionHandler('removeListFilters', () => {
+                this.definition.listWhere = null;
+                this.renderListFilters();
+                this.markChanged();
+            });
+            this.addActionHandler('fullscreen', () => this.toggleFullscreen());
 
             this.listenTo(this.model, 'change:isStarred', () => this.updateStar());
 
             this.setupFilterView();
         }
 
+        /**
+         * A new crosstab, from the entity's preset when one is defined in metadata
+         * (clientDefs.{Entity}.advancedCrosstab = {rows, columns, measures, filter, options}).
+         */
         createDefaultDefinition(entityType) {
+            const preset = Espo.Utils.cloneDeep(this.getMetadata().get(['clientDefs', entityType, 'advancedCrosstab']) || {});
+
             return {
                 entityType: entityType,
-                rows: [],
-                columns: [],
-                measures: [{key: 'count', label: this.translate('Count', 'labels', 'AdvancedCrosstab'), kind: 'native', aggregation: 'COUNT'}],
-                filter: null,
-                options: {rowTotals: true, columnTotals: true, subtotals: true, view: {mode: 'table', chartType: 'column'}},
+                rows: preset.rows || [],
+                columns: preset.columns || [],
+                measures: preset.measures ||
+                    [{key: 'count', label: this.translate('Count', 'labels', 'AdvancedCrosstab'), kind: 'native', aggregation: 'COUNT'}],
+                filter: preset.filter || null,
+                options: {
+                    rowTotals: true,
+                    columnTotals: true,
+                    subtotals: true,
+                    ...(preset.options || {}),
+                    view: {mode: 'table', chartType: 'column', layout: 'compact', ...((preset.options || {}).view || {})},
+                },
             };
         }
 
@@ -191,6 +216,28 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             });
 
             $('chartType').addEventListener('change', () => this.setViewOption('chartType', $('chartType').value));
+            $('layout').addEventListener('change', () => this.setViewOption('layout', $('layout').value));
+
+            // Inline aggregation change on measure chips.
+            this.element.querySelector('[data-role="measures"]').addEventListener('change', e => {
+                const select = e.target.closest('[data-measure-aggregation]');
+
+                if (!select) {
+                    return;
+                }
+
+                this.definition.measures[parseInt(select.dataset.measureAggregation)].aggregation = select.value;
+                this.renderMeasureList();
+                this.markChanged();
+            });
+
+            this.escapeHandler = e => {
+                if (e.key === 'Escape' && this.element.classList.contains('acx-fullscreen')) {
+                    this.toggleFullscreen();
+                }
+            };
+
+            document.addEventListener('keydown', this.escapeHandler);
             $('chartMeasure').addEventListener('change', () => this.setViewOption('chartMeasure', $('chartMeasure').value));
 
             this.renderMenu();
@@ -229,7 +276,45 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.renderDimensionList('columns');
             this.renderMeasureList();
             this.renderPrimaryFilters();
+            this.renderListFilters();
             this.renderViewControls();
+        }
+
+        /**
+         * Filters received from an EspoCRM list view (search panel). Applied by the server; can be removed.
+         */
+        renderListFilters() {
+            const container = this.element.querySelector('[data-role="list-filters"]');
+            const list = this.definition.listWhere || [];
+
+            container.innerHTML = list.length ? `
+                <div class="acx-chip acx-list-filter">
+                    <span class="acx-chip-body">
+                        <span class="acx-chip-label"><span class="fas fa-filter"></span>
+                            ${this.escapeString(this.t('List filters'))} (${list.length})</span>
+                        <span class="acx-chip-meta" title="${this.escapeString(JSON.stringify(list))}">${this.escapeString(this.describeWhere(list))}</span>
+                    </span>
+                    <span class="acx-chip-actions"><a role="button" data-action="removeListFilters"
+                        title="${this.escapeString(this.translate('Remove'))}"><span class="fas fa-times"></span></a></span>
+                </div>` : '';
+        }
+
+        describeWhere(list) {
+            return list.map(item => {
+                if (item.type === 'primary') {
+                    return this.translate(item.value, 'presetFilters', this.definition.entityType);
+                }
+
+                if (item.type === 'bool') {
+                    return (item.value || []).map(v => this.translate(v, 'boolFilters', this.definition.entityType)).join(', ');
+                }
+
+                if (item.type === 'textFilter') {
+                    return '"' + item.value + '"';
+                }
+
+                return item.attribute ? this.schema.translateField(this.definition.entityType, item.attribute) : item.type;
+            }).join(' · ');
         }
 
         renderPrimaryFilters() {
@@ -321,7 +406,13 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             const container = this.element.querySelector('[data-role="measures"]');
 
             const items = list.map((measure, index) => {
-                const eye = `<a role="button" data-action="toggleMeasure" data-index="${index}"
+                const aggregation = measure.kind === 'native' ?
+                    `<select class="acx-chip-select" data-measure-aggregation="${index}" title="${this.escapeString(this.t('Aggregation'))}">` +
+                    ['SUM', 'COUNT', 'COUNT_DISTINCT', 'AVG', 'MIN', 'MAX'].map(a =>
+                        `<option value="${a}"${a === measure.aggregation ? ' selected' : ''}>${this.escapeString(this.t(a, 'aggregations'))}</option>`).join('') +
+                    '</select>' : '';
+
+                const eye = aggregation + `<a role="button" data-action="toggleMeasure" data-index="${index}"
                     title="${this.escapeString(this.t('Show / hide'))}"><span class="far fa-eye${measure.hidden ? '-slash' : ''}"></span></a>`;
 
                 return `<li class="acx-chip${measure.hidden ? ' acx-hidden-measure' : ''}">
@@ -340,6 +431,8 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                         <a role="button" class="dropdown-toggle" data-toggle="dropdown" title="${this.escapeString(this.t('Add'))}">
                             <span class="fas fa-plus"></span></a>
                         <ul class="dropdown-menu pull-right">
+                            <li><a role="button" data-action="quickMeasure"><span class="fas fa-bolt fa-fw"></span> ${this.escapeString(this.t('Field value…'))}</a></li>
+                            <li class="divider"></li>
                             <li><a role="button" data-action="addMeasure" data-kind="native">${this.escapeString(this.t('native', 'measureKinds'))}</a></li>
                             <li><a role="button" data-action="addMeasure" data-kind="aggregate">${this.escapeString(this.t('aggregate', 'measureKinds'))}</a></li>
                             <li><a role="button" data-action="addMeasure" data-kind="display">${this.escapeString(this.t('display', 'measureKinds'))}</a></li>
@@ -369,6 +462,12 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
 
             chartType.classList.toggle('hidden', view.mode !== 'chart');
             chartMeasure.classList.toggle('hidden', view.mode !== 'chart' || visibleMeasures.length < 2);
+
+            const layout = this.element.querySelector('[data-name="layout"]');
+
+            layout.innerHTML = ['compact', 'tabular'].map(item =>
+                `<option value="${item}"${item === (view.layout || 'compact') ? ' selected' : ''}>${this.escapeString(this.t(item, 'layouts'))}</option>`).join('');
+            layout.classList.toggle('hidden', view.mode !== 'table');
             this.element.querySelector('[data-role="table-tools"]').classList.toggle('hidden', view.mode !== 'table');
         }
 
@@ -679,6 +778,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 mode: view.mode,
                 chartType: view.chartType,
                 chartMeasure: view.chartMeasure,
+                layout: view.layout,
                 source: this.resultSource,
             }).then(panel => panel.render());
         }
@@ -809,7 +909,58 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             setTimeout(() => win.print(), 300);
         }
 
+        /**
+         * One-click measure from a field: SUM for numeric fields, COUNT (non-empty values) otherwise.
+         */
+        quickMeasure() {
+            this.createView('dialog', 'advanced-crosstab:views/advanced-crosstab/modals/field-picker', {
+                entityType: this.definition.entityType,
+                purpose: 'any',
+                onSelect: (path, info) => {
+                    const numeric = Schema.NUMERIC_TYPES.includes(info.type);
+                    const used = this.definition.measures.map(m => m.key);
+                    let key = path.replace(/\.(.)/g, (m, c) => c.toUpperCase()).replace(/[^a-zA-Z0-9_]/g, '');
+                    let i = 2;
+
+                    while (used.includes(key) || ['id', 'null', 'true', 'false'].includes(key.toLowerCase())) {
+                        key = key.replace(/\d+$/, '') + i++;
+                    }
+
+                    const measure = {
+                        key: key,
+                        label: info.label,
+                        kind: 'native',
+                        aggregation: numeric ? 'SUM' : 'COUNT',
+                        expression: path,
+                    };
+
+                    if (info.type === 'currency') {
+                        measure.format = {type: 'currency'};
+                    }
+
+                    this.definition.measures.push(measure);
+                    this.renderMeasureList();
+                    this.renderViewControls();
+                    this.markChanged();
+                },
+            }).then(view => view.render());
+        }
+
+        toggleFullscreen() {
+            const on = this.element.classList.toggle('acx-fullscreen');
+            const icon = this.element.querySelector('[data-action="fullscreen"] span');
+
+            icon.className = 'fas fa-' + (on ? 'compress' : 'expand');
+            document.body.classList.toggle('acx-body-fullscreen', on);
+
+            // Charts adapt to the new width.
+            window.dispatchEvent(new Event('resize'));
+        }
+
         onRemove() {
+            document.removeEventListener('keydown', this.escapeHandler);
+            document.body.classList.remove('acx-body-fullscreen');
+
             this.getRouter().confirmLeaveOut = false;
             clearTimeout(this.runTimeout);
         }

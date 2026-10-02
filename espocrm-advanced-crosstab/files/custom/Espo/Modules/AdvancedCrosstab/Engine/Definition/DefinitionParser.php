@@ -71,6 +71,16 @@ class DefinitionParser
             $primaryFilter = null;
         }
 
+        $listWhere = $data['listWhere'] ?? null;
+
+        if ($listWhere !== null) {
+            if (!is_array($listWhere) || !array_is_list($listWhere) || strlen((string) json_encode($listWhere)) > 50000) {
+                throw DefinitionError::create("Invalid list filters.");
+            }
+
+            $listWhere = $listWhere ?: null;
+        }
+
         $options = is_array($data['options'] ?? null) ? $data['options'] : [];
 
         return new Definition(
@@ -84,6 +94,7 @@ class DefinitionParser
             columnTotals: ($options['columnTotals'] ?? true) !== false,
             subtotals: ($options['subtotals'] ?? true) !== false,
             raw: $data,
+            listWhere: $listWhere,
         );
     }
 

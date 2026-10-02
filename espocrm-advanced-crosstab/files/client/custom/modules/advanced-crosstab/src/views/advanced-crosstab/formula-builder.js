@@ -1,4 +1,4 @@
-define('advanced-crosstab:views/advanced-crosstab/formula-builder', ['view'], function (View) {
+define('advanced-crosstab:views/advanced-crosstab/formula-builder', ['view', 'advanced-crosstab:lib/schema'], function (View, Schema) {
 
     const OPERATORS = ['+', '-', '*', '/', '(', ')', '>', '<', '>=', '<=', '==', '!=', 'AND', 'OR', '!', '??'];
 
@@ -85,7 +85,9 @@ define('advanced-crosstab:views/advanced-crosstab/formula-builder', ['view'], fu
                     selector: '[data-role="side"]',
                     entityType: this.options.entityType,
                     purpose: 'any',
-                    onSelect: path => this.insert(path),
+                    // In aggregate formulas a picked field comes wrapped: SUM for numbers, COUNT otherwise.
+                    onSelect: (path, info) => this.insert(this.kind !== 'aggregate' ? path :
+                        (Schema.NUMERIC_TYPES.includes(info.type) ? `SUM(${path})|` : `COUNT(${path})|`)),
                 });
             }
         }

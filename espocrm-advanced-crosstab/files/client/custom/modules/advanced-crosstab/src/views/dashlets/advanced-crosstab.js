@@ -56,6 +56,7 @@ define('advanced-crosstab:views/dashlets/advanced-crosstab', ['views/dashlets/ab
                         mode: mode,
                         chartType: view.chartType,
                         chartMeasure: view.chartMeasure,
+                        layout: view.layout,
                         source: {id: reportId},
                         height: body.clientHeight,
                     }).then(panel => panel.render());

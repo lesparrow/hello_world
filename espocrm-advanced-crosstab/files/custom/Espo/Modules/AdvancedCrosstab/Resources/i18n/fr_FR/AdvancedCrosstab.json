@@ -127,7 +127,12 @@
         "Error": "Erreur",
         "Count": "Nombre",
         "chartCategoriesTruncated": "Affichage des {n} premières catégories sur {total}.",
-        "chartSeriesTruncated": "Affichage des {n} premières séries sur {total}."
+        "chartSeriesTruncated": "Affichage des {n} premières séries sur {total}.",
+        "Pivot": "Pivot",
+        "List filters": "Filtres de la liste",
+        "Layout": "Disposition",
+        "Full screen": "Plein écran",
+        "Field value…": "Valeur d'un champ (rapide)…"
     },
     "granularities": {
         "year": "Année",
@@ -240,14 +245,19 @@
         }
     },
     "messages": {
-        "formulaHelp.record": "Formule EspoCRM évaluée pour chaque enregistrement, ex. amount - cost, ifThenElse(stage == 'Closed Won', amount, 0), account.industry.",
+        "formulaHelp.record": "Formule EspoCRM évaluée pour chaque enregistrement, ex. amount - cost, ifThenElse(stage == 'Closed Won', amount, 0), account.industry. La syntaxe tableur fonctionne aussi : IF([amount] > 0, [amount], 0), AND(…), OR(…), CONTAINS([name], 'x'), COUNT([champ]) (1 si non vide).",
         "formulaHelp.condition": "Condition évaluée pour chaque enregistrement, ex. stage == 'Closed Won' AND account.country == 'Morocco'.",
-        "formulaHelp.aggregate": "Combinez des agrégats, calculés par la base à chaque niveau (cellules, sous-totaux, totaux), ex. (SUM(amount) - SUM(cost)) / SUM(amount) * 100. Un 2e argument filtre l'agrégat : SUM(amount, stage == 'Closed Won').",
+        "formulaHelp.aggregate": "Combinez des agrégats, calculés par la base à chaque niveau (cellules, sous-totaux, totaux), ex. (SUM(amount) - SUM(cost)) / SUM(amount) * 100. Un 2e argument filtre l'agrégat : SUM(amount, stage == 'Closed Won'). Choisir un champ insère SUM(champ) ou COUNT(champ).",
         "formulaHelp.display": "Calcul sur d'autres mesures, par clé, après agrégation, ex. margin / revenue * 100.",
         "keyTooltip": "Identifiant utilisé dans les formules d'affichage et les tris.",
         "resultTruncated": "Résultat tronqué : trop de combinaisons. Ajoutez des filtres, un regroupement de dates plus large ou un Top N.",
         "exportScheduled": "L'export est en cours de génération. Vous serez notifié lorsqu'il sera prêt.",
         "exportReady": "L'export du tableau croisé **{title}** est prêt : [télécharger]({url}).",
-        "selectReport": "Choisissez un tableau croisé dans les options du panneau."
+        "selectReport": "Choisissez un tableau croisé dans les options du panneau.",
+        "pivotButtonTitle": "Analyser cette liste dans un tableau croisé, avec ses filtres actuels"
+    },
+    "layouts": {
+        "compact": "Compacte",
+        "tabular": "Tabulaire (cascade)"
     }
 }

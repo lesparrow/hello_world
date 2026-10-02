@@ -113,6 +113,21 @@ define('advanced-crosstab:lib/styles', [], function () {
         .acx-drill-summary { margin-bottom: 8px; }
         .acx-dashlet-body { overflow: auto; height: 100%; }
         .acx-dashlet-body .acx-table-wrap { max-height: none; }
+        .acx-fullscreen { position: fixed; inset: 0; z-index: 1040; overflow: auto; padding: 12px 16px;
+            background-color: var(--body-bg, #f2f3f5); }
+        .acx-fullscreen .acx-table-wrap { max-height: calc(100vh - 170px); }
+        body.acx-body-fullscreen { overflow: hidden; }
+        table.acx-pivot tr.acx-grand-row > th, table.acx-pivot tr.acx-grand-row > td { position: sticky; bottom: 0; z-index: 2;
+            background-color: var(--panel-heading-bg, #f5f6f8); }
+        table.acx-pivot tr.acx-grand-row > th.acx-row-header { z-index: 3; }
+        table.acx-pivot.acx-tabular tbody tr:not(.acx-grand-row) > th.acx-row-header { position: static; }
+        table.acx-pivot.acx-tabular th.acx-tabular-group { vertical-align: top; background-color: var(--panel-bg, #fff); }
+        table.acx-pivot.acx-tabular tr.acx-subtotal-row > th, table.acx-pivot.acx-tabular tr.acx-subtotal-row > td {
+            background-color: rgba(127,127,127,.07); }
+        table.acx-pivot .acx-corner-tabular { left: auto; position: sticky; }
+        .acx-chip-select { font-size: 11px; padding: 0 2px; height: 20px; border-radius: 3px; max-width: 92px;
+            border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; margin-right: 2px; }
+        .acx-list-filter { margin-bottom: 6px; }
     `;
 
     let injected = false;

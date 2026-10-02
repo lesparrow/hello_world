@@ -15,7 +15,9 @@ use Throwable;
  *
  * A few conveniences are normalized before parsing (outside string literals only):
  * - `AND`, `OR` (any case) → `&&`, `||`;
- * - `COUNT(DISTINCT x)` → `COUNT_DISTINCT(x)`.
+ * - `COUNT(DISTINCT x)` → `COUNT_DISTINCT(x)`;
+ * - bracketed field references `[amount]`, `[account.industry]` → `amount`, `account.industry`
+ *   (the syntax of spreadsheet-style pivot tools).
  */
 class FormulaParser
 {
@@ -92,6 +94,7 @@ class FormulaParser
 
     private function normalizeCode(string $code): string
     {
+        $code = preg_replace('/\[\s*([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)*)\s*\]/', '$1', $code) ?? $code;
         $code = preg_replace('/\bCOUNT\s*\(\s*DISTINCT\s+/i', 'COUNT_DISTINCT(', $code) ?? $code;
         $code = preg_replace('/\s+AND\s+/i', ' && ', $code) ?? $code;
 

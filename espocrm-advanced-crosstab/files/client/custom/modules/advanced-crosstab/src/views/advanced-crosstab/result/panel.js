@@ -7,7 +7,7 @@ define('advanced-crosstab:views/advanced-crosstab/result/panel', ['view', 'advan
      * Options:
      * - result
      * - mode: 'table' | 'chart' | 'kpi'
-     * - chartType, chartMeasure, kpiMeasures
+     * - chartType, chartMeasure, kpiMeasures, layout ('compact' | 'tabular')
      * - source: {id} or {definition} — identifies the crosstab for drill-down
      * - drillDown: bool
      * - height: available height (dashlets)
@@ -50,6 +50,7 @@ define('advanced-crosstab:views/advanced-crosstab/result/panel', ['view', 'advan
                 chartType: this.options.chartType,
                 measure: this.options.chartMeasure,
                 height: this.options.height,
+                layout: this.options.layout,
                 measures: this.options.kpiMeasures,
                 drillDown: this.options.drillDown !== false,
                 onDrillDown: params => this.openDrillDown(params),

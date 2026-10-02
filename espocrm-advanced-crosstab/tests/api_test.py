@@ -357,10 +357,48 @@ def test_rollup_consistency():
               not diffs and rolled['queryCount'] == 1, str(diffs[:3]))
 
 
+def test_spreadsheet_syntax_and_list_filters():
+    print('Spreadsheet-style formulas and list-view filters')
+
+    def validate(formula, kind='record'):
+        return call('POST', 'AdvancedCrosstab/action/validateFormula',
+                    {'entityType': 'Opportunity', 'formula': formula, 'kind': kind})[1]
+
+    r = validate("IF(AND([amount] > 1000, OR([stage] == 'Closed Won', [stage] == 'Closed Lost')), [amount], 0)")
+    check('[field] syntax with IF / AND / OR', r['valid'], str(r))
+    r = validate("CONTAINS([name], 'Opp') && NOT([amount] < 0)", 'condition')
+    total = int(sql(f"SELECT COUNT(*) {OPP}")[0][0])
+    check('CONTAINS and NOT', r['valid'] and r['preview']['count'] == total, str(r))
+    r = validate('SUM([amount]) / COUNT([account.industry])', 'aggregate')
+    expected = sql(f"SELECT SUM(o.amount) / COUNT(a.industry) {OPP}")[0][0]
+    check('aggregate with [field] syntax', r['valid'] and close(r['preview']['value'], expected), str(r))
+    r = validate('SUM(COUNT([account.industry]))', 'aggregate')
+    expected = sql(f"SELECT COUNT(a.industry) {OPP}")[0][0]
+    check('COUNT(field) as a non-empty indicator', r['valid'] and close(r['preview']['value'], expected), str(r))
+
+    base = {'entityType': 'Opportunity', 'rows': [{'path': 'stage'}], 'measures': MEASURES}
+    result = run(dict(base, listWhere=[{'type': 'in', 'attribute': 'leadSource', 'value': ['Web', 'Call']},
+                                       {'type': 'greaterThan', 'attribute': 'amount', 'value': 100000}]))
+    expected = sql(f"SELECT COUNT(*) {OPP} AND o.lead_source IN ('Web', 'Call') AND o.amount > 100000")[0][0]
+    check('list where items', close(cell(result, [], [], 1), expected))
+    result = run(dict(base, listWhere=[{'type': 'primary', 'value': 'open'}]))
+    expected = sql(f"SELECT COUNT(*) {OPP} AND o.stage NOT IN ('Closed Won', 'Closed Lost')")[0][0]
+    check('list preset filter', close(cell(result, [], [], 1), expected))
+    result = run(dict(base, listWhere=[{'type': 'textFilter', 'value': 'Opp 1'}]))
+    expected = sql(f"SELECT COUNT(*) {OPP} AND o.name LIKE 'Opp 1%'")[0][0]
+    check('list text search', close(cell(result, [], [], 1), expected))
+    status, _, _ = call('POST', 'AdvancedCrosstab/action/run', {'definition': dict(base, listWhere=[{'type': 'weird'}])})
+    check('malformed list filter rejected with 400', status == 400)
+    status, _, reason = call('POST', 'AdvancedCrosstab/action/run', {'definition': dict(
+        base, listWhere=[{'type': 'equals', 'attribute': 'probability', 'value': 5}])}, ALICE)
+    check('forbidden field in list filters rejected', status == 403, f"{status} {reason}")
+
+
 if __name__ == '__main__':
     for test in [test_totals, test_ratio_correctness, test_display_and_conditional, test_multi_level_relations,
                  test_filters, test_acl, test_validation_and_injection, test_dates_compare_topn, test_drill_down,
-                 test_saved_report_and_export, test_rollup_consistency]:
+                 test_saved_report_and_export, test_rollup_consistency,
+                 test_spreadsheet_syntax_and_list_filters]:
         try:
             test()
         except Exception as e:  # noqa

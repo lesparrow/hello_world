@@ -1,0 +1,26 @@
+{
+    "advancedCrosstab": {
+        "rows": [
+            {
+                "path": "dRANEF"
+            }
+        ],
+        "columns": [
+            {
+                "path": "composanteBiologique"
+            }
+        ],
+        "measures": [
+            {
+                "key": "superficieDuPerimetre",
+                "label": "Sup. Totale (Ha)",
+                "kind": "native",
+                "aggregation": "SUM",
+                "expression": "superficieDuPerimetre",
+                "format": {
+                    "type": "decimal"
+                }
+            }
+        ]
+    }
+}

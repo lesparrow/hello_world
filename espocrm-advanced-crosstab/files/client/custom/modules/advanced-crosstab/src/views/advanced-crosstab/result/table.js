@@ -6,7 +6,12 @@ define('advanced-crosstab:views/advanced-crosstab/result/table', ['view'], funct
      * Pivot table: hierarchical rows and columns with expand/collapse, subtotals, totals,
      * comparison cells, ranks, interactive re-sorting (client-side, no query) and drill-down.
      *
-     * Options: result, formatter, drillDown (bool), onDrillDown({rowPath, columnPath, measure}).
+     * Options: result, formatter, layout ('compact' | 'tabular'), drillDown (bool),
+     * onDrillDown({rowPath, columnPath, measure}).
+     *
+     * Layouts:
+     * - compact: one indented row-header column, parent rows carry their subtotals;
+     * - tabular: one column per row dimension with merged cells (cascade), subtotal rows after each group.
      */
     return class extends View {
 
@@ -130,10 +135,12 @@ define('advanced-crosstab:views/advanced-crosstab/result/table', ['view'], funct
             this.rowPaths = [];
 
             const showMeasureRow = valueColumns.length > 1 || C === 0;
+            const R = result.rowDimensions.length;
+            const tabular = this.options.layout === 'tabular' && R > 1;
             const headerRows = C + (showMeasureRow ? 1 : 0);
             const VC = valueColumns.length;
 
-            html.push('<table class="table table-bordered table-condensed acx-pivot"><thead>');
+            html.push(`<table class="table table-bordered table-condensed acx-pivot${tabular ? ' acx-tabular' : ''}"><thead>`);
 
             // Column header rows.
             const leafCount = (node, prefix) => {
@@ -152,7 +159,14 @@ define('advanced-crosstab:views/advanced-crosstab/result/table', ['view'], funct
             for (let level = 0; level < headerRows; level++) {
                 html.push('<tr>');
 
-                if (level === 0) {
+                if (level === 0 && tabular) {
+                    result.rowDimensions.forEach((dimension, i) => {
+                        html.push(`<th class="acx-corner${i ? ' acx-corner-tabular' : ''}" rowspan="${headerRows}">${this.escapeString(dimension.label)}` +
+                            (C && i === result.rowDimensions.length - 1 ?
+                                `<div class="acx-corner-columns small text-muted">${this.escapeString(result.columnDimensions.map(d => d.label).join(' › '))}</div>` : '') +
+                            '</th>');
+                    });
+                } else if (level === 0) {
                     html.push(`<th class="acx-corner" rowspan="${headerRows}">${this.escapeString(rowDimensionLabel)}` +
                         (C ? `<div class="acx-corner-columns small text-muted">${this.escapeString(result.columnDimensions.map(d => d.label).join(' › '))}</div>` : '') +
                         '</th>');
@@ -268,12 +282,65 @@ define('advanced-crosstab:views/advanced-crosstab/result/table', ['view'], funct
                 }
             };
 
-            walkRows(result.rows, [], 0);
+            /**
+             * Tabular layout: returns rows as {cells, path, total}; a group's label cell spans all its rows.
+             */
+            const buildTabular = (node, prefix, level) => {
+                const path = prefix.concat([node.k]);
+                const id = JSON.stringify(path);
+                const expanded = node.c && !this.collapsedRows.has(id);
+                const toggle = node.c ? `<a role="button" class="acx-toggle" data-toggle-row="${this.escapeString(id)}">
+                    <span class="fas fa-${expanded ? 'minus' : 'plus'}-square"></span></a> ` : '';
+                const label = `${toggle}${this.escapeString(node.l)}` + (node.r ? ` <span class="badge acx-rank">#${node.r}</span>` : '');
+
+                if (!expanded) {
+                    const cells = [`<th class="acx-row-header acx-tabular-cell">${label}</th>`];
+
+                    if (level < R - 1) {
+                        cells.push(`<th class="acx-tabular-cell" colspan="${R - 1 - level}"></th>`);
+                    }
+
+                    return [{cells, path, total: !!node.c}];
+                }
+
+                const rows = [];
+
+                for (const child of this.sortNodes(node.c, path)) {
+                    rows.push(...buildTabular(child, path, level + 1));
+                }
+
+                rows[0].cells.unshift(`<th class="acx-row-header acx-tabular-cell acx-tabular-group" rowspan="${rows.length}">${label}</th>`);
+
+                if (result.options.subtotals) {
+                    rows.push({
+                        cells: [`<th class="acx-row-header acx-tabular-cell" colspan="${R - level}">` +
+                            `${this.escapeString(this.t('Total'))} ${this.escapeString(node.l)}</th>`],
+                        path,
+                        total: true,
+                    });
+                }
+
+                return rows;
+            };
+
+            if (tabular) {
+                for (const node of this.sortNodes(result.rows, [])) {
+                    for (const row of buildTabular(node, [], 0)) {
+                        const rowIndex = this.rowPaths.push(row.path) - 1;
+
+                        html.push(`<tr class="${row.total ? 'acx-parent acx-subtotal-row' : ''}">` + row.cells.join(''));
+                        renderValues(row.path, rowIndex, row.total);
+                        html.push('</tr>');
+                    }
+                }
+            } else {
+                walkRows(result.rows, [], 0);
+            }
 
             if (!result.rows.length || (result.options.columnTotals && result.rows.length)) {
                 const rowIndex = this.rowPaths.push([]) - 1;
 
-                html.push(`<tr class="acx-grand-row"><th class="acx-row-header">${this.escapeString(this.t('Total'))}</th>`);
+                html.push(`<tr class="acx-grand-row"><th class="acx-row-header"${tabular ? ` colspan="${R}"` : ''}>${this.escapeString(this.t('Total'))}</th>`);
                 renderValues([], rowIndex, true);
                 html.push('</tr>');
             }

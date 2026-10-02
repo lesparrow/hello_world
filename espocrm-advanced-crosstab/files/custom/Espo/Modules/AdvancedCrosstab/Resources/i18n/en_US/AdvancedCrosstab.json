@@ -127,7 +127,12 @@
         "Error": "Error",
         "Count": "Count",
         "chartCategoriesTruncated": "Showing the first {n} of {total} categories.",
-        "chartSeriesTruncated": "Showing the first {n} of {total} series."
+        "chartSeriesTruncated": "Showing the first {n} of {total} series.",
+        "Pivot": "Pivot",
+        "List filters": "List filters",
+        "Layout": "Layout",
+        "Full screen": "Full screen",
+        "Field value…": "Field value (quick)…"
     },
     "granularities": {
         "year": "Year",
@@ -240,14 +245,19 @@
         }
     },
     "messages": {
-        "formulaHelp.record": "EspoCRM formula evaluated for each record, e.g. amount - cost, ifThenElse(stage == 'Closed Won', amount, 0), account.industry.",
+        "formulaHelp.record": "EspoCRM formula evaluated for each record, e.g. amount - cost, ifThenElse(stage == 'Closed Won', amount, 0), account.industry. Spreadsheet syntax also works: IF([amount] > 0, [amount], 0), AND(…), OR(…), CONTAINS([name], 'x'), COUNT([field]) (1 if not empty).",
         "formulaHelp.condition": "Condition evaluated for each record, e.g. stage == 'Closed Won' AND account.country == 'Morocco'.",
-        "formulaHelp.aggregate": "Combine aggregates, computed by the database at every level (cells, subtotals, totals), e.g. (SUM(amount) - SUM(cost)) / SUM(amount) * 100. A second argument filters an aggregate: SUM(amount, stage == 'Closed Won').",
+        "formulaHelp.aggregate": "Combine aggregates, computed by the database at every level (cells, subtotals, totals), e.g. (SUM(amount) - SUM(cost)) / SUM(amount) * 100. A second argument filters an aggregate: SUM(amount, stage == 'Closed Won'). Picking a field inserts SUM(field) or COUNT(field).",
         "formulaHelp.display": "Calculation on other measures, by key, after aggregation, e.g. margin / revenue * 100.",
         "keyTooltip": "Identifier used in display formulas and sorting.",
         "resultTruncated": "The result is truncated: too many combinations. Add filters, use a coarser date grouping or Top N.",
         "exportScheduled": "The export is being generated. You will be notified when it is ready.",
         "exportReady": "Advanced Crosstab export **{title}** is ready: [download]({url}).",
-        "selectReport": "Select a crosstab in the panel options."
+        "selectReport": "Select a crosstab in the panel options.",
+        "pivotButtonTitle": "Analyse this list in a crosstab, with its current filters"
+    },
+    "layouts": {
+        "compact": "Compact",
+        "tabular": "Tabular (cascade)"
     }
 }

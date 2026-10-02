@@ -35,6 +35,23 @@ All aggregation runs in the database. The browser only receives aggregated cells
 | Formatting | Number, integer, decimal, percent, currency and duration (h:mm). Decimals, prefix and suffix are configurable. Values use EspoCRM's thousand separator and decimal mark. |
 | Languages | English and French. |
 
+## Options added from the dashboard pivot (v2.1)
+
+The pivot table of the forestry dashboard (`pivotTable.js`) had several options that are now part of the extension,
+re-implemented server-side and with ACL:
+
+| Dashboard pivot | Advanced Crosstab |
+|---|---|
+| "Mode Pivot" toggle on each list, pivoting the filtered data | A **Pivot** button on every EspoCRM list view. It opens a crosstab with the list's current filters (text search, preset filter, "only my", field filters), which appear as a removable "List filters" chip. Field ACL applies to these filters too. |
+| Default pivot per list (rows / column / metrics) | **Per-entity presets** in metadata (`clientDefs.<Entity>.advancedCrosstab`). Presets reproducing the dashboard's five pivots are in [`docs/presets`](docs/presets). |
+| `[field]` formulas with `IF`, `AND`, `OR`, `COUNT`, `CONTAINS` | Same syntax accepted: `IF([amount] > 0, [amount], 0)`, `AND(…)`, `OR(…)`, `NOT(…)`, `CONTAINS([name], 'x')`, and `COUNT([field])`, which gives 1 when the field is not empty. Formulas are still compiled to SQL and validated. |
+| Aggregate fields built from SUM / CNT buttons | In an aggregate formula, picking a field inserts `SUM(field)` for numbers and `COUNT(field)` for anything else. |
+| "+ Valeur / Calcul": add a field with a default aggregation | **Field value (quick)…** in the measures menu: one click adds a measure, SUM for numeric fields and COUNT otherwise. |
+| Aggregation dropdown on each value | **Inline aggregation** selector on each measure chip (Sum, Count, Count distinct, Average, Min, Max). |
+| Cascade rows with merged cells (rowspan) | **Tabular (cascade) layout**: one column per row dimension, merged cells and "Total …" rows. The indented **Compact** layout is still available. |
+| Sticky totals footer | The grand total row stays visible at the bottom while scrolling. |
+| Full-screen mode | **Full screen** button (Esc to exit). |
+
 ## How it works
 
 ```text
@@ -157,6 +174,7 @@ Defaults are in `Resources/metadata/app/advancedCrosstab.json`. They can be over
 - Charts show at most 8 series and 40 categories, and say so when they hide some. Pie charts group the rest into
   "Other".
 - Dimensions are reordered with arrow buttons; there is no drag and drop.
+- The list-view Pivot button opens the designer as a new, unsaved crosstab. It doesn't switch the list in place.
 
 ## Development
 

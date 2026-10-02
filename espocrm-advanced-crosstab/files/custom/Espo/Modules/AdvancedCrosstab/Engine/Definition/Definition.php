@@ -25,6 +25,8 @@ class Definition
         public readonly bool $subtotals,
         /** @var array<string, mixed> Raw definition, used for caching. */
         public readonly array $raw,
+        /** @var ?array<int, array<string, mixed>> EspoCRM where items, e.g. the filters of a list view. */
+        public readonly ?array $listWhere = null,
     ) {}
 
     public function getMeasure(string $key): ?Measure

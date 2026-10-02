@@ -1,0 +1,7 @@
+{
+    "viewSetupHandlers": {
+        "list": [
+            "advanced-crosstab:handlers/list-pivot"
+        ]
+    }
+}
