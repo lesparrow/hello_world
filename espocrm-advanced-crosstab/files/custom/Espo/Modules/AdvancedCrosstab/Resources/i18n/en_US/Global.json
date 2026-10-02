@@ -1,0 +1,11 @@
+{
+    "scopeNames": {
+        "AdvancedCrosstab": "Advanced Crosstab"
+    },
+    "scopeNamesPlural": {
+        "AdvancedCrosstab": "Advanced Crosstabs"
+    },
+    "dashlets": {
+        "AdvancedCrosstab": "Advanced Crosstab"
+    }
+}

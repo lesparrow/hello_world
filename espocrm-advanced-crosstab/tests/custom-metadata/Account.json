@@ -1,0 +1,9 @@
+{
+    "fields": {
+        "parent": {"type": "link"}
+    },
+    "links": {
+        "parent": {"type": "belongsTo", "entity": "Account", "foreign": "children"},
+        "children": {"type": "hasMany", "entity": "Account", "foreign": "parent"}
+    }
+}

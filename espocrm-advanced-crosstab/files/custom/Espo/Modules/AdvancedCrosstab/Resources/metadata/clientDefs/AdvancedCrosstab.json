@@ -1,0 +1,15 @@
+{
+    "controller": "controllers/record",
+    "iconClass": "fas fa-table-cells",
+    "color": "#4a8bc2",
+    "createDisabled": false,
+    "quickCreateDisabled": true,
+    "boolFilterList": [
+        "onlyMy"
+    ],
+    "filterList": [],
+    "views": {
+        "detail": "advanced-crosstab:views/advanced-crosstab/designer",
+        "edit": "advanced-crosstab:views/advanced-crosstab/designer"
+    }
+}

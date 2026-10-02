@@ -1,0 +1,26 @@
+{
+    "advancedCrosstab": {
+        "rows": [
+            {
+                "path": "programme"
+            }
+        ],
+        "columns": [
+            {
+                "path": "etat"
+            }
+        ],
+        "measures": [
+            {
+                "key": "montantDuMarche",
+                "label": "Montant Marché",
+                "kind": "native",
+                "aggregation": "SUM",
+                "expression": "montantDuMarche",
+                "format": {
+                    "type": "currency"
+                }
+            }
+        ]
+    }
+}

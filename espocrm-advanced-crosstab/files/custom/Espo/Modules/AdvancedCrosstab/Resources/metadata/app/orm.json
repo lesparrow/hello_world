@@ -1,0 +1,14 @@
+{
+    "platforms": {
+        "Mysql": {
+            "functionConverterClassNameMap": {
+                "COUNT_DISTINCT": "Espo\\Modules\\AdvancedCrosstab\\Classes\\ORM\\CountDistinct"
+            }
+        },
+        "Postgresql": {
+            "functionConverterClassNameMap": {
+                "COUNT_DISTINCT": "Espo\\Modules\\AdvancedCrosstab\\Classes\\ORM\\CountDistinct"
+            }
+        }
+    }
+}
