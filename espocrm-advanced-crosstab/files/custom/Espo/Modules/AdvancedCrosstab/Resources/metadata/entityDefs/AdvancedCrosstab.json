@@ -27,11 +27,6 @@
             "type": "linkMultiple",
             "view": "views/fields/teams"
         },
-        "collaborators": {
-            "type": "linkMultiple",
-            "view": "views/fields/collaborators",
-            "maxCount": 50
-        },
         "createdAt": {
             "type": "datetime",
             "readOnly": true
@@ -60,12 +55,6 @@
             "type": "hasMany",
             "entity": "Team",
             "relationName": "entityTeam",
-            "layoutRelationshipsDisabled": true
-        },
-        "collaborators": {
-            "type": "hasMany",
-            "entity": "User",
-            "relationName": "entityCollaborator",
             "layoutRelationshipsDisabled": true
         },
         "createdBy": {

@@ -24,7 +24,8 @@ $users = [];
 foreach (['alice', 'bob'] as $name) {
     $u = $em->createEntity('User', ['userName' => $name, 'lastName' => ucfirst($name), 'type' => 'regular', 'isActive' => true,
         'rolesIds' => [$role->getId()], 'teamsIds' => [$team->getId()], 'defaultTeamId' => $team->getId()]);
-    $u->set('password', password_hash('pass123', PASSWORD_BCRYPT));
+    // Espo's own hashing (the algorithm differs between EspoCRM versions).
+    $u->set('password', $c->getByClass(\Espo\Core\InjectableFactory::class)->create(\Espo\Core\Utils\PasswordHash::class)->hash('pass123'));
     $em->saveEntity($u);
     $users[$name] = $u;
 }
@@ -52,5 +53,27 @@ for ($i = 0; $i < 300; $i++) {
         'stage' => $stages[mt_rand(0, 5)], 'closeDate' => $date, 'probability' => mt_rand(0, 100),
         'accountId' => $acc?->getId(), 'assignedUserId' => $user->getId(), 'leadSource' => ['Web', 'Call', 'Partner', ''][mt_rand(0, 3)],
     ]);
+}
+// Contacts (many-to-many with accounts) and meetings (children of accounts), for related measures and selectors.
+$contacts = [];
+foreach (['Alaoui', 'Bennani', 'Chraibi', 'Dupont', 'Garcia', 'Idrissi'] as $i => $lastName) {
+    $contacts[] = $em->createEntity('Contact', [
+        'firstName' => 'C' . $i, 'lastName' => $lastName,
+        'accountsIds' => [$accounts[$i % 6]->getId(), $accounts[($i + 2) % 6]->getId()],
+    ]);
+}
+$statuses = ['Planned', 'Held', 'Not Held'];
+for ($i = 0; $i < 12; $i++) {
+    $start = sprintf('%d-%02d-%02d %02d:00:00', 2026, mt_rand(1, 12), mt_rand(1, 28), mt_rand(8, 17));
+    $em->createEntity('Meeting', [
+        'name' => "Meeting $i", 'status' => $statuses[mt_rand(0, 2)], 'dateStart' => $start,
+        'dateEnd' => date('Y-m-d H:i:s', strtotime($start) + 3600),
+        'parentType' => 'Account', 'parentId' => $accounts[mt_rand(0, 5)]->getId(),
+        'assignedUserId' => $users['alice']->getId(),
+    ]);
+}
+// Campaigns with a non-unique name ('Web' twice), for custom links on non-unique fields.
+foreach ([['cp1', 'Web', 'Web'], ['cp2', 'Web', 'Email'], ['cp3', 'Call', 'Television'], ['cp4', 'Partner', 'Mail']] as [$id, $n, $type]) {
+    $em->createEntity('Campaign', ['id' => $id, 'name' => $n, 'type' => $type, 'status' => 'Active']);
 }
 echo "seeded\n";

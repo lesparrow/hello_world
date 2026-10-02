@@ -87,11 +87,12 @@ class PathResolver
 
             if (!$registry->has($linkPath)) {
                 $newAlias = $registry->nextAlias();
+                $foreignKey = $alias ? "{$alias}.{$link}Id" : "{$link}Id";
 
                 $registry->add(
                     $linkPath,
                     $foreignEntityType,
-                    $this->buildJoinConditions($newAlias, $alias, $link, $foreignEntityType),
+                    $this->buildJoinConditions($newAlias, $foreignKey, $foreignEntityType, $registry, $linkPath),
                     $newAlias
                 );
             }
@@ -140,7 +141,12 @@ class PathResolver
         $conditions = ["{$alias}.deleted" => false];
 
         if ($customJoin->isById()) {
-            $conditions["{$alias}.id:"] = $local->expression->getValue();
+            $conditions["{$alias}.id:"] = $this->restrictToReadable(
+                $entityType,
+                $local->expression,
+                $registry,
+                $customJoin->name
+            );
         } else {
             $dedupAlias = $registry->nextAlias('acxD');
             $foreignColumn = $this->getKeyAttribute($entityType, $customJoin->foreignField);
@@ -167,18 +173,8 @@ class PathResolver
                 $dedupAlias
             );
 
+            // The de-duplication sub-query only returns records the user can read.
             $conditions["{$alias}.id:"] = "{$dedupAlias}.id";
-        }
-
-        if ($this->acl->getLevel($entityType, Table::ACTION_READ) !== Table::LEVEL_ALL) {
-            $conditions["{$alias}.id=s"] = $this->selectBuilderFactory
-                ->create()
-                ->from($entityType)
-                ->forUser($this->user)
-                ->withAccessControlFilter()
-                ->buildQueryBuilder()
-                ->select(['id'])
-                ->build();
         }
 
         $registry->add($customJoin->name, $entityType, $conditions, $alias);
@@ -358,33 +354,65 @@ class PathResolver
      */
     private function buildJoinConditions(
         string $alias,
-        ?string $parentAlias,
-        string $link,
-        string $foreignEntityType
+        string $foreignKey,
+        string $foreignEntityType,
+        JoinRegistry $registry,
+        string $linkPath
     ): array {
 
-        $foreignKey = $parentAlias ? "{$parentAlias}.{$link}Id" : "{$link}Id";
-
-        $conditions = [
-            "{$alias}.id:" => $foreignKey,
+        return [
+            "{$alias}.id:" => $this->restrictToReadable(
+                $foreignEntityType,
+                Expression::column($foreignKey),
+                $registry,
+                $linkPath
+            ),
             "{$alias}.deleted" => false,
         ];
+    }
 
-        // Record-level security on the related entity.
-        if ($this->acl->getLevel($foreignEntityType, Table::ACTION_READ) !== Table::LEVEL_ALL) {
-            $subQuery = $this->selectBuilderFactory
-                ->create()
-                ->from($foreignEntityType)
-                ->forUser($this->user)
-                ->withAccessControlFilter()
-                ->buildQueryBuilder()
-                ->select(['id'])
-                ->build();
+    /**
+     * Record-level security on a joined entity: when the user can't read all its records, the key is first matched
+     * against the IDs the user can read,
+     *
+     *   LEFT JOIN (SELECT id FROM entity WHERE <ACL>) acxA ON acxA.id = key
+     *
+     * and the entity is then joined on acxA.id (records the user can't read behave as empty values). A derived table
+     * is used rather than `IN (sub-query)` in the ON clause, which EspoCRM 8.x does not support in join conditions.
+     *
+     * @return string The column to join the entity's ID on.
+     */
+    private function restrictToReadable(
+        string $entityType,
+        Expression $key,
+        JoinRegistry $registry,
+        string $linkPath
+    ): string {
 
-            $conditions["{$alias}.id=s"] = $subQuery;
+        if ($this->acl->getLevel($entityType, Table::ACTION_READ) === Table::LEVEL_ALL) {
+            return $key->getValue();
         }
 
-        return $conditions;
+        $subQuery = $this->selectBuilderFactory
+            ->create()
+            ->from($entityType)
+            ->forUser($this->user)
+            ->withAccessControlFilter()
+            ->buildQueryBuilder()
+            ->select(['id'])
+            ->order([])
+            ->build();
+
+        $aclAlias = $registry->nextAlias('acxA');
+
+        $registry->addJoin(
+            $linkPath . '#acl',
+            Join::createWithSubQuery($subQuery, $aclAlias)
+                ->withConditions(Condition::equal(Expression::column("{$aclAlias}.id"), $key)),
+            $aclAlias
+        );
+
+        return "{$aclAlias}.id";
     }
 
     private function resolveField(string $path, string $entityType, string $field, ?string $alias): ResolvedField

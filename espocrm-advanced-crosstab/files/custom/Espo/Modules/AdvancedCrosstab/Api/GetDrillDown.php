@@ -43,6 +43,12 @@ class GetDrillDown implements Action
             'maxSize' => max(1, (int) ($request->getQueryParam('maxSize') ?? 20)),
         ]);
 
-        return ResponseComposer::json($this->service->drillDown($payload, $searchParams)->toApiOutput());
+        $collection = $this->service->drillDown($payload, $searchParams);
+
+        // Same output as Collection::toApiOutput() (EspoCRM 9+), also available on 8.3.
+        return ResponseComposer::json([
+            'total' => $collection->getTotal(),
+            'list' => $collection->getValueMapList(),
+        ]);
     }
 }

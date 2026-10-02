@@ -882,7 +882,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 return;
             }
 
-            Espo.Ui.notifyWait();
+            Espo.Ui.notify(this.translate('pleaseWait', 'messages'));
 
             await this.model.save({name: name, definition: this.getRunDefinition()}, {patch: !this.isNew});
 
@@ -948,7 +948,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             const source = this.getSource();
             const title = this.getName() || this.t('Untitled crosstab');
 
-            Espo.Ui.notifyWait();
+            Espo.Ui.notify(this.translate('pleaseWait', 'messages'));
 
             const response = source.id ?
                 await Espo.Ajax.postRequest(`AdvancedCrosstab/${source.id}/export`, {format, title}) :

@@ -4,7 +4,7 @@
         "maxColumnDimensions": 3,
         "maxMeasures": 25,
         "maxCells": 50000,
-        "maxJoins": 20,
+        "maxJoins": 30,
         "maxPathDepth": 3,
         "maxFilterItems": 100,
         "maxFormulaLength": 4000,

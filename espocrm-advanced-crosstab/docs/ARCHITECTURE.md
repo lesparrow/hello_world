@@ -79,15 +79,38 @@ Modes:
 - **display**: `DisplayEvaluator` validates that every identifier is the key of a previous measure, then evaluates
   per cell. NULL propagates, and division by zero gives NULL.
 
+## Record selectors
+
+`Engine/Query/SelectorJoiner` joins the record picked by a selector once per query. Every field read through the
+selector therefore comes from the same row:
+
+```
+LEFT JOIN (
+    SELECT c.fk k, MAX(c.id) id                -- tie-break on ID (MIN for ascending rules)
+    FROM <candidates> c
+    JOIN (SELECT fk k, MAX(order) v FROM <candidates> GROUP BY fk) best
+         ON best.k = c.fk AND best.v = c.order
+    GROUP BY c.fk
+) pick ON pick.k = <owner key>
+LEFT JOIN related sel ON sel.id = pick.id
+```
+
+- **Candidates**: the related records the user can read, with a non-empty order value, that match the optional
+  condition.
+- **Relation**: resolved by `PathResolver::resolveToMany()`, the same code the related measures use (one-to-many,
+  many-to-many through the middle table, children, custom links).
+- **Paths**: the `JoinRegistry` treats a selector name as the first segment of paths, so `PathResolver`,
+  formulas, filters, drill-down and the data preview support selectors without any change.
+
 ## Security model
 
 | Concern | Enforcement |
 |---|---|
 | Entity access | Scope read check on the data source and on every traversed related entity |
 | Record access (data source) | `withStrictAccessControl()` for the user the crosstab runs for |
-| Record access (related) | If the related scope's read level is not `all`, the join gets `alias.id IN (accessible ids)`, built with the related entity's access-control filter |
+| Record access (related) | If the related scope's read level is not `all`, the key is first joined to a derived table of the accessible IDs (`LEFT JOIN (SELECT id FROM related WHERE <access-control filter>) acxA ON acxA.id = key`), and the related entity is then joined on `acxA.id`. A derived table is used because EspoCRM 8.x does not support sub-queries in join conditions. Record selectors, related measures and custom links only consider accessible records |
 | Field access | `getScopeForbiddenFieldList()` for the final field and for every traversed link, in dimensions, measures, formulas and filters |
-| Saved crosstabs | Record ACL (assigned user, teams, collaborators) to read or edit the definition. The data is always computed with the viewer's ACL |
+| Saved crosstabs | Record ACL (assigned user, teams, collaborators on EspoCRM 9+) to read or edit the definition. The data is always computed with the viewer's ACL |
 | Background jobs | The job rebuilds the services with the requesting user and their `Acl` bound (`InjectableFactory::createWithBinding`) |
 | SQL injection | No string concatenation into SQL. Identifiers come from metadata, functions from a whitelist, values are bound or quoted by the driver |
 | Export injection | CSV labels starting with `= + - @` are prefixed. XLSX labels are written as explicit strings |

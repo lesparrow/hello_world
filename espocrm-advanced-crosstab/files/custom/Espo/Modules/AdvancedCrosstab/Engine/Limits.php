@@ -30,7 +30,7 @@ class Limits
     public function maxColumnDimensions(): int { return $this->get('maxColumnDimensions', 3); }
     public function maxMeasures(): int { return $this->get('maxMeasures', 25); }
     public function maxCells(): int { return $this->get('maxCells', 50000); }
-    public function maxJoins(): int { return $this->get('maxJoins', 20); }
+    public function maxJoins(): int { return $this->get('maxJoins', 30); }
     public function maxPathDepth(): int { return $this->get('maxPathDepth', 3); }
     public function maxFilterItems(): int { return $this->get('maxFilterItems', 100); }
     public function maxFormulaLength(): int { return $this->get('maxFormulaLength', 4000); }

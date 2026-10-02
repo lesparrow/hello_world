@@ -18,6 +18,14 @@ class AfterUninstall
         $configWriter->set('tabList', $tabList);
         $configWriter->save();
 
+        // Collaborators metadata added on install (EspoCRM 9+).
+        $metadata = $container->get('metadata');
+
+        $metadata->delete('entityDefs', 'AdvancedCrosstab', ['fields.collaborators', 'links.collaborators']);
+        $metadata->delete('entityAcl', 'AdvancedCrosstab', ['links.collaborators']);
+        $metadata->delete('scopes', 'AdvancedCrosstab', ['collaborators']);
+        $metadata->save();
+
         $container->get('dataManager')->clearCache();
     }
 }

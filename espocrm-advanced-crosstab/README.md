@@ -8,8 +8,8 @@ All aggregation runs in the database. The browser only receives aggregated cells
 
 - Installable package: `./build.sh` creates `dist/advanced-crosstab-<version>.zip`. Install it from
   Administration → Extensions.
-- Requirements: EspoCRM 9.0 or later, PHP 8.2 or later, MySQL/MariaDB. Tested on EspoCRM 10.0.9 with MariaDB 10.11
-  and PHP 8.3. PostgreSQL is not tested.
+- Requirements: EspoCRM 8.3 or later, PHP 8.1 or later, MySQL/MariaDB. The full test suite passes on EspoCRM 8.3.0
+  and 10.0.9 (MariaDB 10.11, PHP 8.3). PostgreSQL is not tested.
 - No core files are modified. Everything lives in the `AdvancedCrosstab` module and the `advanced-crosstab` client
   module.
 
@@ -29,11 +29,73 @@ All aggregation runs in the database. The browser only receives aggregated cells
 | Totals | Row totals, column totals, subtotals at every level and a grand total, each one optional. |
 | Drill-down | Click any cell, subtotal, total or KPI to open the matching records in EspoCRM's standard list, with sorting and paging. |
 | Views | Table, column, bar, stacked bar, line, pie and donut charts, and KPI cards, all from the same result without running the query again. |
-| Saved crosstabs | Save, save as (duplicate), rename, delete, favorite (stars) and share through teams and collaborators, with EspoCRM roles controlling access. A crosstab is validated before it is saved. |
+| Saved crosstabs | Save, save as (duplicate), rename, delete, favorite (stars) and share through teams (and collaborators on EspoCRM 9+), with EspoCRM roles controlling access. A crosstab is validated before it is saved. |
 | Dashboards | An "Advanced Crosstab" dashlet that shows a saved crosstab as a table, a chart or KPI cards. |
 | Export | XLSX (number formats, frozen headers, hierarchy), CSV (UTF-8 with BOM, protected against spreadsheet formula injection) and PDF, all generated on the server, plus print from the browser. Large exports run as a background job and the user gets a notification with a download link. |
 | Formatting | Number, integer, decimal, percent, currency and duration (h:mm). Decimals, prefix and suffix are configurable. Values use EspoCRM's thousand separator and decimal mark. |
 | Languages | English and French. |
+
+## Record selectors (v2.5)
+
+A record selector picks **one** record among the related records of each record, by a rule you choose. Use it to
+read the fields of the related record that matters (the last opportunity, the biggest won deal, the latest
+meeting…) instead of aggregating all of them:
+
+```
+Account → Opportunities (1:N) → Record selector "LAST by closeDate" → stage, amount, closeDate, account.name…
+```
+
+| Rule | Picks the record with… | Typical use |
+|---|---|---|
+| `FIRST` | the lowest value of the order field | first opportunity by date |
+| `LAST` | the highest value of the order field | last opportunity by date |
+| `MIN` | the smallest value | smallest amount |
+| `MAX` | the largest value | biggest amount |
+| `EARLIEST` | the oldest `createdAt`, or another field | first created contact |
+| `LATEST` | the newest `createdAt`, or another field | latest meeting |
+
+- **One record, all fields.** Every field read through a selector (`lastOpp.stage`, `lastOpp.amount`,
+  `lastOpp.account.name`…) comes from the same selected record, never from a different record for each field. In
+  SQL terms: `ORDER BY closeDate DESC, id DESC LIMIT 1` per account.
+- **Optional condition**: choose only among the records that match a formula, e.g. the biggest deal among
+  `stage == 'Closed Won'`.
+- **Any to-many relation**: one-to-many (Account → Opportunities), many-to-many (Account ↔ Contacts), children
+  (Account → Meetings), a custom link on a non-unique field, from the data source or from a related entity
+  (e.g. for each opportunity, the biggest opportunity of its account).
+- **Usable everywhere**: rows, columns, measures, formulas, filters, drill-down and export.
+- **Rules**:
+  - Ties are broken by record ID.
+  - Records with an empty order field are skipped.
+  - Only records the user can read are candidates (ACL).
+  - Data-source rows are never duplicated.
+- **Portable SQL**: the selection uses plain `GROUP BY` sub-queries rather than window functions.
+- **Where to create one**:
+  - **Record selectors ＋** in the sidebar;
+  - the **1** button next to any one-to-many association in the data model, which shows the selected record as a
+    UML `«selector»` class;
+  - the **① Record selector** component of the pipeline.
+- **The dialog** explains the selection in plain words and shows the equivalent `ORDER BY … LIMIT 1`.
+
+Definition format:
+
+```json
+"selectors": [
+  {"name": "lastOpp", "link": "opportunities", "rule": "LAST", "orderBy": "closeDate"},
+  {"name": "bigWin", "link": "opportunities", "rule": "MAX", "orderBy": "amount", "condition": "stage == 'Closed Won'"},
+  {"name": "accountBiggest", "from": "account", "link": "opportunities", "rule": "MAX", "orderBy": "amount"}
+]
+```
+
+| | |
+|---|---|
+| ![Record selector](docs/screenshots/record-selector.png) | ![Fields of the selected record](docs/screenshots/record-selector-result.png) |
+
+**EspoCRM 8.3 compatibility** (v2.5):
+
+- The extension now installs on EspoCRM 8.3 and later, with PHP 8.1 or later.
+- Collaborators exist only since EspoCRM 9. On EspoCRM 9+, the installer enables them the same way the Entity
+  Manager does.
+- Upgrading from 2.4 keeps the existing collaborators.
 
 ## Pipeline (ETL) view and UX (v2.4)
 
@@ -234,7 +296,7 @@ Defaults are in `Resources/metadata/app/advancedCrosstab.json`. They can be over
 | Column dimensions | 3 |
 | Measures | 25 |
 | Cells | 50,000. Past this, the result is truncated and a warning is shown. |
-| Joins | 10 |
+| Joins (related entities, custom links, selectors and record-level ACL joins) | 30 |
 | Relationship depth | 3 |
 | Filter conditions | 100 |
 | Formula length | 4,000 characters |

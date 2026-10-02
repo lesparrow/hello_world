@@ -121,7 +121,20 @@ define('advanced-crosstab:views/advanced-crosstab/modals/data-model', ['views/mo
 
             this.canvas.addEventListener('pointerdown', e => this.startDrag(e));
 
-            this.resetLayout();
+            // Boxes are placed from rendered sizes: wait until the dialog is visible (EspoCRM 8.x renders modals
+            // before showing them).
+            let tries = 0;
+            const start = () => {
+                if (this.canvas.offsetWidth || tries++ > 60) {
+                    this.resetLayout();
+
+                    return;
+                }
+
+                requestAnimationFrame(start);
+            };
+
+            start();
         }
 
         t(label, category = 'labels') {

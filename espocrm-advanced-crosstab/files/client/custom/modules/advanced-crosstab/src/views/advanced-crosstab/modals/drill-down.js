@@ -53,7 +53,7 @@ define('advanced-crosstab:views/advanced-crosstab/modals/drill-down', ['views/mo
                             }
 
                             this.whenRendered().then(() => {
-                                Espo.Ui.notifyWait();
+                                Espo.Ui.notify(this.translate('pleaseWait', 'messages'));
                                 collection.fetch().then(() => Espo.Ui.notify(false));
                             });
                         });
