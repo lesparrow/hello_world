@@ -1,5 +1,10 @@
 [
     {
+        "route": "/AdvancedCrosstab/action/preview",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\AdvancedCrosstab\\Api\\PostPreview"
+    },
+    {
         "route": "/AdvancedCrosstab/action/run",
         "method": "post",
         "actionClassName": "Espo\\Modules\\AdvancedCrosstab\\Api\\PostRun"

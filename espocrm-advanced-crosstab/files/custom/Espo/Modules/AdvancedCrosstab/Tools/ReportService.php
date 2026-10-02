@@ -170,6 +170,156 @@ class ReportService
     }
 
     /**
+     * ETL-style data preview of a pipeline stage, computed with the user's ACL:
+     * - `source`: records of the data source (no filters);
+     * - `filtered`: records after the list filters, preset filter and filter tree.
+     *
+     * Returns the record count and the first records with the fields the crosstab uses (raw values; link names).
+     *
+     * @return array<string, mixed>
+     */
+    public function preview(stdClass $data): array
+    {
+        $start = microtime(true);
+        $stage = ($data->stage ?? 'filtered') === 'source' ? 'source' : 'filtered';
+        $raw = json_decode(json_encode($data->definition ?? null), true);
+
+        if (!is_array($raw)) {
+            throw new BadRequest("No definition.");
+        }
+
+        if ($stage === 'source') {
+            unset($raw['filter'], $raw['listWhere'], $raw['primaryFilter']);
+        }
+
+        $definition = $this->getDefinition(null, $raw);
+        $limit = max(1, min(100, (int) ($data->limit ?? 30)));
+
+        $paths = [];
+        $pathPattern = '/^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)*$/';
+
+        foreach (array_merge($definition->rows, $definition->columns) as $dimension) {
+            if ($dimension->path) {
+                $paths[] = $dimension->path;
+            }
+        }
+
+        foreach ($definition->measures as $measure) {
+            if (
+                $measure->kind === \Espo\Modules\AdvancedCrosstab\Engine\Definition\Measure::KIND_NATIVE &&
+                $measure->expression && preg_match($pathPattern, str_replace(['[', ']'], '', $measure->expression))
+            ) {
+                $paths[] = str_replace(['[', ']'], '', $measure->expression);
+            }
+        }
+
+        $walk = function ($node) use (&$walk, &$paths) {
+            if (!is_array($node)) {
+                return;
+            }
+
+            if (($node['type'] ?? null) === 'condition' && isset($node['path'])) {
+                $paths[] = $node['path'];
+            }
+
+            foreach ($node['items'] ?? [] as $item) {
+                $walk($item);
+            }
+        };
+
+        $walk($definition->filter);
+
+        $paths = array_slice(array_values(array_unique($paths)), 0, 20);
+
+        $compiled = $this->queryCompiler->compile($definition, null, $paths);
+
+        $count = $this->entityManager
+            ->getQueryExecutor()
+            ->execute(
+                $this->entityManager->getQueryBuilder()->select()->clone($compiled->baseQuery)
+                    ->select([[Expression::count(Expression::column('id'))->getValue(), 'c']])
+                    ->order([])
+                    ->build()
+            )
+            ->fetchColumn();
+
+        $select = [['id', 'id']];
+        $columns = [];
+        $hasName = $this->entityManager->getDefs()->getEntity($definition->entityType)->hasAttribute('name');
+
+        if ($hasName) {
+            $select[] = ['name', 'name'];
+            $columns[] = ['key' => 'name', 'label' => $this->queryCompiler->buildPathLabel($definition->entityType, 'name'), 'type' => 'varchar'];
+        }
+
+        $i = 0;
+
+        foreach ($compiled->extraFields as $path => $field) {
+            if ($path === 'name') {
+                continue;
+            }
+
+            $key = 'p' . $i++;
+            $select[] = [$field->expression->getValue(), $key];
+            $columns[] = [
+                'key' => $key,
+                'path' => $path,
+                'label' => $this->queryCompiler->buildPathLabel($definition->entityType, $path),
+                'type' => $field->fieldType,
+                'foreignEntityType' => $field->foreignEntityType,
+            ];
+        }
+
+        $rows = $this->entityManager
+            ->getQueryExecutor()
+            ->execute(
+                $this->entityManager->getQueryBuilder()->select()->clone($compiled->baseQuery)
+                    ->select($select)
+                    ->order([])
+                    ->limit(0, $limit)
+                    ->build()
+            )
+            ->fetchAll(PDO::FETCH_ASSOC);
+
+        // Link columns: record names instead of IDs.
+        foreach ($columns as $column) {
+            if (empty($column['foreignEntityType'])) {
+                continue;
+            }
+
+            $ids = array_values(array_unique(array_filter(array_map(fn ($row) => $row[$column['key']], $rows))));
+
+            if (!$ids || !$this->entityManager->getDefs()->getEntity($column['foreignEntityType'])->hasAttribute('name')) {
+                continue;
+            }
+
+            $names = [];
+
+            foreach ($this->entityManager->getRDBRepository($column['foreignEntityType'])
+                ->select(['id', 'name'])->where(['id' => $ids])->find() as $entity) {
+                $names[$entity->getId()] = $entity->get('name');
+            }
+
+            foreach ($rows as &$row) {
+                if ($row[$column['key']] !== null) {
+                    $row[$column['key']] = $names[$row[$column['key']]] ?? $row[$column['key']];
+                }
+            }
+
+            unset($row);
+        }
+
+        return [
+            'stage' => $stage,
+            'entityType' => $definition->entityType,
+            'count' => (int) $count,
+            'columns' => array_map(fn ($c) => array_diff_key($c, ['foreignEntityType' => 1]), $columns),
+            'rows' => $rows,
+            'durationMs' => (int) round((microtime(true) - $start) * 1000),
+        ];
+    }
+
+    /**
      * Records behind one crosstab cell, listed with EspoCRM's standard list API format.
      *
      * The cell is identified by its row/column key paths. The same expressions as for grouping are used,

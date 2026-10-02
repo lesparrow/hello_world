@@ -495,11 +495,34 @@ def test_custom_joins():
     check('link on a forbidden field rejected', status == 400, f"{status} {reason}")
 
 
+def test_preview():
+    print('ETL data preview per stage')
+    definition = {'entityType': 'Opportunity', 'joins': [{'name': 'camp', 'localField': 'leadSource', 'entityType': 'Campaign',
+                                                           'foreignField': 'name'}],
+                  'rows': [{'path': 'account.industry'}, {'path': 'camp.type'}], 'measures': MEASURES,
+                  'filter': {'type': 'condition', 'path': 'stage', 'operator': 'equals', 'value': 'Closed Won'}}
+    status, source, reason = call('POST', 'AdvancedCrosstab/action/preview', {'definition': definition, 'stage': 'source', 'limit': 5})
+    check('source stage count', status == 200 and source['count'] == int(sql(f"SELECT COUNT(*) {OPP}")[0][0]), f"{status} {reason}")
+    status, filtered, _ = call('POST', 'AdvancedCrosstab/action/preview', {'definition': definition, 'stage': 'filtered', 'limit': 5})
+    expected = int(sql(f"SELECT COUNT(*) {OPP} AND o.stage = 'Closed Won'")[0][0])
+    check('filtered stage count', status == 200 and filtered['count'] == expected, f"{filtered and filtered['count']} vs {expected}")
+    paths = [c.get('path') for c in filtered['columns']]
+    check('preview columns include used fields', {'account.industry', 'camp.type', 'amount', 'stage'} <= set(paths), str(paths))
+    check('preview rows limited', len(filtered['rows']) == 5)
+    status, _, reason = call('POST', 'AdvancedCrosstab/action/preview', {'definition': definition, 'stage': 'source'}, ALICE)
+    check('preview refuses a link to an entity without access', status == 400, f"{status} {reason}")
+    own = {'entityType': 'Opportunity', 'rows': [{'path': 'stage'}], 'measures': MEASURES}
+    status, alice, _ = call('POST', 'AdvancedCrosstab/action/preview', {'definition': own, 'stage': 'source'}, ALICE)
+    expected = int(sql(f"SELECT COUNT(*) FROM opportunity WHERE deleted = 0 AND assigned_user_id = '{user_id('alice')}'")[0][0])
+    check('preview respects ACL', status == 200 and alice['count'] == expected, f"{alice and alice['count']} vs {expected}")
+
+
 if __name__ == '__main__':
     for test in [test_totals, test_ratio_correctness, test_display_and_conditional, test_multi_level_relations,
                  test_filters, test_acl, test_validation_and_injection, test_dates_compare_topn, test_drill_down,
                  test_saved_report_and_export, test_rollup_consistency,
-                 test_spreadsheet_syntax_and_list_filters, test_related_measures, test_custom_joins]:
+                 test_spreadsheet_syntax_and_list_filters, test_related_measures, test_custom_joins,
+                 test_preview]:
         try:
             test()
         except Exception as e:  # noqa

@@ -65,7 +65,10 @@ class QueryCompiler
      * @param ?SearchParams $searchParams Only for record listing (drill-down): order, paging, select.
      * @throws Forbidden
      */
-    public function compile(Definition $definition, ?SearchParams $searchParams = null): CompiledQuery
+    /**
+     * @param string[] $extraPaths Field paths to resolve as well (data preview). Invalid ones are skipped.
+     */
+    public function compile(Definition $definition, ?SearchParams $searchParams = null, array $extraPaths = []): CompiledQuery
     {
         $entityType = $definition->entityType;
 
@@ -114,6 +117,14 @@ class QueryCompiler
             $availableKeys[] = $measure->key;
         }
 
+        $extraFields = [];
+
+        foreach ($extraPaths as $path) {
+            try {
+                $extraFields[$path] = $this->pathResolver->resolve($entityType, $path, $registry);
+            } catch (SchemaError) {}
+        }
+
         $builder = $this->selectBuilderFactory
             ->create()
             ->from($entityType)
@@ -158,6 +169,7 @@ class QueryCompiler
             columns: $columns,
             measureExpressions: $measureExpressions,
             measureConditions: $measureConditions,
+            extraFields: $extraFields,
         );
     }
 

@@ -21,5 +21,7 @@ class CompiledQuery
         public readonly array $columns,
         public readonly array $measureExpressions,
         public readonly array $measureConditions,
+        /** @var array<string, \Espo\Modules\AdvancedCrosstab\Engine\Schema\ResolvedField> Extra resolved paths (preview). */
+        public readonly array $extraFields = [],
     ) {}
 }
