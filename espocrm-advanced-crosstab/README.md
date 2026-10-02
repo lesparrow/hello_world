@@ -35,6 +35,46 @@ All aggregation runs in the database. The browser only receives aggregated cells
 | Formatting | Number, integer, decimal, percent, currency and duration (h:mm). Decimals, prefix and suffix are configurable. Values use EspoCRM's thousand separator and decimal mark. |
 | Languages | English and French. |
 
+## Pipeline (ETL) view and UX (v2.4)
+
+The **Design | Pipeline** switch in the header shows a crosstab as an ETL data flow:
+
+**Source → Lookups → Filter → Calculate → Aggregate → Output**
+
+- Each step is a node that shows its status: configured (green), pass-through (empty circle), no records (orange) or
+  error (red). It also lists its content: the related entities used (`⟶ Account`, `«join» …`, `Σ …`), the filter
+  conditions, the formulas, the group-by fields and measures, and the output options.
+- The arrows between steps show how many records flow through: source records, records kept by the filters (also as
+  a %), and the number of result cells. The server counts them with the user's ACL (`action/preview`).
+- **Components palette**: Lookup / join, Σ related records, Filter, Calculated measure, Row, Column and Measure. Click
+  a component, or drag it onto the pipeline, to add it.
+- **Properties panel**: click a step and the sidebar shows only that step's settings. **Show all** brings back the
+  whole sidebar.
+- **Data preview**: below the pipeline, two tabs show the first 30 records of the source and of the filtered data.
+  Only the fields the crosstab uses are shown, and related records appear by name.
+
+Other UX improvements:
+
+- **Undo / redo** with the header buttons, Ctrl+Z, and Ctrl+Shift+Z or Ctrl+Y, up to 100 steps.
+- Ctrl+S saves and Ctrl+Enter refreshes.
+- **Drag and drop**: drag row and column chips to reorder them or to move them between rows and columns. Measures can
+  be reordered the same way.
+- An **empty-state guide** appears while the crosstab has no row or column, with one-click buttons for each step.
+
+The **data model** now uses **UML class diagram** notation:
+
+- Each entity is a class with a stereotype (`«data source»`, `«entity»`, `«join»`, `«aggregate»`) and typed
+  attributes (`Amount : Money`, `Account : Account`, `ID : Id {id}`).
+- Associations are navigable (open arrowhead) and carry multiplicities: `*` on the source side, `0..1` or `1` on the
+  target side.
+- Aggregated one-to-many relationships (Σ) use a hollow aggregation diamond.
+- Custom links are dashed `«join»` dependencies.
+
+| | |
+|---|---|
+| ![Pipeline](docs/screenshots/pipeline-etl.png) | ![UML data model](docs/screenshots/data-model-uml.png) |
+| ![Empty-state guide](docs/screenshots/empty-state-guide.png) | |
+
 ## Link with any entity (v2.3)
 
 Any entity can be brought into a crosstab, whether or not EspoCRM has a relationship for it:
@@ -62,12 +102,12 @@ Correctness and security:
 
 ## Visual data model (v2.2)
 
-Next to **Data source**, the **Data model** button opens a diagram of the entities, drawn like a Merise MCD:
+Next to **Data source**, the **Data model** button opens a diagram of the entities (UML class diagram notation since v2.4, see above):
 
 - The data source entity is a box listing its fields. Its **many-to-one associations** (Opportunity → Account,
   Account → Parent account, Opportunity → Assigned user…) are listed under it. Click one to open the related entity
-  as a new box, linked by an association oval with its cardinalities (for example `0,1` on the opportunity side and
-  `0,N` on the account side). You can open up to 3 levels deep.
+  as a new box, linked by a navigable association with its multiplicities (`*` on the opportunity side, `0..1` on the
+  account side). You can open up to 3 levels deep.
 - Hover a field in any box and click **R**, **C**, **M** or **F** to add it to the crosstab's rows, columns,
   measures (SUM for numbers, COUNT otherwise) or filters. The relation path, such as `account.parent.industry`, is
   built from the diagram. Badges on each field show where it is already used.
@@ -158,6 +198,7 @@ rejected with an explicit error.
 | `POST api/v1/AdvancedCrosstab/:id/run` | Run a saved crosstab. `{noCache}` |
 | `POST api/v1/AdvancedCrosstab/action/run` | Run an unsaved definition. `{definition, noCache}` |
 | `POST api/v1/AdvancedCrosstab/action/validateFormula` | `{entityType, formula, kind: record\|condition\|aggregate\|display, measureKeys}` returns `{valid, error, preview}` |
+| `POST api/v1/AdvancedCrosstab/action/preview` | `{definition, stage: source\|filtered, limit ≤ 100}` returns `{count, columns, rows, durationMs}`: the pipeline's record counts and data preview (ACL applies). |
 | `GET api/v1/AdvancedCrosstab/action/drillDown?payload=…` | Records of a cell, in EspoCRM's list format (`{total, list}`). |
 | `POST api/v1/AdvancedCrosstab/:id/export`, `…/action/export` | `{format: xlsx\|csv\|pdf, title}` returns `{attachmentId}` or `{async: true}` |
 

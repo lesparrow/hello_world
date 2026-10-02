@@ -23,10 +23,22 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 <input type="text" class="acx-name-input" data-name="name" maxlength="150"
                     placeholder="{{translate 'Untitled crosstab' scope='AdvancedCrosstab'}}">
                 <span class="acx-dirty hidden" data-role="dirty">● {{translate 'Unsaved changes' scope='AdvancedCrosstab'}}</span>
+                <div class="btn-group acx-workspace" data-role="workspace">
+                    <button type="button" class="btn btn-default btn-sm" data-action="setWorkspace" data-workspace="design">
+                        <span class="fas fa-table"></span> {{translate 'Design' scope='AdvancedCrosstab'}}</button>
+                    <button type="button" class="btn btn-default btn-sm" data-action="setWorkspace" data-workspace="pipeline">
+                        <span class="fas fa-project-diagram"></span> {{translate 'Pipeline' scope='AdvancedCrosstab'}}</button>
+                </div>
                 <div class="acx-header-buttons">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-default btn-icon" data-action="undo" disabled
+                            title="{{translate 'Undo' scope='AdvancedCrosstab'}} (Ctrl+Z)"><span class="fas fa-undo"></span></button>
+                        <button type="button" class="btn btn-default btn-icon" data-action="redo" disabled
+                            title="{{translate 'Redo' scope='AdvancedCrosstab'}} (Ctrl+Shift+Z)"><span class="fas fa-redo"></span></button>
+                    </div>
                     <button type="button" class="btn btn-default btn-icon acx-star hidden" data-action="toggleStar"
                         title="{{translate 'Favorite' scope='AdvancedCrosstab'}}"><span class="far fa-star"></span></button>
-                    <button type="button" class="btn btn-primary" data-action="save">{{translate 'Save'}}</button>
+                    <button type="button" class="btn btn-primary" data-action="save" title="Ctrl+S">{{translate 'Save'}}</button>
                     <div class="btn-group">
                         <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
                             <span class="fas fa-ellipsis-h"></span></button>
@@ -38,7 +50,8 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 <div class="acx-sidebar">
                     <div class="panel panel-default">
                         <div class="panel-body">
-                            <div class="acx-section">
+                            <div class="acx-properties-head hidden" data-role="properties-head"></div>
+                            <div class="acx-section" data-stage="source">
                                 <div class="acx-section-title">
                                     <span>{{translate 'Data source' scope='AdvancedCrosstab'}}</span>
                                     <a role="button" data-action="dataModel" title="{{translate 'Data model' scope='AdvancedCrosstab'}}">
@@ -46,17 +59,17 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                                 </div>
                                 <select class="form-control" data-name="entityType"></select>
                             </div>
-                            <div class="acx-section" data-role="joins"></div>
-                            <div class="acx-section" data-role="rows"></div>
-                            <div class="acx-section" data-role="columns"></div>
-                            <div class="acx-section" data-role="measures"></div>
-                            <div class="acx-section">
+                            <div class="acx-section" data-role="joins" data-stage="lookups"></div>
+                            <div class="acx-section" data-role="rows" data-stage="aggregate"></div>
+                            <div class="acx-section" data-role="columns" data-stage="aggregate"></div>
+                            <div class="acx-section" data-role="measures" data-stage="aggregate calculate lookups"></div>
+                            <div class="acx-section" data-stage="filter">
                                 <div class="acx-section-title">{{translate 'Filters' scope='AdvancedCrosstab'}}</div>
                                 <div data-role="list-filters"></div>
                                 <select class="form-control input-sm" data-name="primaryFilter"></select>
                                 <div class="acx-mt" data-role="filters">{{{filters}}}</div>
                             </div>
-                            <div class="acx-section">
+                            <div class="acx-section" data-stage="output">
                                 <div class="acx-section-title">{{translate 'Totals' scope='AdvancedCrosstab'}}</div>
                                 <div class="checkbox"><label><input type="checkbox" data-option="rowTotals">
                                     {{translate 'Row totals' scope='AdvancedCrosstab'}}</label></div>
@@ -71,7 +84,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 <div class="acx-main">
                     <div class="panel panel-default">
                         <div class="panel-body">
-                            <div class="acx-toolbar">
+                            <div class="acx-toolbar" data-role="toolbar">
                                 <div class="btn-group" data-role="modes"></div>
                                 <select class="form-control input-sm acx-inline-select hidden" data-name="chartType"></select>
                                 <select class="form-control input-sm acx-inline-select hidden" data-name="chartMeasure"></select>
@@ -89,7 +102,9 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                                     title="{{translate 'Refresh' scope='AdvancedCrosstab'}}"><span class="fas fa-sync-alt"></span></button>
                                 <span class="acx-info" data-role="info"></span>
                             </div>
+                            <div data-role="guide"></div>
                             <div data-role="result"></div>
+                            <div class="hidden" data-role="pipeline"></div>
                         </div>
                     </div>
                 </div>
@@ -120,7 +135,12 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
 
             this.dirty = this.isNew;
             this.result = null;
+            this.error = null;
             this.requestId = 0;
+            this.history = [JSON.stringify(this.definition)];
+            this.historyIndex = 0;
+            this.workspace = this.getStoredWorkspace();
+            this.stage = null;
 
             const handlers = {
                 save: () => this.save(),
@@ -132,6 +152,11 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 expandAll: () => this.tableView()?.expandAll(true),
                 collapseAll: () => this.tableView()?.expandAll(false),
                 print: () => this.print(),
+                undo: () => this.undo(),
+                redo: () => this.redo(),
+                showAllSections: () => this.selectStage(null),
+                guideDataModel: () => this.openDataModel(),
+                guidePipeline: () => this.setWorkspace('pipeline'),
             };
 
             for (const [name, handler] of Object.entries(handlers)) {
@@ -160,6 +185,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 this.markChanged();
             });
             this.addActionHandler('fullscreen', () => this.toggleFullscreen());
+            this.addActionHandler('setWorkspace', (e, target) => this.setWorkspace(target.dataset.workspace));
 
             this.listenTo(this.model, 'change:isStarred', () => this.updateStar());
 
@@ -243,19 +269,19 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 this.markChanged();
             });
 
-            this.escapeHandler = e => {
-                if (e.key === 'Escape' && this.element.classList.contains('acx-fullscreen')) {
-                    this.toggleFullscreen();
-                }
-            };
+            this.escapeHandler = e => this.onKeyDown(e);
 
             document.addEventListener('keydown', this.escapeHandler);
             $('chartMeasure').addEventListener('change', () => this.setViewOption('chartMeasure', $('chartMeasure').value));
+
+            this.setupChipDragging();
 
             this.renderMenu();
             this.renderPanels();
             this.updateStar();
             this.updateDirty();
+            this.updateHistoryButtons();
+            this.setWorkspace(this.workspace, true);
             this.run();
         }
 
@@ -284,6 +310,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
         }
 
         renderPanels() {
+            this.renderGuide();
             this.renderDimensionList('rows');
             this.renderDimensionList('columns');
             this.renderMeasureList();
@@ -380,7 +407,8 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             const items = list.map((dimension, index) => {
                 const {label, meta} = this.describeDimension(dimension);
 
-                return `<li class="acx-chip">
+                return `<li class="acx-chip" draggable="true" data-drag-axis="${axis}" data-drag-index="${index}">
+                    <span class="acx-chip-grip fas fa-grip-vertical"></span>
                     <span class="acx-chip-body" data-action="editDimension" data-axis="${axis}" data-index="${index}">
                         <span class="acx-chip-label">${this.escapeString(label)}</span>
                         <span class="acx-chip-meta">${this.escapeString(meta || '')}</span>
@@ -399,8 +427,8 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                             <span class="fas fa-plus"></span></a>
                     </span>
                 </div>
-                <ul class="acx-chips">${items}</ul>
-                ${list.length ? '' : `<div class="acx-empty-hint">${this.escapeString(this.t(axis === 'rows' ? 'No rows' : 'No columns'))}</div>`}
+                <ul class="acx-chips" data-drop-axis="${axis}">${items}</ul>
+                ${list.length ? '' : `<div class="acx-empty-hint acx-drop-zone" data-drop-axis="${axis}">${this.escapeString(this.t(axis === 'rows' ? 'No rows' : 'No columns'))}</div>`}
             `;
         }
 
@@ -438,7 +466,9 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 const eye = aggregation + `<a role="button" data-action="toggleMeasure" data-index="${index}"
                     title="${this.escapeString(this.t('Show / hide'))}"><span class="far fa-eye${measure.hidden ? '-slash' : ''}"></span></a>`;
 
-                return `<li class="acx-chip${measure.hidden ? ' acx-hidden-measure' : ''}">
+                return `<li class="acx-chip${measure.hidden ? ' acx-hidden-measure' : ''}" draggable="true"
+                    data-drag-axis="measures" data-drag-index="${index}">
+                    <span class="acx-chip-grip fas fa-grip-vertical"></span>
                     <span class="acx-chip-body" data-action="editMeasure" data-index="${index}">
                         <span class="acx-chip-label">${this.escapeString(measure.label)}</span>
                         <span class="acx-chip-meta" title="${this.escapeString(this.describeMeasure(measure))}">${this.escapeString(this.describeMeasure(measure))}</span>
@@ -462,7 +492,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                         </ul>
                     </span>
                 </div>
-                <ul class="acx-chips">${items}</ul>
+                <ul class="acx-chips" data-drop-axis="measures">${items}</ul>
             `;
         }
 
@@ -520,6 +550,9 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
         markChanged(rerun = true) {
             this.dirty = true;
             this.updateDirty();
+            this.pushHistory();
+            this.renderGuide();
+            this.refreshPipeline();
 
             if (rerun) {
                 clearTimeout(this.runTimeout);
@@ -767,6 +800,9 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                 if (requestId === this.requestId) {
                     const reason = e && e.getResponseHeader ? e.getResponseHeader('X-Status-Reason') : null;
 
+                    this.error = reason || this.t('Error');
+                    this.result = null;
+                    this.refreshPipeline();
                     info.innerHTML = '';
                     this.element.querySelector('[data-role="result"]').innerHTML =
                         `<div class="alert alert-danger">${this.escapeString(reason || this.t('Error'))}</div>`;
@@ -786,6 +822,8 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
 
             this.result = result;
             this.resultSource = source;
+            this.error = null;
+            this.refreshPipeline();
 
             info.textContent = (result.fromCache ? this.t('Cached') + ' · ' : '') +
                 result.queryCount + ' ' + this.t('queries') + ' · ' + result.durationMs + ' ms';
@@ -1201,6 +1239,372 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.renderMeasureList();
             this.renderViewControls();
             this.markChanged();
+        }
+
+        // --- Workspace: design / pipeline (ETL) --------------------------------------------------------------------
+
+        getStoredWorkspace() {
+            try {
+                return localStorage.getItem('advancedCrosstab.workspace') === 'pipeline' ? 'pipeline' : 'design';
+            } catch (e) {
+                return 'design';
+            }
+        }
+
+        setWorkspace(workspace, initial = false) {
+            this.workspace = workspace === 'pipeline' ? 'pipeline' : 'design';
+
+            try {
+                localStorage.setItem('advancedCrosstab.workspace', this.workspace);
+            } catch (e) {}
+
+            const isPipeline = this.workspace === 'pipeline';
+
+            this.element.querySelectorAll('[data-action="setWorkspace"]').forEach(button =>
+                button.classList.toggle('active', button.dataset.workspace === this.workspace));
+
+            ['toolbar', 'result', 'guide'].forEach(role =>
+                this.element.querySelector(`[data-role="${role}"]`).classList.toggle('hidden', isPipeline));
+            this.element.querySelector('[data-role="pipeline"]').classList.toggle('hidden', !isPipeline);
+            this.element.classList.toggle('acx-pipeline-mode', isPipeline);
+
+            if (!isPipeline) {
+                this.selectStage(null);
+
+                if (!initial) {
+                    // Charts measure their container: redraw now that it is visible.
+                    this.renderResult();
+                }
+
+                return;
+            }
+
+            if (this.getView('pipeline')) {
+                this.getView('pipeline').refresh();
+
+                return;
+            }
+
+            this.createView('pipeline', 'advanced-crosstab:views/advanced-crosstab/pipeline', {
+                selector: '[data-role="pipeline"]',
+                getDefinition: () => this.definition,
+                getRunDefinition: () => this.getRunDefinition(),
+                getResult: () => this.result,
+                getError: () => this.error,
+                selected: this.stage,
+                onSelect: stage => this.selectStage(stage),
+                onComponent: name => this.addComponent(name),
+            }).then(view => view.render());
+        }
+
+        refreshPipeline() {
+            const view = this.workspace === 'pipeline' ? this.getView('pipeline') : null;
+
+            if (view) {
+                view.refresh();
+            }
+        }
+
+        /**
+         * The sidebar becomes the properties panel of the selected pipeline step: only its sections are shown.
+         */
+        selectStage(stage) {
+            this.stage = stage;
+
+            const head = this.element.querySelector('[data-role="properties-head"]');
+
+            this.element.querySelectorAll('.acx-sidebar [data-stage]').forEach(section => {
+                section.classList.toggle('acx-stage-hidden', !!stage && !section.dataset.stage.split(' ').includes(stage));
+            });
+
+            head.classList.toggle('hidden', !stage);
+            head.innerHTML = stage ? `
+                <span><span class="fas fa-sliders-h"></span> ${this.escapeString(this.t('Properties'))} ·
+                    <strong>${this.escapeString(this.t('stage.' + stage, 'messages'))}</strong></span>
+                <a role="button" data-action="showAllSections">${this.escapeString(this.t('Show all'))}</a>` : '';
+        }
+
+        /**
+         * Palette components of the pipeline view.
+         */
+        addComponent(name) {
+            const actions = {
+                join: () => this.openCustomJoin(''),
+                related: () => this.openDataModel(),
+                filter: () => this.createView('dialog', 'advanced-crosstab:views/advanced-crosstab/modals/field-picker', {
+                    entityType: this.definition.entityType,
+                    purpose: 'any',
+                    onSelect: (path, info) => {
+                        this.addFilterFromPath(path, info);
+                        this.selectStage('filter');
+                    },
+                }).then(view => view.render()),
+                calculated: () => this.editMeasure(null, 'aggregate'),
+                row: () => this.editDimension('rows', null),
+                column: () => this.editDimension('columns', null),
+                measure: () => this.quickMeasure(),
+            };
+
+            if (actions[name]) {
+                actions[name]();
+            }
+        }
+
+        // --- Undo / redo ---------------------------------------------------------------------------------------
+
+        pushHistory() {
+            const snapshot = JSON.stringify(this.definition);
+
+            if (this.restoring || snapshot === this.history[this.historyIndex]) {
+                return;
+            }
+
+            this.history = this.history.slice(0, this.historyIndex + 1);
+            this.history.push(snapshot);
+
+            if (this.history.length > 100) {
+                this.history.shift();
+            }
+
+            this.historyIndex = this.history.length - 1;
+            this.updateHistoryButtons();
+        }
+
+        undo() {
+            this.restoreHistory(this.historyIndex - 1);
+        }
+
+        redo() {
+            this.restoreHistory(this.historyIndex + 1);
+        }
+
+        restoreHistory(index) {
+            // Filter edits are debounced in the filter builder: record the pending state first.
+            this.pushHistory();
+
+            if (index < 0 || index >= this.history.length) {
+                return;
+            }
+
+            const previousEntityType = this.definition.entityType;
+
+            this.historyIndex = index;
+            this.definition = JSON.parse(this.history[index]);
+
+            Schema.setCustomJoins(this.definition.entityType, this.definition.joins);
+
+            this.restoring = true;
+
+            this.clearView('filters');
+            this.setupFilterView();
+            this.getView('filters').render();
+
+            if (previousEntityType !== this.definition.entityType) {
+                this.element.querySelector('[data-name="entityType"]').value = this.definition.entityType;
+            }
+
+            this.element.querySelectorAll('[data-option]').forEach(input => {
+                input.checked = this.definition.options[input.dataset.option] !== false;
+            });
+
+            this.renderPanels();
+            this.selectStage(this.stage);
+            this.markChanged();
+            this.restoring = false;
+            this.updateHistoryButtons();
+        }
+
+        updateHistoryButtons() {
+            const undo = this.element.querySelector('[data-action="undo"]');
+            const redo = this.element.querySelector('[data-action="redo"]');
+
+            if (undo) {
+                undo.disabled = this.historyIndex <= 0;
+                redo.disabled = this.historyIndex >= this.history.length - 1;
+            }
+        }
+
+        // --- Keyboard shortcuts ----------------------------------------------------------------------------------
+
+        onKeyDown(e) {
+            if (!this.element || !document.body.contains(this.element)) {
+                return;
+            }
+
+            if (e.key === 'Escape' && this.element.classList.contains('acx-fullscreen')) {
+                this.toggleFullscreen();
+
+                return;
+            }
+
+            const ctrl = e.ctrlKey || e.metaKey;
+
+            // Shortcuts are for the designer page, not for its dialogs.
+            if (!ctrl || document.querySelector('.modal.in, .modal.show')) {
+                return;
+            }
+
+            const key = e.key.toLowerCase();
+            const inField = e.target.closest && e.target.closest('input, textarea, select, [contenteditable]');
+
+            if (key === 's') {
+                e.preventDefault();
+
+                if (!this.element.querySelector('[data-action="save"]').classList.contains('hidden')) {
+                    this.save();
+                }
+
+                return;
+            }
+
+            if (key === 'enter') {
+                e.preventDefault();
+                this.run(true);
+
+                return;
+            }
+
+            if (inField) {
+                return;
+            }
+
+            if (key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                this.undo();
+            } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+                e.preventDefault();
+                this.redo();
+            }
+        }
+
+        // --- Drag and drop of chips -------------------------------------------------------------------------------
+
+        /**
+         * Rows and columns chips can be reordered and moved between the two axes; measures can be reordered.
+         */
+        setupChipDragging() {
+            const sidebar = this.element.querySelector('.acx-sidebar');
+            let dragged = null;
+
+            const clearMarks = () => sidebar.querySelectorAll('.acx-drop-before, .acx-drop-target')
+                .forEach(el => el.classList.remove('acx-drop-before', 'acx-drop-target'));
+
+            const accepts = axis => dragged &&
+                (dragged.axis === 'measures' ? axis === 'measures' : axis === 'rows' || axis === 'columns');
+
+            sidebar.addEventListener('dragstart', e => {
+                const chip = e.target.closest && e.target.closest('[data-drag-axis]');
+
+                if (!chip) {
+                    return;
+                }
+
+                dragged = {axis: chip.dataset.dragAxis, index: parseInt(chip.dataset.dragIndex)};
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', 'acx-chip');
+                setTimeout(() => chip.classList.add('acx-chip-dragging'), 0);
+            });
+
+            sidebar.addEventListener('dragend', () => {
+                dragged = null;
+                clearMarks();
+                sidebar.querySelectorAll('.acx-chip-dragging').forEach(el => el.classList.remove('acx-chip-dragging'));
+            });
+
+            sidebar.addEventListener('dragover', e => {
+                const zone = e.target.closest && e.target.closest('[data-drop-axis]');
+
+                if (!zone || !accepts(zone.dataset.dropAxis)) {
+                    return;
+                }
+
+                e.preventDefault();
+                clearMarks();
+
+                const chip = e.target.closest('[data-drag-axis]');
+
+                (chip || zone).classList.add(chip ? 'acx-drop-before' : 'acx-drop-target');
+            });
+
+            sidebar.addEventListener('drop', e => {
+                const zone = e.target.closest && e.target.closest('[data-drop-axis]');
+
+                if (!zone || !accepts(zone.dataset.dropAxis)) {
+                    return;
+                }
+
+                e.preventDefault();
+
+                const chip = e.target.closest('[data-drag-axis]');
+                const targetAxis = zone.dataset.dropAxis;
+                const targetIndex = chip ? parseInt(chip.dataset.dragIndex) : this.definition[targetAxis].length;
+
+                this.moveChip(dragged.axis, dragged.index, targetAxis, targetIndex);
+                dragged = null;
+                clearMarks();
+            });
+        }
+
+        moveChip(fromAxis, fromIndex, toAxis, toIndex) {
+            const source = this.definition[fromAxis];
+            const target = this.definition[toAxis];
+            const [item] = source.splice(fromIndex, 1);
+
+            if (fromAxis === toAxis && fromIndex < toIndex) {
+                toIndex--;
+            }
+
+            target.splice(Math.min(toIndex, target.length), 0, item);
+
+            if (fromAxis !== toAxis) {
+                item.id = this.nextDimensionId(toAxis);
+            }
+
+            if (fromAxis === toAxis && fromIndex === toIndex) {
+                return;
+            }
+
+            this.renderPanels();
+            this.selectStage(this.stage);
+            this.markChanged();
+        }
+
+        // --- Empty state ---------------------------------------------------------------------------------------------
+
+        renderGuide() {
+            const container = this.element.querySelector('[data-role="guide"]');
+
+            if (!container) {
+                return;
+            }
+
+            const d = this.definition;
+
+            if (d.rows.length || d.columns.length) {
+                container.innerHTML = '';
+
+                return;
+            }
+
+            const step = (n, text, action, icon, data = '') => `
+                <li><span class="acx-guide-step">${n}</span>
+                    <span>${this.escapeString(this.t(text, 'messages'))}</span>
+                    ${action ? `<button type="button" class="btn btn-default btn-xs" data-action="${action}" ${data}>
+                        <span class="${icon}"></span></button>` : ''}
+                </li>`;
+
+            container.innerHTML = `
+                <div class="acx-guide">
+                    <div class="acx-guide-title"><span class="fas fa-lightbulb"></span> ${this.escapeString(this.t('guide.title', 'messages'))}</div>
+                    <ol>
+                        ${step(1, 'guide.source', 'guideDataModel', 'fas fa-project-diagram')}
+                        ${step(2, 'guide.rows', 'addDimension', 'fas fa-plus', 'data-axis="rows"')}
+                        ${step(3, 'guide.columns', 'addDimension', 'fas fa-plus', 'data-axis="columns"')}
+                        ${step(4, 'guide.measures', 'quickMeasure', 'fas fa-bolt')}
+                        ${step(5, 'guide.pipeline', 'guidePipeline', 'fas fa-stream')}
+                    </ol>
+                    <div class="small text-muted">${this.escapeString(this.t('guide.shortcuts', 'messages'))}</div>
+                </div>`;
         }
 
         toggleFullscreen() {
