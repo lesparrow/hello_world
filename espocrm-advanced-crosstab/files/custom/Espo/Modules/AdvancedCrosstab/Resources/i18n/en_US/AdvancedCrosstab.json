@@ -132,7 +132,12 @@
         "List filters": "List filters",
         "Layout": "Layout",
         "Full screen": "Full screen",
-        "Field value…": "Field value (quick)…"
+        "Field value…": "Field value (quick)…",
+        "Data model": "Data model",
+        "Reset layout": "Reset layout",
+        "Associations": "Associations (many-to-one)",
+        "Analyse from this entity": "Analyse from this entity",
+        "One-to-many associations": "One-to-many associations (switch data source)"
     },
     "granularities": {
         "year": "Year",
@@ -254,7 +259,16 @@
         "exportScheduled": "The export is being generated. You will be notified when it is ready.",
         "exportReady": "Advanced Crosstab export **{title}** is ready: [download]({url}).",
         "selectReport": "Select a crosstab in the panel options.",
-        "pivotButtonTitle": "Analyse this list in a crosstab, with its current filters"
+        "pivotButtonTitle": "Analyse this list in a crosstab, with its current filters",
+        "modelLegendManyToOne": "Many-to-one association: its fields can be used",
+        "modelLegendToMany": "One-to-many: analyse from that entity instead",
+        "modelLegendUsage": "Rows · Columns · Measures · Filters",
+        "modelOneToMany": "One-to-many association. Its fields can't be crosstab dimensions from here (rows would be counted several times). Start the analysis from this entity instead: this one is reachable from it.",
+        "modelManyToMany": "Many-to-many association. Its fields can't be crosstab dimensions from here (rows would be counted several times).",
+        "modelUse.rows": "Added to rows",
+        "modelUse.columns": "Added to columns",
+        "modelUse.measures": "Added to measures",
+        "modelUse.filters": "Added to filters"
     },
     "layouts": {
         "compact": "Compact",

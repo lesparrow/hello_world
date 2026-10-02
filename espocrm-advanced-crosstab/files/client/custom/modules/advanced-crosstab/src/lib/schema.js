@@ -145,6 +145,33 @@ define('advanced-crosstab:lib/schema', [], function () {
         }
 
         /**
+         * One-to-many and many-to-many links: not usable as dimensions from this entity (they would duplicate rows),
+         * but the related entity can be used as the data source instead.
+         *
+         * @return {{name: string, entityType: string, label: string, manyToMany: boolean, foreign: ?string}[]}
+         */
+        getToManyLinkList(entityType) {
+            const links = this.metadata.get(['entityDefs', entityType, 'links']) || {};
+
+            return Object.keys(links)
+                .filter(link => ['hasMany', 'hasChildren'].includes(links[link].type) && links[link].entity &&
+                    !links[link].disabled && !links[link].utility &&
+                    this.metadata.get(['scopes', links[link].entity, 'entity']) &&
+                    this.acl.checkScope(links[link].entity, 'read') &&
+                    !this.isForbidden(entityType, link))
+                .map(link => ({
+                    name: link,
+                    entityType: links[link].entity,
+                    label: this.translateField(entityType, link) !== link ?
+                        this.translateField(entityType, link) :
+                        this.language.translate(link, 'links', entityType),
+                    manyToMany: !!links[link].relationName,
+                    foreign: links[link].foreign || null,
+                }))
+                .sort((a, b) => a.label.localeCompare(b.label));
+        }
+
+        /**
          * @return {{entityType: string, field: string, type: string, valid: boolean}}
          */
         resolvePath(rootEntityType, path) {

@@ -39,7 +39,11 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
                     <div class="panel panel-default">
                         <div class="panel-body">
                             <div class="acx-section">
-                                <div class="acx-section-title">{{translate 'Data source' scope='AdvancedCrosstab'}}</div>
+                                <div class="acx-section-title">
+                                    <span>{{translate 'Data source' scope='AdvancedCrosstab'}}</span>
+                                    <a role="button" data-action="dataModel" title="{{translate 'Data model' scope='AdvancedCrosstab'}}">
+                                        <span class="fas fa-project-diagram"></span> {{translate 'Data model' scope='AdvancedCrosstab'}}</a>
+                                </div>
                                 <select class="form-control" data-name="entityType"></select>
                             </div>
                             <div class="acx-section" data-role="rows"></div>
@@ -143,6 +147,7 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.addActionHandler('removeMeasure', (e, target) => this.removeItem('measures', parseInt(target.dataset.index)));
             this.addActionHandler('toggleMeasure', (e, target) => this.toggleMeasure(parseInt(target.dataset.index)));
             this.addActionHandler('quickMeasure', () => this.quickMeasure());
+            this.addActionHandler('dataModel', () => this.openDataModel());
             this.addActionHandler('removeListFilters', () => {
                 this.definition.listWhere = null;
                 this.renderListFilters();
@@ -916,32 +921,120 @@ define('advanced-crosstab:views/advanced-crosstab/designer', [
             this.createView('dialog', 'advanced-crosstab:views/advanced-crosstab/modals/field-picker', {
                 entityType: this.definition.entityType,
                 purpose: 'any',
-                onSelect: (path, info) => {
-                    const numeric = Schema.NUMERIC_TYPES.includes(info.type);
-                    const used = this.definition.measures.map(m => m.key);
-                    let key = path.replace(/\.(.)/g, (m, c) => c.toUpperCase()).replace(/[^a-zA-Z0-9_]/g, '');
-                    let i = 2;
+                onSelect: (path, info) => this.addMeasureFromPath(path, info),
+            }).then(view => view.render());
+        }
 
-                    while (used.includes(key) || ['id', 'null', 'true', 'false'].includes(key.toLowerCase())) {
-                        key = key.replace(/\d+$/, '') + i++;
+        addMeasureFromPath(path, info) {
+            const numeric = Schema.NUMERIC_TYPES.includes(info.type);
+            const used = this.definition.measures.map(m => m.key);
+            let key = path.replace(/\.(.)/g, (m, c) => c.toUpperCase()).replace(/[^a-zA-Z0-9_]/g, '');
+            let i = 2;
+
+            while (used.includes(key) || ['id', 'null', 'true', 'false'].includes(key.toLowerCase())) {
+                key = key.replace(/\d+$/, '') + i++;
+        }
+
+        const measure = {
+            key: key,
+            label: info.label,
+            kind: 'native',
+            aggregation: numeric ? 'SUM' : 'COUNT',
+            expression: path,
+        };
+
+        if (info.type === 'currency') {
+            measure.format = {type: 'currency'};
+        }
+
+        this.definition.measures.push(measure);
+        this.renderMeasureList();
+        this.renderViewControls();
+        this.markChanged();
+        }
+
+        addDimensionFromPath(axis, path, info) {
+            const dimension = {id: this.nextDimensionId(axis), type: 'field', path: path};
+
+            if (Schema.DATE_TYPES.includes(info.type)) {
+                dimension.granularity = 'yearMonth';
+            }
+
+            this.definition[axis].push(dimension);
+            this.renderDimensionList(axis);
+            this.markChanged();
+        }
+
+        addFilterFromPath(path, info) {
+            const operator = Operators.forType(info.type)[0];
+
+            this.getView('filters').addItem('', {
+                type: 'condition',
+                path: path,
+                operator: operator,
+                value: Operators.isDays(operator) ? 7 : null,
+            });
+        }
+
+        /**
+         * Where each field path is used, for the data model view: {path: ['R', 'C', 'M', 'F']}.
+         */
+        getPathUsage() {
+            const usage = {};
+            const add = (path, mark) => {
+                if (!path) {
+                    return;
+                }
+
+                usage[path] = usage[path] || [];
+
+                if (!usage[path].includes(mark)) {
+                    usage[path].push(mark);
+                }
+            };
+
+            this.definition.rows.forEach(d => add(d.path, 'R'));
+            this.definition.columns.forEach(d => add(d.path, 'C'));
+            this.definition.measures.forEach(m => add(m.expression && /^[a-zA-Z0-9.]+$/.test(m.expression) ? m.expression : null, 'M'));
+
+            const walk = node => {
+                if (!node) {
+                    return;
+                }
+
+                if (node.items) {
+                    node.items.forEach(walk);
+                }
+
+                if (node.type === 'condition') {
+                    add(node.path, 'F');
+                }
+            };
+
+            walk(this.definition.filter);
+
+            return usage;
+        }
+
+        /**
+         * Visual data model (MCD): entity boxes and associations; fields go to rows, columns, measures, filters.
+         */
+        openDataModel() {
+            this.createView('dialog', 'advanced-crosstab:views/advanced-crosstab/modals/data-model', {
+                entityType: this.definition.entityType,
+                getUsage: () => this.getPathUsage(),
+                onUse: (target, path, info) => {
+                    if (target === 'rows' || target === 'columns') {
+                        this.addDimensionFromPath(target, path, info);
+                    } else if (target === 'measures') {
+                        this.addMeasureFromPath(path, info);
+                    } else {
+                        this.addFilterFromPath(path, info);
                     }
-
-                    const measure = {
-                        key: key,
-                        label: info.label,
-                        kind: 'native',
-                        aggregation: numeric ? 'SUM' : 'COUNT',
-                        expression: path,
-                    };
-
-                    if (info.type === 'currency') {
-                        measure.format = {type: 'currency'};
-                    }
-
-                    this.definition.measures.push(measure);
-                    this.renderMeasureList();
-                    this.renderViewControls();
-                    this.markChanged();
+                },
+                onChangeSource: entityType => {
+                    this.element.querySelector('[data-name="entityType"]').value = entityType;
+                    this.changeEntityType(entityType);
                 },
             }).then(view => view.render());
         }

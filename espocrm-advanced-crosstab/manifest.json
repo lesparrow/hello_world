@@ -1,7 +1,7 @@
 {
     "name": "Advanced Crosstab",
     "module": "AdvancedCrosstab",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "acceptableVersions": [">=9.0.0"],
     "php": [">=8.2"],
     "releaseDate": "2026-10-02",

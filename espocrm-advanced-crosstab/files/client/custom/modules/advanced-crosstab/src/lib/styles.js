@@ -128,6 +128,49 @@ define('advanced-crosstab:lib/styles', [], function () {
         .acx-chip-select { font-size: 11px; padding: 0 2px; height: 20px; border-radius: 3px; max-width: 92px;
             border: 1px solid rgba(127,127,127,.35); background: transparent; color: inherit; margin-right: 2px; }
         .acx-list-filter { margin-bottom: 6px; }
+        .acx-model-toolbar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 8px; font-size: 12px; }
+        .acx-model-toolbar .btn { margin-left: auto; }
+        .acx-model-legend { display: inline-flex; align-items: center; gap: 6px; opacity: .85; }
+        .acx-legend-line { display: inline-block; width: 28px; border-top: 2px solid rgba(42,120,214,.8); }
+        .acx-legend-line.acx-dashed { border-top-style: dashed; border-top-color: rgba(127,127,127,.8); }
+        .acx-model-viewport { overflow: auto; height: calc(100vh - 230px); min-height: 360px; border: 1px solid rgba(127,127,127,.25);
+            border-radius: 4px; background-image: radial-gradient(rgba(127,127,127,.22) 1px, transparent 1px);
+            background-size: 18px 18px; }
+        .acx-model-canvas { position: relative; min-width: 100%; min-height: 100%; }
+        .acx-model-links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+        .acx-mline { fill: none; stroke: rgba(42,120,214,.8); stroke-width: 2; }
+        .acx-mline.acx-dashed { stroke: rgba(127,127,127,.75); stroke-dasharray: 6 4; }
+        .acx-massoc { fill: var(--panel-bg, #fff); stroke: rgba(42,120,214,.8); stroke-width: 1.5; }
+        .acx-massoc.acx-dashed { stroke: rgba(127,127,127,.75); stroke-dasharray: 4 3; }
+        .acx-massoc-text { fill: currentColor; font-size: 11px; font-style: italic; }
+        .acx-mcard { fill: currentColor; font-size: 11px; font-weight: 600; opacity: .8; }
+        .acx-mbox { position: absolute; border-radius: 6px; border: 1px solid rgba(127,127,127,.4);
+            background-color: var(--panel-bg, #fff); box-shadow: 0 2px 8px rgba(0,0,0,.12); font-size: 12px; z-index: 1; }
+        .acx-mbox.acx-dragging { box-shadow: 0 6px 18px rgba(0,0,0,.25); z-index: 5; }
+        .acx-mbox-root { border-color: rgba(42,120,214,.8); }
+        .acx-mbox-head { padding: 6px 8px; cursor: move; border-bottom: 1px solid rgba(127,127,127,.25); user-select: none;
+            background: rgba(42,120,214,.10); border-radius: 6px 6px 0 0; position: relative; }
+        .acx-mbox-path { opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .acx-mbox-close { position: absolute; right: 8px; top: 4px; font-size: 16px; opacity: .6; color: inherit; }
+        .acx-mbox-search { padding: 5px 6px 2px; }
+        .acx-mbox-fields, .acx-mbox-links { list-style: none; margin: 0; padding: 2px 4px 4px; }
+        .acx-mbox-fields { max-height: 220px; overflow: auto; }
+        .acx-mbox-fields li { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; border-radius: 3px;
+            line-height: 20px; min-height: 22px; }
+        .acx-mbox-fields li:hover { background: rgba(42,120,214,.10); }
+        .acx-mfield-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .acx-mfield-actions { flex: 0 0 auto; visibility: hidden; }
+        .acx-mbox-fields li:hover .acx-mfield-actions { visibility: visible; }
+        .acx-mfield-actions .btn { padding: 0 5px; font-size: 10px; line-height: 16px; height: 18px; min-height: 0; }
+        .acx-use-badge { font-size: 9px; padding: 1px 4px; margin-left: 2px; background-color: rgba(42,120,214,.85); }
+        .acx-mbox-section { padding: 4px 8px 0; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; opacity: .65;
+            border-top: 1px solid rgba(127,127,127,.2); }
+        .acx-mlink a { display: block; padding: 2px 4px; color: inherit; border-radius: 3px; }
+        .acx-mlink a:hover, .acx-mlink.active a { background: rgba(42,120,214,.10); }
+        .acx-mbox-tomany li { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px;
+            border: 1px dashed rgba(127,127,127,.45); border-radius: 3px; margin-bottom: 3px; }
+        .acx-mlink-switch { color: inherit; opacity: .7; padding: 0 4px; }
+        .acx-mlink-switch:hover { opacity: 1; }
     `;
 
     let injected = false;

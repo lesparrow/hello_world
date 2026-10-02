@@ -132,7 +132,12 @@
         "List filters": "Filtres de la liste",
         "Layout": "Disposition",
         "Full screen": "Plein écran",
-        "Field value…": "Valeur d'un champ (rapide)…"
+        "Field value…": "Valeur d'un champ (rapide)…",
+        "Data model": "Modèle de données",
+        "Reset layout": "Réorganiser",
+        "Associations": "Associations (N vers 1)",
+        "Analyse from this entity": "Analyser depuis cette entité",
+        "One-to-many associations": "Associations un vers N (changer de source)"
     },
     "granularities": {
         "year": "Année",
@@ -254,7 +259,16 @@
         "exportScheduled": "L'export est en cours de génération. Vous serez notifié lorsqu'il sera prêt.",
         "exportReady": "L'export du tableau croisé **{title}** est prêt : [télécharger]({url}).",
         "selectReport": "Choisissez un tableau croisé dans les options du panneau.",
-        "pivotButtonTitle": "Analyser cette liste dans un tableau croisé, avec ses filtres actuels"
+        "pivotButtonTitle": "Analyser cette liste dans un tableau croisé, avec ses filtres actuels",
+        "modelLegendManyToOne": "Association N vers 1 : ses champs sont utilisables",
+        "modelLegendToMany": "Un vers N : analysez plutôt depuis cette entité",
+        "modelLegendUsage": "Lignes · Colonnes · Mesures · Filtres",
+        "modelOneToMany": "Association un vers N. Ses champs ne peuvent pas servir de dimensions d'ici (les lignes seraient comptées plusieurs fois). Lancez plutôt l'analyse depuis cette entité : l'entité actuelle y est accessible.",
+        "modelManyToMany": "Association N vers N. Ses champs ne peuvent pas servir de dimensions d'ici (les lignes seraient comptées plusieurs fois).",
+        "modelUse.rows": "Ajouté aux lignes",
+        "modelUse.columns": "Ajouté aux colonnes",
+        "modelUse.measures": "Ajouté aux mesures",
+        "modelUse.filters": "Ajouté aux filtres"
     },
     "layouts": {
         "compact": "Compacte",

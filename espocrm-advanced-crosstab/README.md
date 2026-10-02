@@ -35,6 +35,28 @@ All aggregation runs in the database. The browser only receives aggregated cells
 | Formatting | Number, integer, decimal, percent, currency and duration (h:mm). Decimals, prefix and suffix are configurable. Values use EspoCRM's thousand separator and decimal mark. |
 | Languages | English and French. |
 
+## Visual data model (v2.2)
+
+Next to **Data source**, the **Data model** button opens a diagram of the entities, drawn like a Merise MCD:
+
+- The data source entity is a box listing its fields. Its **many-to-one associations** (Opportunity → Account,
+  Account → Parent account, Opportunity → Assigned user…) are listed under it. Click one to open the related entity
+  as a new box, linked by an association oval with its cardinalities (for example `0,1` on the opportunity side and
+  `0,N` on the account side). You can open up to 3 levels deep.
+- Hover a field in any box and click **R**, **C**, **M** or **F** to add it to the crosstab's rows, columns,
+  measures (SUM for numbers, COUNT otherwise) or filters. The relation path, such as `account.parent.industry`, is
+  built from the diagram. Badges on each field show where it is already used.
+- The **one-to-many and many-to-many associations** of the data source (Account → Opportunities, Opportunity →
+  Meetings…) are listed dashed. Their fields can't be dimensions from this entity because each record would be
+  counted several times. The ⇄ button switches the data source to that entity, from which the current one is
+  reachable.
+- Boxes can be dragged; **Reset layout** tidies them. Each field search box filters the fields of its own box.
+
+![Data model](docs/screenshots/data-model.png)
+
+The diagram reads EspoCRM metadata and the user's ACL, so it shows standard and custom entities and links,
+including links created in the Entity Manager, and hides entities and fields the user can't read.
+
 ## Options added from the dashboard pivot (v2.1)
 
 The pivot table of the forestry dashboard (`pivotTable.js`) had several options that are now part of the extension,
