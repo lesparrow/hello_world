@@ -1,0 +1,74 @@
+{
+    "fields": {
+        "name": "Nom",
+        "createdAt": "Créé le",
+        "modifiedAt": "Modifié le",
+        "createdBy": "Créé par",
+        "modifiedBy": "Modifié par",
+        "assignedUser": "Utilisateur assigné",
+        "teams": "Équipes",
+        "passType": "Type de pass",
+        "organizationName": "Organisation (nom affiché)",
+        "description": "Description",
+        "logoText": "Texte du logo",
+        "backgroundColor": "Couleur de fond",
+        "foregroundColor": "Couleur du texte (valeurs)",
+        "labelColor": "Couleur de premier plan (libellés)",
+        "barcodeFormat": "Format du code-barres",
+        "barcodeMessage": "Contenu du code-barres",
+        "barcodeAltText": "Texte sous le code-barres",
+        "icon": "Icône",
+        "logo": "Logo",
+        "strip": "Image « strip »",
+        "background": "Image de fond",
+        "thumbnail": "Vignette",
+        "frontFields": "Champs avant",
+        "backFields": "Champs arrière",
+        "defaultExpirationDate": "Date d'expiration par défaut",
+        "validityDays": "Validité (jours)",
+        "relevantDate": "Date pertinente",
+        "isActive": "Actif",
+        "notes": "Notes",
+        "googleClassId": "ID de classe Google",
+        "passes": "Passes"
+    },
+    "links": {
+        "passes": "Passes"
+    },
+    "options": {
+        "passType": {
+            "generic": "Générique",
+            "coupon": "Coupon",
+            "eventTicket": "Billet d'événement",
+            "storeCard": "Carte de magasin",
+            "loyaltyCard": "Carte de fidélité"
+        },
+        "barcodeFormat": {
+            "QR": "QR Code",
+            "PDF417": "PDF417",
+            "Aztec": "Aztec",
+            "Code128": "Code 128"
+        }
+    },
+    "labels": {
+        "Create WalletPassTemplate": "Créer un modèle de pass",
+        "Appearance": "Apparence",
+        "Barcode": "Code-barres",
+        "Fields": "Champs",
+        "Validity": "Validité",
+        "Preview": "Aperçu"
+    },
+    "tooltips": {
+        "description": "Obligatoire chez Apple (accessibilité / écran verrouillé).",
+        "foregroundColor": "Couleur des valeurs des champs (« foregroundColor » Apple).",
+        "labelColor": "Couleur des libellés des champs (« labelColor » Apple).",
+        "barcodeMessage": "Variables autorisées : {pass.serialNumber}, {contact.id}, {pass.points}…",
+        "icon": "PNG, 29×29 pt (58×58 px conseillé). Obligatoire chez Apple — le logo est utilisé à défaut.",
+        "strip": "Coupon, carte magasin/fidélité, billet. 375×123 pt. Utilisée comme « hero image » chez Google.",
+        "background": "Billets uniquement (Apple). Floutée par Wallet.",
+        "frontFields": "Les valeurs acceptent des variables : {contact.firstName}, {pass.holderName}, {pass.expiresAt}, {account.name}…",
+        "validityDays": "Si renseigné, un pass expire N jours après émission (prioritaire sur la date par défaut).",
+        "relevantDate": "Apple affiche le pass sur l'écran verrouillé autour de cette date (billets)."
+    },
+    "presetFilters": {}
+}

@@ -1,0 +1,16 @@
+{
+    "params": {
+        "walletAppleEnabled": {"level": "admin"},
+        "walletAppleTeamId": {"level": "admin"},
+        "walletApplePassTypeId": {"level": "admin"},
+        "walletAppleWebServiceUrl": {"level": "admin"},
+        "walletApplePushEnabled": {"level": "admin"},
+        "walletApplePushType": {"level": "admin"},
+        "walletGoogleEnabled": {"level": "admin"},
+        "walletGoogleIssuerId": {"level": "admin"},
+        "walletGoogleOrigins": {"level": "admin"},
+        "walletGoogleLanguage": {"level": "admin"},
+        "walletPublicBaseUrl": {"level": "admin"},
+        "walletLogRetentionDays": {"level": "admin"}
+    }
+}

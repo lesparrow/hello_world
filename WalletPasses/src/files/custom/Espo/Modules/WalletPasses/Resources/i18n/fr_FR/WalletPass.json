@@ -1,0 +1,97 @@
+{
+    "fields": {
+        "name": "Nom",
+        "createdAt": "Créé le",
+        "modifiedAt": "Modifié le",
+        "createdBy": "Créé par",
+        "modifiedBy": "Modifié par",
+        "assignedUser": "Utilisateur assigné",
+        "teams": "Équipes",
+        "template": "Modèle",
+        "contact": "Contact",
+        "account": "Compte",
+        "lead": "Prospect",
+        "serialNumber": "Numéro de série",
+        "authenticationToken": "Jeton d'authentification",
+        "holderName": "Nom du porteur",
+        "barcodeValue": "Valeur du code-barres",
+        "points": "Points / Solde",
+        "status": "Statut",
+        "issuedAt": "Date d'émission",
+        "expiresAt": "Date d'expiration",
+        "deviceCount": "Appareils enregistrés",
+        "scanCount": "Scans",
+        "lastScannedAt": "Dernier scan",
+        "contentUpdatedAt": "Contenu mis à jour le",
+        "pushPending": "Mise à jour en attente",
+        "googleObjectId": "ID objet Google",
+        "googleSyncedAt": "Synchronisé Google le",
+        "googleSyncError": "Erreur de synchronisation Google",
+        "walletLink": "Lien Wallet",
+        "walletQrCodeUrl": "URL du QR code",
+        "notes": "Notes",
+        "devices": "Appareils",
+        "logs": "Journal"
+    },
+    "links": {
+        "template": "Modèle",
+        "contact": "Contact",
+        "account": "Compte",
+        "lead": "Prospect",
+        "devices": "Appareils enregistrés",
+        "logs": "Journal",
+        "assignedUser": "Utilisateur assigné",
+        "teams": "Équipes",
+        "createdBy": "Créé par",
+        "modifiedBy": "Modifié par"
+    },
+    "options": {
+        "status": {
+            "Active": "Actif",
+            "Expired": "Expiré",
+            "Voided": "Annulé / remboursé"
+        }
+    },
+    "labels": {
+        "Create WalletPass": "Créer un pass",
+        "Distribution": "Distribution",
+        "Preview": "Aperçu",
+        "Statistics": "Statistiques",
+        "Wallet Links": "Liens Wallet",
+        "Download .pkpass": "Télécharger .pkpass",
+        "Copy Google Wallet link": "Copier le lien Google Wallet",
+        "Push update to devices": "Pousser la mise à jour aux appareils",
+        "Smart link": "Lien intelligent (QR code)",
+        "Apple Wallet": "Apple Wallet",
+        "Google Wallet": "Google Wallet",
+        "Copy": "Copier",
+        "Open": "Ouvrir",
+        "Download QR code": "Télécharger le QR code",
+        "Not configured": "Non configuré",
+        "Registered Devices": "Appareils enregistrés",
+        "Scans": "Scans",
+        "Last Scan": "Dernier scan",
+        "Update Pending": "Mise à jour en attente",
+        "Never": "Jamais"
+    },
+    "messages": {
+        "linkCopied": "Lien copié dans le presse-papiers.",
+        "pushDone": "Mise à jour envoyée.",
+        "pushPartial": "Envoi partiellement échoué — nouvelle tentative automatique. Voir le journal.",
+        "googleNotConfigured": "Google Wallet n'est pas configuré.",
+        "appleNotConfigured": "Apple Wallet n'est pas configuré.",
+        "previewError": "Aperçu indisponible."
+    },
+    "tooltips": {
+        "holderName": "Affiché sur le pass. Par défaut : nom du contact / compte.",
+        "barcodeValue": "Remplace le contenu du code-barres du modèle (variables autorisées).",
+        "points": "Disponible via {pass.points} dans les champs du modèle. Toute modification pousse une mise à jour.",
+        "contentUpdatedAt": "Dernière modification du contenu affiché (« passesUpdatedSince » Apple).",
+        "walletLink": "Lien public : ouvre Apple Wallet sur iPhone, Google Wallet sur Android, une page de choix ailleurs.",
+        "walletQrCodeUrl": "Image PNG publique du QR code — utilisable dans les e-mails : <img src=\"{WalletPass.walletQrCodeUrl}\">"
+    },
+    "presetFilters": {
+        "active": "Actifs",
+        "pushPending": "Mise à jour en attente"
+    }
+}

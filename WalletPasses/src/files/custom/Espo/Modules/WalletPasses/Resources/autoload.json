@@ -1,0 +1,5 @@
+{
+    "autoloadFileList": [
+        "custom/Espo/Modules/WalletPasses/vendor/autoload.php"
+    ]
+}

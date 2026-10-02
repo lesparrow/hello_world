@@ -1,0 +1,10 @@
+[
+    {
+        "label": "",
+        "rows": [
+            [{"name": "name"}, {"name": "status"}],
+            [{"name": "template"}, {"name": "holderName"}],
+            [{"name": "contact"}, {"name": "expiresAt"}]
+        ]
+    }
+]

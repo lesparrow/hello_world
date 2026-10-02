@@ -1,0 +1,16 @@
+{
+    "fields": {
+        "name": "Nom",
+        "deviceLibraryIdentifier": "ID bibliothèque appareil",
+        "pushToken": "Jeton push",
+        "lastPushAt": "Dernier push",
+        "lastPushStatus": "Statut du dernier push",
+        "passes": "Passes",
+        "createdAt": "Enregistré le",
+        "modifiedAt": "Modifié le"
+    },
+    "links": {
+        "passes": "Passes"
+    },
+    "labels": {}
+}

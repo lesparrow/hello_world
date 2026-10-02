@@ -1,0 +1,6 @@
+[
+    {"name": "createdAt", "width": 15, "link": true},
+    {"name": "event", "width": 15},
+    {"name": "pass", "width": 20},
+    {"name": "message"}
+]

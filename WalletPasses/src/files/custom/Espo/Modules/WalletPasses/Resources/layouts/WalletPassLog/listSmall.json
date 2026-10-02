@@ -1,0 +1,5 @@
+[
+    {"name": "createdAt", "width": 25, "link": true},
+    {"name": "event", "width": 22},
+    {"name": "message"}
+]

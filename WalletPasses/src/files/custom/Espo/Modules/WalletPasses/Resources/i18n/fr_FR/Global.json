@@ -1,0 +1,30 @@
+{
+    "scopeNames": {
+        "WalletPassTemplate": "Modèle de pass Wallet",
+        "WalletPass": "Pass Wallet",
+        "WalletPassLog": "Journal des passes Wallet",
+        "WalletDevice": "Appareil Wallet"
+    },
+    "scopeNamesPlural": {
+        "WalletPassTemplate": "Modèles de pass Wallet",
+        "WalletPass": "Pass Wallet",
+        "WalletPassLog": "Journal des passes Wallet",
+        "WalletDevice": "Appareils Wallet"
+    },
+    "massActions": {
+        "walletSendPasses": "Envoyer des passes Wallet"
+    },
+    "labels": {
+        "Wallet Passes": "Pass Wallet",
+        "Send Wallet passes": "Envoyer des passes Wallet",
+        "Pass Template": "Modèle de pass",
+        "Email Template": "Modèle d'e-mail (optionnel)",
+        "Skip holders who already have an active pass": "Ignorer les fiches ayant déjà un pass actif de ce modèle",
+        "Send": "Envoyer"
+    },
+    "messages": {
+        "walletPassesIssued": "{count} pass(es) émis.",
+        "walletTemplateRequired": "Veuillez choisir un modèle de pass.",
+        "walletEmailHint": "Variables pour le modèle d'e-mail : {WalletPass.walletLink}, {WalletPass.walletQrCodeUrl}, {WalletPass.serialNumber}."
+    }
+}

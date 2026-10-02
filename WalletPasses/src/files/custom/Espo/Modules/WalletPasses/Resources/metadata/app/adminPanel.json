@@ -1,0 +1,33 @@
+{
+    "walletPasses": {
+        "label": "Wallet Passes",
+        "itemList": [
+            {
+                "url": "#Admin/walletPassesSettings",
+                "label": "Wallet Settings",
+                "iconClass": "fas fa-wallet",
+                "description": "walletPassesSettings",
+                "recordView": "wallet-passes:views/admin/settings"
+            },
+            {
+                "url": "#WalletPassTemplate",
+                "label": "Wallet Pass Templates",
+                "iconClass": "fas fa-id-card",
+                "description": "walletPassTemplates"
+            },
+            {
+                "url": "#WalletPass",
+                "label": "Wallet Passes",
+                "iconClass": "fas fa-ticket-alt",
+                "description": "walletPasses"
+            },
+            {
+                "url": "#WalletPassLog",
+                "label": "Wallet Pass Log",
+                "iconClass": "fas fa-list",
+                "description": "walletPassLog"
+            }
+        ],
+        "order": 45
+    }
+}

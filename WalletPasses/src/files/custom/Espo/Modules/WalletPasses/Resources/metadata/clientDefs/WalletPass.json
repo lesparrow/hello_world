@@ -1,0 +1,73 @@
+{
+    "controller": "controllers/record",
+    "iconClass": "fas fa-ticket-alt",
+    "color": "#3A7BD5",
+    "menu": {
+        "detail": {
+            "buttons": [
+                {
+                    "name": "walletLinks",
+                    "label": "Wallet Links",
+                    "iconHtml": "<span class=\"fas fa-qrcode\"></span>",
+                    "handler": "wallet-passes:handlers/wallet-pass/detail-actions",
+                    "actionFunction": "showLinks",
+                    "acl": "read"
+                }
+            ]
+        }
+    },
+    "detailActionList": [
+        {
+            "name": "walletDownloadPkpass",
+            "label": "Download .pkpass",
+            "handler": "wallet-passes:handlers/wallet-pass/detail-actions",
+            "actionFunction": "downloadPkpass"
+        },
+        {
+            "name": "walletCopyGoogleLink",
+            "label": "Copy Google Wallet link",
+            "handler": "wallet-passes:handlers/wallet-pass/detail-actions",
+            "actionFunction": "copyGoogleLink"
+        },
+        {
+            "name": "walletPushUpdate",
+            "label": "Push update to devices",
+            "handler": "wallet-passes:handlers/wallet-pass/detail-actions",
+            "actionFunction": "pushUpdate",
+            "checkVisibilityFunction": "isEditAllowed"
+        }
+    ],
+    "sidePanels": {
+        "detail": [
+            {
+                "name": "walletPreview",
+                "label": "Preview",
+                "view": "wallet-passes:views/wallet-pass/panels/preview"
+            },
+            {
+                "name": "walletStats",
+                "label": "Statistics",
+                "view": "wallet-passes:views/wallet-pass/panels/stats"
+            }
+        ]
+    },
+    "relationshipPanels": {
+        "devices": {
+            "create": false,
+            "select": false,
+            "rowActionsView": "views/record/row-actions/relationship-view-and-unlink",
+            "layout": "listSmall"
+        },
+        "logs": {
+            "create": false,
+            "select": false,
+            "rowActionsView": "views/record/row-actions/empty",
+            "layout": "listSmall"
+        }
+    },
+    "filterList": [
+        {"name": "active"},
+        {"name": "pushPending"}
+    ],
+    "boolFilterList": ["onlyMy"]
+}

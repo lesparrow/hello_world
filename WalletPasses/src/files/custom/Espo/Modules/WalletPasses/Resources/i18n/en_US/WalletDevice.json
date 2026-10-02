@@ -1,0 +1,16 @@
+{
+    "fields": {
+        "name": "Name",
+        "deviceLibraryIdentifier": "Device Library ID",
+        "pushToken": "Push Token",
+        "lastPushAt": "Last Push",
+        "lastPushStatus": "Last Push Status",
+        "passes": "Passes",
+        "createdAt": "Registered At",
+        "modifiedAt": "Modified At"
+    },
+    "links": {
+        "passes": "Passes"
+    },
+    "labels": {}
+}

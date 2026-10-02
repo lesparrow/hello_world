@@ -1,0 +1,85 @@
+{
+    "fields": {
+        "walletAppleEnabled": {
+            "type": "bool",
+            "default": false
+        },
+        "walletAppleTeamId": {
+            "type": "varchar",
+            "maxLength": 10,
+            "tooltip": true
+        },
+        "walletApplePassTypeId": {
+            "type": "varchar",
+            "maxLength": 255,
+            "tooltip": true
+        },
+        "walletAppleWebServiceUrl": {
+            "type": "url",
+            "tooltip": true
+        },
+        "walletApplePushEnabled": {
+            "type": "bool",
+            "default": true
+        },
+        "walletApplePushType": {
+            "type": "enum",
+            "options": ["", "background"],
+            "default": "",
+            "tooltip": true
+        },
+        "walletAppleCertificate": {
+            "type": "varchar",
+            "notStorable": true,
+            "view": "wallet-passes:views/admin/fields/credential-upload",
+            "credentialKind": "appleP12",
+            "accept": ".p12,.pfx",
+            "withPassword": true,
+            "tooltip": true
+        },
+        "walletAppleWwdr": {
+            "type": "varchar",
+            "notStorable": true,
+            "view": "wallet-passes:views/admin/fields/credential-upload",
+            "credentialKind": "appleWwdr",
+            "accept": ".cer,.pem,.crt",
+            "tooltip": true
+        },
+        "walletGoogleEnabled": {
+            "type": "bool",
+            "default": false
+        },
+        "walletGoogleIssuerId": {
+            "type": "varchar",
+            "maxLength": 30,
+            "tooltip": true
+        },
+        "walletGoogleOrigins": {
+            "type": "array",
+            "noEmptyString": true,
+            "tooltip": true
+        },
+        "walletGoogleLanguage": {
+            "type": "varchar",
+            "maxLength": 10,
+            "default": "fr"
+        },
+        "walletGoogleServiceAccount": {
+            "type": "varchar",
+            "notStorable": true,
+            "view": "wallet-passes:views/admin/fields/credential-upload",
+            "credentialKind": "googleServiceAccount",
+            "accept": ".json",
+            "tooltip": true
+        },
+        "walletPublicBaseUrl": {
+            "type": "url",
+            "tooltip": true
+        },
+        "walletLogRetentionDays": {
+            "type": "int",
+            "min": 0,
+            "default": 180
+        }
+    }
+}

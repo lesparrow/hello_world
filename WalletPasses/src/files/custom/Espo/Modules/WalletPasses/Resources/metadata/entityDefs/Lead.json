@@ -1,0 +1,20 @@
+{
+    "fields": {
+        "walletPasses": {
+            "type": "linkMultiple",
+            "layoutDetailDisabled": true,
+            "layoutListDisabled": true,
+            "layoutMassUpdateDisabled": true,
+            "noLoad": true,
+            "importDisabled": true,
+            "exportDisabled": true
+        }
+    },
+    "links": {
+        "walletPasses": {
+            "type": "hasMany",
+            "entity": "WalletPass",
+            "foreign": "lead"
+        }
+    }
+}

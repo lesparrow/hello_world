@@ -1,0 +1,14 @@
+{
+    "labels": {
+        "Wallet Passes": "Pass Wallet",
+        "Wallet Settings": "Paramètres Wallet",
+        "Wallet Pass Templates": "Modèles de pass",
+        "Wallet Pass Log": "Journal des passes"
+    },
+    "descriptions": {
+        "walletPassesSettings": "Certificats Apple Wallet & Google Wallet, web service et test.",
+        "walletPassTemplates": "Modèles de pass : couleurs, images, champs, code-barres.",
+        "walletPasses": "Passes émis, liens et appareils enregistrés.",
+        "walletPassLog": "Événements : téléchargements, push, appareils, scans, erreurs."
+    }
+}

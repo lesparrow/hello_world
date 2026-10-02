@@ -1,0 +1,4 @@
+/vendor/
+/build/
+/.phpunit.cache/
+/src/files/custom/Espo/Modules/WalletPasses/vendor/

@@ -1,0 +1,25 @@
+[
+    {
+        "label": "Apple Wallet",
+        "rows": [
+            [{"name": "walletAppleEnabled"}, {"name": "walletApplePushEnabled"}],
+            [{"name": "walletAppleTeamId"}, {"name": "walletApplePassTypeId"}],
+            [{"name": "walletAppleCertificate"}, {"name": "walletAppleWwdr"}],
+            [{"name": "walletAppleWebServiceUrl"}, {"name": "walletApplePushType"}]
+        ]
+    },
+    {
+        "label": "Google Wallet",
+        "rows": [
+            [{"name": "walletGoogleEnabled"}, {"name": "walletGoogleIssuerId"}],
+            [{"name": "walletGoogleServiceAccount"}, {"name": "walletGoogleOrigins"}],
+            [{"name": "walletGoogleLanguage"}, false]
+        ]
+    },
+    {
+        "label": "General",
+        "rows": [
+            [{"name": "walletPublicBaseUrl"}, {"name": "walletLogRetentionDays"}]
+        ]
+    }
+]

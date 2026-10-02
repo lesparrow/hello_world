@@ -1,0 +1,29 @@
+[
+    {
+        "label": "",
+        "rows": [
+            [{"name": "name"}, {"name": "status"}],
+            [{"name": "template"}, {"name": "serialNumber"}],
+            [{"name": "contact"}, {"name": "account"}],
+            [{"name": "lead"}, {"name": "holderName"}],
+            [{"name": "barcodeValue"}, {"name": "points"}],
+            [{"name": "issuedAt"}, {"name": "expiresAt"}]
+        ]
+    },
+    {
+        "label": "Distribution",
+        "rows": [
+            [{"name": "walletLink", "fullWidth": true}],
+            [{"name": "walletQrCodeUrl", "fullWidth": true}],
+            [{"name": "contentUpdatedAt"}, {"name": "pushPending"}],
+            [{"name": "googleObjectId"}, {"name": "googleSyncedAt"}],
+            [{"name": "googleSyncError", "fullWidth": true}]
+        ]
+    },
+    {
+        "label": "",
+        "rows": [
+            [{"name": "notes", "fullWidth": true}]
+        ]
+    }
+]

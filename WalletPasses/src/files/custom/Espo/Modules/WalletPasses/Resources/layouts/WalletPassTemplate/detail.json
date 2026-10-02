@@ -1,0 +1,43 @@
+[
+    {
+        "label": "",
+        "rows": [
+            [{"name": "name"}, {"name": "passType"}],
+            [{"name": "organizationName"}, {"name": "isActive"}],
+            [{"name": "description", "fullWidth": true}],
+            [{"name": "logoText"}, false]
+        ]
+    },
+    {
+        "label": "Appearance",
+        "rows": [
+            [{"name": "backgroundColor"}, {"name": "foregroundColor"}],
+            [{"name": "labelColor"}, false],
+            [{"name": "icon"}, {"name": "logo"}],
+            [{"name": "strip"}, {"name": "background"}],
+            [{"name": "thumbnail"}, false]
+        ]
+    },
+    {
+        "label": "Barcode",
+        "rows": [
+            [{"name": "barcodeFormat"}, {"name": "barcodeMessage"}],
+            [{"name": "barcodeAltText"}, false]
+        ]
+    },
+    {
+        "label": "Fields",
+        "rows": [
+            [{"name": "frontFields", "fullWidth": true}],
+            [{"name": "backFields", "fullWidth": true}]
+        ]
+    },
+    {
+        "label": "Validity",
+        "rows": [
+            [{"name": "defaultExpirationDate"}, {"name": "validityDays"}],
+            [{"name": "relevantDate"}, {"name": "googleClassId"}],
+            [{"name": "notes", "fullWidth": true}]
+        ]
+    }
+]

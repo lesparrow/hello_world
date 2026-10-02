@@ -1,0 +1,97 @@
+{
+    "fields": {
+        "name": "Name",
+        "createdAt": "Created At",
+        "modifiedAt": "Modified At",
+        "createdBy": "Created By",
+        "modifiedBy": "Modified By",
+        "assignedUser": "Assigned User",
+        "teams": "Teams",
+        "template": "Template",
+        "contact": "Contact",
+        "account": "Account",
+        "lead": "Lead",
+        "serialNumber": "Serial Number",
+        "authenticationToken": "Authentication Token",
+        "holderName": "Holder Name",
+        "barcodeValue": "Barcode Value",
+        "points": "Points / Balance",
+        "status": "Status",
+        "issuedAt": "Issued At",
+        "expiresAt": "Expires At",
+        "deviceCount": "Registered Devices",
+        "scanCount": "Scans",
+        "lastScannedAt": "Last Scan",
+        "contentUpdatedAt": "Content Updated At",
+        "pushPending": "Update Pending",
+        "googleObjectId": "Google Object ID",
+        "googleSyncedAt": "Google Synced At",
+        "googleSyncError": "Google Sync Error",
+        "walletLink": "Wallet Link",
+        "walletQrCodeUrl": "QR Code URL",
+        "notes": "Notes",
+        "devices": "Devices",
+        "logs": "Log"
+    },
+    "links": {
+        "template": "Template",
+        "contact": "Contact",
+        "account": "Account",
+        "lead": "Lead",
+        "devices": "Registered Devices",
+        "logs": "Log",
+        "assignedUser": "Assigned User",
+        "teams": "Teams",
+        "createdBy": "Created By",
+        "modifiedBy": "Modified By"
+    },
+    "options": {
+        "status": {
+            "Active": "Active",
+            "Expired": "Expired",
+            "Voided": "Voided"
+        }
+    },
+    "labels": {
+        "Create WalletPass": "Create Pass",
+        "Distribution": "Distribution",
+        "Preview": "Preview",
+        "Statistics": "Statistics",
+        "Wallet Links": "Wallet Links",
+        "Download .pkpass": "Download .pkpass",
+        "Copy Google Wallet link": "Copy Google Wallet link",
+        "Push update to devices": "Push update to devices",
+        "Smart link": "Smart link (QR code)",
+        "Apple Wallet": "Apple Wallet",
+        "Google Wallet": "Google Wallet",
+        "Copy": "Copy",
+        "Open": "Open",
+        "Download QR code": "Download QR code",
+        "Not configured": "Not configured",
+        "Registered Devices": "Registered devices",
+        "Scans": "Scans",
+        "Last Scan": "Last scan",
+        "Update Pending": "Update pending",
+        "Never": "Never"
+    },
+    "messages": {
+        "linkCopied": "Link copied to clipboard.",
+        "pushDone": "Update pushed.",
+        "pushPartial": "Push partially failed — it will be retried automatically. See the log.",
+        "googleNotConfigured": "Google Wallet is not configured.",
+        "appleNotConfigured": "Apple Wallet is not configured.",
+        "previewError": "Preview unavailable."
+    },
+    "tooltips": {
+        "holderName": "Shown on the pass. Defaults to the contact / account name.",
+        "barcodeValue": "Overrides the template barcode content (placeholders allowed).",
+        "points": "Available as {pass.points} in template fields. A change pushes an update to the devices.",
+        "contentUpdatedAt": "Last change of the content rendered on the pass (Apple \"passesUpdatedSince\").",
+        "walletLink": "Public link: opens Apple Wallet on iPhone, Google Wallet on Android, a choice page elsewhere.",
+        "walletQrCodeUrl": "Public PNG image of the QR code — usable in e-mails: <img src=\"{WalletPass.walletQrCodeUrl}\">"
+    },
+    "presetFilters": {
+        "active": "Active",
+        "pushPending": "Update pending"
+    }
+}

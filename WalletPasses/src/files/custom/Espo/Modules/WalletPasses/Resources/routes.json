@@ -1,0 +1,95 @@
+[
+    {
+        "route": "/WalletService/v1/passes/:passTypeIdentifier/:serialNumber",
+        "method": "get",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\WebService\\GetPass",
+        "noAuth": true
+    },
+    {
+        "route": "/WalletService/v1/devices/:deviceLibraryIdentifier/registrations/:passTypeIdentifier/:serialNumber",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\WebService\\PostRegistration",
+        "noAuth": true
+    },
+    {
+        "route": "/WalletService/v1/devices/:deviceLibraryIdentifier/registrations/:passTypeIdentifier/:serialNumber",
+        "method": "delete",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\WebService\\DeleteRegistration",
+        "noAuth": true
+    },
+    {
+        "route": "/WalletService/v1/devices/:deviceLibraryIdentifier/registrations/:passTypeIdentifier",
+        "method": "get",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\WebService\\GetSerialNumbers",
+        "noAuth": true
+    },
+    {
+        "route": "/WalletService/v1/log",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\WebService\\PostLog",
+        "noAuth": true
+    },
+    {
+        "route": "/WalletService/go/:serialNumber",
+        "method": "get",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\PublicLink\\GetSmartLink",
+        "noAuth": true
+    },
+    {
+        "route": "/WalletService/qr/:serialNumber",
+        "method": "get",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\PublicLink\\GetQrCode",
+        "noAuth": true
+    },
+    {
+        "route": "/WalletService/image/:templateId/:image",
+        "method": "get",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\PublicLink\\GetImage",
+        "noAuth": true
+    },
+    {
+        "route": "/WalletPasses/pass/:id/links",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\Pass\\PostLinks"
+    },
+    {
+        "route": "/WalletPasses/pass/:id/pkpass",
+        "method": "get",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\Pass\\GetPkpass"
+    },
+    {
+        "route": "/WalletPasses/pass/:id/preview",
+        "method": "get",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\Pass\\GetPreview"
+    },
+    {
+        "route": "/WalletPasses/pass/:id/push",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\Pass\\PostPush"
+    },
+    {
+        "route": "/WalletPasses/template/:id/preview",
+        "method": "get",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\Pass\\GetTemplatePreview"
+    },
+    {
+        "route": "/WalletPasses/scan",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\Pass\\PostScan"
+    },
+    {
+        "route": "/WalletPasses/settings/status",
+        "method": "get",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\Admin\\GetStatus"
+    },
+    {
+        "route": "/WalletPasses/settings/upload/:kind",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\Admin\\PostUpload"
+    },
+    {
+        "route": "/WalletPasses/settings/test",
+        "method": "post",
+        "actionClassName": "Espo\\Modules\\WalletPasses\\Api\\Admin\\PostTest"
+    }
+]

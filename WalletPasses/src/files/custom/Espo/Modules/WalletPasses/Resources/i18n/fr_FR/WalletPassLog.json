@@ -1,0 +1,33 @@
+{
+    "fields": {
+        "event": "Événement",
+        "pass": "Pass",
+        "message": "Message",
+        "deviceLibraryIdentifier": "Appareil",
+        "ipAddress": "Adresse IP",
+        "createdAt": "Date",
+        "createdBy": "Utilisateur"
+    },
+    "links": {
+        "pass": "Pass",
+        "createdBy": "Utilisateur"
+    },
+    "options": {
+        "event": {
+            "Created": "Création",
+            "Updated": "Mise à jour",
+            "Downloaded": "Téléchargé",
+            "PushSent": "Push envoyé",
+            "PushFailed": "Push échoué",
+            "DeviceRegistered": "Appareil enregistré",
+            "DeviceUnregistered": "Appareil supprimé",
+            "Scanned": "Scan détecté",
+            "GoogleSynced": "Synchronisé Google",
+            "GoogleError": "Erreur Google",
+            "Unauthorized": "Non autorisé (401)",
+            "DeviceLog": "Journal appareil",
+            "Error": "Erreur"
+        }
+    },
+    "labels": {}
+}

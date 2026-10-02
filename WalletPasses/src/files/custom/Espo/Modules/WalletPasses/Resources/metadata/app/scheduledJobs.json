@@ -1,0 +1,12 @@
+{
+    "WalletPassesPushPendingUpdates": {
+        "name": "Wallet Passes: push pending updates",
+        "scheduling": "*/5 * * * *",
+        "jobClassName": "Espo\\Modules\\WalletPasses\\Jobs\\PushPendingUpdates"
+    },
+    "WalletPassesExpirePasses": {
+        "name": "Wallet Passes: expire passes",
+        "scheduling": "15 * * * *",
+        "jobClassName": "Espo\\Modules\\WalletPasses\\Jobs\\ExpirePasses"
+    }
+}

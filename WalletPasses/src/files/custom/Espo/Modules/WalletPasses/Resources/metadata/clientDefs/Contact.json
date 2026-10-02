@@ -1,0 +1,38 @@
+{
+    "massActionList": [
+        "__APPEND__",
+        "walletSendPasses"
+    ],
+    "checkAllResultMassActionList": [
+        "__APPEND__",
+        "walletSendPasses"
+    ],
+    "massActionDefs": {
+        "walletSendPasses": {
+            "handler": "wallet-passes:handlers/send-passes",
+            "actionFunction": "process",
+            "aclScope": "WalletPass",
+            "acl": "create",
+            "groupIndex": 9
+        }
+    },
+    "bottomPanels": {
+        "detail": [
+            "__APPEND__",
+            {
+                "name": "walletPasses",
+                "label": "Wallet Passes",
+                "view": "wallet-passes:views/wallet-pass/panels/related-passes",
+                "aclScope": "WalletPass",
+                "order": 9
+            }
+        ]
+    },
+    "relationshipPanels": {
+        "walletPasses": {
+            "layout": "listSmall",
+            "create": true,
+            "select": false
+        }
+    }
+}

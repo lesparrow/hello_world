@@ -1,0 +1,30 @@
+{
+    "scopeNames": {
+        "WalletPassTemplate": "Wallet Pass Template",
+        "WalletPass": "Wallet Pass",
+        "WalletPassLog": "Wallet Pass Log",
+        "WalletDevice": "Wallet Device"
+    },
+    "scopeNamesPlural": {
+        "WalletPassTemplate": "Wallet Pass Templates",
+        "WalletPass": "Wallet Passes",
+        "WalletPassLog": "Wallet Pass Log",
+        "WalletDevice": "Wallet Devices"
+    },
+    "massActions": {
+        "walletSendPasses": "Send Wallet passes"
+    },
+    "labels": {
+        "Wallet Passes": "Wallet Passes",
+        "Send Wallet passes": "Send Wallet passes",
+        "Pass Template": "Pass template",
+        "Email Template": "E-mail template (optional)",
+        "Skip holders who already have an active pass": "Skip records that already have an active pass from this template",
+        "Send": "Send"
+    },
+    "messages": {
+        "walletPassesIssued": "{count} pass(es) issued.",
+        "walletTemplateRequired": "Please select a pass template.",
+        "walletEmailHint": "Placeholders for the e-mail template: {WalletPass.walletLink}, {WalletPass.walletQrCodeUrl}, {WalletPass.serialNumber}."
+    }
+}

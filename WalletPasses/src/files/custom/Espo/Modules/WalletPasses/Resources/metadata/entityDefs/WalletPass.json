@@ -1,0 +1,253 @@
+{
+    "fields": {
+        "name": {
+            "type": "varchar",
+            "required": true,
+            "maxLength": 150,
+            "pattern": "$noBadCharacters"
+        },
+        "template": {
+            "type": "link",
+            "required": true,
+            "audited": true
+        },
+        "contact": {
+            "type": "link"
+        },
+        "account": {
+            "type": "link"
+        },
+        "lead": {
+            "type": "link"
+        },
+        "serialNumber": {
+            "type": "varchar",
+            "readOnly": true,
+            "maxLength": 64,
+            "copyToClipboard": true
+        },
+        "authenticationToken": {
+            "type": "varchar",
+            "readOnly": true,
+            "maxLength": 128,
+            "layoutDetailDisabled": true,
+            "layoutListDisabled": true,
+            "layoutFiltersDisabled": true,
+            "layoutMassUpdateDisabled": true,
+            "exportDisabled": true,
+            "importDisabled": true,
+            "textFilterDisabled": true
+        },
+        "holderName": {
+            "type": "varchar",
+            "maxLength": 150,
+            "tooltip": true
+        },
+        "barcodeValue": {
+            "type": "varchar",
+            "maxLength": 255,
+            "tooltip": true
+        },
+        "points": {
+            "type": "int",
+            "tooltip": true
+        },
+        "status": {
+            "type": "enum",
+            "options": [
+                "Active",
+                "Expired",
+                "Voided"
+            ],
+            "default": "Active",
+            "style": {
+                "Active": "success",
+                "Expired": "warning",
+                "Voided": "danger"
+            },
+            "audited": true
+        },
+        "issuedAt": {
+            "type": "datetime",
+            "readOnly": true
+        },
+        "expiresAt": {
+            "type": "datetime",
+            "audited": true
+        },
+        "deviceCount": {
+            "type": "int",
+            "readOnly": true,
+            "default": 0
+        },
+        "scanCount": {
+            "type": "int",
+            "readOnly": true,
+            "default": 0
+        },
+        "lastScannedAt": {
+            "type": "datetime",
+            "readOnly": true
+        },
+        "contentUpdatedAt": {
+            "type": "datetime",
+            "readOnly": true,
+            "tooltip": true
+        },
+        "pushPending": {
+            "type": "bool",
+            "readOnly": true
+        },
+        "googleObjectId": {
+            "type": "varchar",
+            "readOnly": true,
+            "maxLength": 255
+        },
+        "googleSyncedAt": {
+            "type": "datetime",
+            "readOnly": true
+        },
+        "googleSyncError": {
+            "type": "text",
+            "readOnly": true
+        },
+        "walletLink": {
+            "type": "url",
+            "readOnly": true,
+            "maxLength": 512,
+            "copyToClipboard": true,
+            "tooltip": true
+        },
+        "walletQrCodeUrl": {
+            "type": "url",
+            "readOnly": true,
+            "maxLength": 512,
+            "tooltip": true
+        },
+        "notes": {
+            "type": "text"
+        },
+        "devices": {
+            "type": "linkMultiple",
+            "layoutDetailDisabled": true,
+            "layoutListDisabled": true,
+            "layoutMassUpdateDisabled": true,
+            "noLoad": true,
+            "importDisabled": true,
+            "exportDisabled": true,
+            "readOnly": true
+        },
+        "createdAt": {
+            "type": "datetime",
+            "readOnly": true
+        },
+        "modifiedAt": {
+            "type": "datetime",
+            "readOnly": true
+        },
+        "createdBy": {
+            "type": "link",
+            "readOnly": true,
+            "view": "views/fields/user"
+        },
+        "modifiedBy": {
+            "type": "link",
+            "readOnly": true,
+            "view": "views/fields/user"
+        },
+        "assignedUser": {
+            "type": "link",
+            "view": "views/fields/assigned-user"
+        },
+        "teams": {
+            "type": "linkMultiple",
+            "view": "views/fields/teams"
+        }
+    },
+    "links": {
+        "template": {
+            "type": "belongsTo",
+            "entity": "WalletPassTemplate",
+            "foreign": "passes"
+        },
+        "contact": {
+            "type": "belongsTo",
+            "entity": "Contact",
+            "foreign": "walletPasses"
+        },
+        "account": {
+            "type": "belongsTo",
+            "entity": "Account",
+            "foreign": "walletPasses"
+        },
+        "lead": {
+            "type": "belongsTo",
+            "entity": "Lead",
+            "foreign": "walletPasses"
+        },
+        "devices": {
+            "type": "hasMany",
+            "entity": "WalletDevice",
+            "foreign": "passes",
+            "relationName": "walletRegistration"
+        },
+        "logs": {
+            "type": "hasMany",
+            "entity": "WalletPassLog",
+            "foreign": "pass"
+        },
+        "createdBy": {
+            "type": "belongsTo",
+            "entity": "User"
+        },
+        "modifiedBy": {
+            "type": "belongsTo",
+            "entity": "User"
+        },
+        "assignedUser": {
+            "type": "belongsTo",
+            "entity": "User"
+        },
+        "teams": {
+            "type": "hasMany",
+            "entity": "Team",
+            "relationName": "entityTeam",
+            "layoutRelationshipsDisabled": true
+        }
+    },
+    "collection": {
+        "orderBy": "createdAt",
+        "order": "desc",
+        "textFilterFields": [
+            "name",
+            "serialNumber",
+            "holderName"
+        ]
+    },
+    "indexes": {
+        "serialNumber": {
+            "columns": [
+                "serialNumber",
+                "deleted"
+            ]
+        },
+        "contentUpdatedAt": {
+            "columns": [
+                "contentUpdatedAt"
+            ]
+        },
+        "pushPending": {
+            "columns": [
+                "pushPending",
+                "deleted"
+            ]
+        },
+        "statusExpiresAt": {
+            "columns": [
+                "status",
+                "expiresAt",
+                "deleted"
+            ]
+        }
+    }
+}

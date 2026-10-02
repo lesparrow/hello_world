@@ -1,0 +1,74 @@
+{
+    "fields": {
+        "name": "Name",
+        "createdAt": "Created At",
+        "modifiedAt": "Modified At",
+        "createdBy": "Created By",
+        "modifiedBy": "Modified By",
+        "assignedUser": "Assigned User",
+        "teams": "Teams",
+        "passType": "Pass Type",
+        "organizationName": "Organization Name",
+        "description": "Description",
+        "logoText": "Logo Text",
+        "backgroundColor": "Background Color",
+        "foregroundColor": "Value Color",
+        "labelColor": "Label Color",
+        "barcodeFormat": "Barcode Format",
+        "barcodeMessage": "Barcode Content",
+        "barcodeAltText": "Barcode Text",
+        "icon": "Icon",
+        "logo": "Logo",
+        "strip": "Strip Image",
+        "background": "Background Image",
+        "thumbnail": "Thumbnail",
+        "frontFields": "Front Fields",
+        "backFields": "Back Fields",
+        "defaultExpirationDate": "Default Expiration Date",
+        "validityDays": "Validity (days)",
+        "relevantDate": "Relevant Date",
+        "isActive": "Active",
+        "notes": "Notes",
+        "googleClassId": "Google Class ID",
+        "passes": "Passes"
+    },
+    "links": {
+        "passes": "Passes"
+    },
+    "options": {
+        "passType": {
+            "generic": "Generic",
+            "coupon": "Coupon",
+            "eventTicket": "Event ticket",
+            "storeCard": "Store card",
+            "loyaltyCard": "Loyalty card"
+        },
+        "barcodeFormat": {
+            "QR": "QR Code",
+            "PDF417": "PDF417",
+            "Aztec": "Aztec",
+            "Code128": "Code 128"
+        }
+    },
+    "labels": {
+        "Create WalletPassTemplate": "Create Pass Template",
+        "Appearance": "Appearance",
+        "Barcode": "Barcode",
+        "Fields": "Fields",
+        "Validity": "Validity",
+        "Preview": "Preview"
+    },
+    "tooltips": {
+        "description": "Required by Apple (accessibility / lock screen).",
+        "foregroundColor": "Color of field values (Apple \"foregroundColor\").",
+        "labelColor": "Color of field labels (Apple \"labelColor\").",
+        "barcodeMessage": "Placeholders allowed: {pass.serialNumber}, {contact.id}, {pass.points}…",
+        "icon": "PNG, 29×29 pt (58×58 px recommended). Mandatory for Apple — the logo is used if empty.",
+        "strip": "Coupon, store/loyalty card and event ticket. 375×123 pt. Used as hero image by Google.",
+        "background": "Event tickets only (Apple). Blurred by Wallet.",
+        "frontFields": "Values accept placeholders: {contact.firstName}, {pass.holderName}, {pass.expiresAt}, {account.name}…",
+        "validityDays": "If set, a new pass expires N days after issue (takes precedence over the default date).",
+        "relevantDate": "Apple shows the pass on the lock screen around this date (event tickets)."
+    },
+    "presetFilters": {}
+}

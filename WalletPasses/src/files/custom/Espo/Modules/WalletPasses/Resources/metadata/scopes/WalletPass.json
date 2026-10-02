@@ -1,0 +1,15 @@
+{
+    "entity": true,
+    "object": true,
+    "layouts": true,
+    "tab": true,
+    "acl": true,
+    "aclLevelList": ["all", "team", "own", "no"],
+    "module": "WalletPasses",
+    "customizable": true,
+    "importable": false,
+    "notifications": false,
+    "stream": true,
+    "disabled": false,
+    "type": "Base"
+}

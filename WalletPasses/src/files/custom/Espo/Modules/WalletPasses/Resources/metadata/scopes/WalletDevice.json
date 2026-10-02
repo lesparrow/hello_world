@@ -1,0 +1,16 @@
+{
+    "entity": true,
+    "object": false,
+    "layouts": true,
+    "tab": false,
+    "acl": true,
+    "aclActionList": ["read", "delete"],
+    "aclLevelList": ["all", "no"],
+    "module": "WalletPasses",
+    "customizable": false,
+    "importable": false,
+    "notifications": false,
+    "stream": false,
+    "disabled": false,
+    "type": "Base"
+}

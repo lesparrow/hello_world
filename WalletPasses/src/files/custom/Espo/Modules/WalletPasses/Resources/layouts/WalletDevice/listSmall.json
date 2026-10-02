@@ -1,0 +1,5 @@
+[
+    {"name": "deviceLibraryIdentifier", "link": true},
+    {"name": "lastPushStatus", "width": 25},
+    {"name": "createdAt", "width": 25}
+]

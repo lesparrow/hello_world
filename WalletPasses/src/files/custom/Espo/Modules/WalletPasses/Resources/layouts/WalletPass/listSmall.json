@@ -1,0 +1,6 @@
+[
+    {"name": "name", "link": true},
+    {"name": "status", "width": 18},
+    {"name": "deviceCount", "width": 12},
+    {"name": "expiresAt", "width": 22}
+]

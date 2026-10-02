@@ -1,0 +1,27 @@
+{
+    "fields": {
+        "walletPasses": {
+            "type": "linkMultiple",
+            "layoutDetailDisabled": true,
+            "layoutListDisabled": true,
+            "layoutMassUpdateDisabled": true,
+            "noLoad": true,
+            "importDisabled": true,
+            "exportDisabled": true
+        },
+        "walletPassLink": {
+            "type": "url",
+            "readOnly": true,
+            "maxLength": 512,
+            "copyToClipboard": true,
+            "tooltip": true
+        }
+    },
+    "links": {
+        "walletPasses": {
+            "type": "hasMany",
+            "entity": "WalletPass",
+            "foreign": "contact"
+        }
+    }
+}

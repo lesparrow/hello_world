@@ -1,0 +1,6 @@
+{
+    "primaryFilterClassNameMap": {
+        "active": "Espo\\Modules\\WalletPasses\\Classes\\Select\\WalletPass\\PrimaryFilters\\Active",
+        "pushPending": "Espo\\Modules\\WalletPasses\\Classes\\Select\\WalletPass\\PrimaryFilters\\PushPending"
+    }
+}

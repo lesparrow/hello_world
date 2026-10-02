@@ -1,0 +1,32 @@
+{
+    "controller": "controllers/record",
+    "iconClass": "fas fa-id-card",
+    "color": "#1E3A5F",
+    "sidePanels": {
+        "detail": [
+            {
+                "name": "walletPreview",
+                "label": "Preview",
+                "view": "wallet-passes:views/wallet-pass/panels/preview",
+                "isTemplate": true
+            }
+        ],
+        "edit": [
+            {
+                "name": "walletPreview",
+                "label": "Preview",
+                "view": "wallet-passes:views/wallet-pass/panels/preview",
+                "isTemplate": true
+            }
+        ]
+    },
+    "relationshipPanels": {
+        "passes": {
+            "create": true,
+            "createAttributeMap": {
+                "id": "templateId",
+                "name": "templateName"
+            }
+        }
+    }
+}

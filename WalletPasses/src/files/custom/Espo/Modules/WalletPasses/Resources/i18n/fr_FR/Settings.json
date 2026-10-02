@@ -1,0 +1,58 @@
+{
+    "fields": {
+        "walletAppleEnabled": "Apple Wallet activé",
+        "walletAppleTeamId": "Team ID",
+        "walletApplePassTypeId": "Pass Type ID",
+        "walletAppleWebServiceUrl": "URL du web service (surcharge)",
+        "walletApplePushEnabled": "Mises à jour push (APNs)",
+        "walletApplePushType": "En-tête apns-push-type",
+        "walletAppleCertificate": "Certificat du pass (.p12)",
+        "walletAppleWwdr": "Certificat Apple WWDR",
+        "walletGoogleEnabled": "Google Wallet activé",
+        "walletGoogleIssuerId": "Issuer ID",
+        "walletGoogleOrigins": "Origines autorisées",
+        "walletGoogleLanguage": "Langue",
+        "walletGoogleServiceAccount": "Clé du compte de service (JSON)",
+        "walletPublicBaseUrl": "URL publique de base",
+        "walletLogRetentionDays": "Conservation du journal (jours)"
+    },
+    "options": {
+        "walletApplePushType": {
+            "": "(aucun — recommandé)",
+            "background": "background"
+        }
+    },
+    "labels": {
+        "Apple Wallet": "Apple Wallet",
+        "Google Wallet": "Google Wallet",
+        "General": "Général",
+        "Test Configuration": "Tester la configuration",
+        "Upload": "Téléverser",
+        "Replace": "Remplacer",
+        "Remove": "Supprimer",
+        "Not uploaded": "Non téléversé",
+        "Uploaded": "Téléversé",
+        "Expires": "Expire le",
+        "Certificate password": "Mot de passe du certificat",
+        "Web service URL": "URL du web service (webServiceURL)"
+    },
+    "messages": {
+        "walletUploaded": "Identifiant enregistré.",
+        "walletRemoved": "Identifiant supprimé.",
+        "walletTestOk": "Toutes les vérifications sont OK.",
+        "walletTestFailed": "Certaines vérifications ont échoué — voir le détail.",
+        "walletSaveFirst": "Enregistrez les paramètres avant de tester."
+    },
+    "tooltips": {
+        "walletAppleTeamId": "Team ID à 10 caractères (developer.apple.com → Membership).",
+        "walletApplePassTypeId": "Identifiant créé dans Certificates, Identifiers & Profiles, ex. pass.com.example.fidelite.",
+        "walletAppleWebServiceUrl": "Laisser vide pour <URL publique>/api/v1/WalletService. HTTPS obligatoire.",
+        "walletApplePushType": "Les mises à jour Wallet n'ont normalement pas besoin d'en-tête apns-push-type. N'utiliser « background » que si APNs répond InvalidPushType.",
+        "walletAppleCertificate": "Certificat Pass Type ID exporté du Trousseau avec sa clé privée. Stocké chiffré dans data/wallet-passes/.",
+        "walletAppleWwdr": "Optionnel : intermédiaire Apple WWDR G4 (.cer). Sinon, le G4 fourni par la bibliothèque est utilisé.",
+        "walletGoogleIssuerId": "Google Pay & Wallet Console → Google Wallet API → Issuer ID.",
+        "walletGoogleOrigins": "Domaines autorisés à afficher le bouton « Ajouter à Google Wallet », ex. https://crm.example.com.",
+        "walletGoogleServiceAccount": "Clé JSON d'un compte de service ajouté comme utilisateur de l'issuer. Stockée chiffrée.",
+        "walletPublicBaseUrl": "URL HTTPS publique d'EspoCRM utilisée dans les liens et QR codes. Par défaut : Site URL."
+    }
+}

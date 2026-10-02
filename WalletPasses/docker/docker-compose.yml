@@ -1,0 +1,59 @@
+# Instance EspoCRM de développement pour tester l'extension WalletPasses.
+#   docker compose -f docker/docker-compose.yml up -d
+#   → http://localhost:8080  (admin / admin123 — à changer)
+# Apple Wallet exige HTTPS : exposez l'instance via un tunnel (service "tunnel" ci-dessous,
+# profil "tunnel") puis renseignez l'URL https://… dans Administration → Paramètres Wallet → URL publique.
+services:
+  espocrm-db:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: espocrm
+      MARIADB_USER: espocrm
+      MARIADB_PASSWORD: espocrm
+    volumes:
+      - espocrm-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 20
+
+  espocrm:
+    image: espocrm/espocrm:9
+    depends_on:
+      espocrm-db:
+        condition: service_healthy
+    environment:
+      ESPOCRM_DATABASE_PLATFORM: Mysql
+      ESPOCRM_DATABASE_HOST: espocrm-db
+      ESPOCRM_DATABASE_USER: espocrm
+      ESPOCRM_DATABASE_PASSWORD: espocrm
+      ESPOCRM_ADMIN_USERNAME: admin
+      ESPOCRM_ADMIN_PASSWORD: admin123
+      ESPOCRM_SITE_URL: http://localhost:8080
+      ESPOCRM_CONFIG_LANGUAGE: fr_FR
+      ESPOCRM_CONFIG_TIME_ZONE: Europe/Paris
+    volumes:
+      - espocrm:/var/www/html
+      - ../build:/ext:ro
+    ports:
+      - "8080:80"
+
+  espocrm-cron:
+    image: espocrm/espocrm:9
+    depends_on:
+      - espocrm
+    volumes:
+      - espocrm:/var/www/html
+    entrypoint: docker-daemon.sh
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate --url http://espocrm:80
+    depends_on:
+      - espocrm
+
+volumes:
+  espocrm:
+  espocrm-db:

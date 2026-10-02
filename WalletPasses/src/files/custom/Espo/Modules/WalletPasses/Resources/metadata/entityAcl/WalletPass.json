@@ -1,0 +1,16 @@
+{
+    "fields": {
+        "authenticationToken": {
+            "internal": true
+        },
+        "pushPending": {
+            "readOnly": true
+        },
+        "deviceCount": {
+            "readOnly": true
+        },
+        "scanCount": {
+            "readOnly": true
+        }
+    }
+}

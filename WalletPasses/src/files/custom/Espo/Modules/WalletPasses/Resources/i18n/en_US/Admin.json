@@ -1,0 +1,14 @@
+{
+    "labels": {
+        "Wallet Passes": "Wallet Passes",
+        "Wallet Settings": "Wallet Settings",
+        "Wallet Pass Templates": "Pass Templates",
+        "Wallet Pass Log": "Pass Log"
+    },
+    "descriptions": {
+        "walletPassesSettings": "Apple Wallet & Google Wallet credentials, web service and test.",
+        "walletPassTemplates": "Pass designs: colors, images, fields, barcode.",
+        "walletPasses": "Issued passes, links and registered devices.",
+        "walletPassLog": "Events: downloads, pushes, devices, scans, errors."
+    }
+}

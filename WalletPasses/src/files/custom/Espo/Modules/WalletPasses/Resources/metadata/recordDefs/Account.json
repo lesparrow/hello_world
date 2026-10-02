@@ -1,0 +1,7 @@
+{
+    "massActions": {
+        "walletSendPasses": {
+            "implementationClassName": "Espo\\Modules\\WalletPasses\\MassAction\\SendPasses"
+        }
+    }
+}

@@ -1,0 +1,8 @@
+{
+    "fields": {
+        "pushToken": {
+            "onlyAdmin": true,
+            "readOnly": true
+        }
+    }
+}

@@ -1,0 +1,7 @@
+[
+    {"name": "name", "link": true},
+    {"name": "passType", "width": 15},
+    {"name": "organizationName", "width": 20},
+    {"name": "isActive", "width": 10},
+    {"name": "modifiedAt", "width": 15}
+]

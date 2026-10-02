@@ -1,0 +1,8 @@
+{
+    "controller": "controllers/record",
+    "iconClass": "fas fa-mobile-alt",
+    "createDisabled": true,
+    "editDisabled": true,
+    "mergeDisabled": true,
+    "massUpdateDisabled": true
+}

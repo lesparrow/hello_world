@@ -1,0 +1,190 @@
+{
+    "fields": {
+        "name": {
+            "type": "varchar",
+            "required": true,
+            "maxLength": 150,
+            "pattern": "$noBadCharacters"
+        },
+        "passType": {
+            "type": "enum",
+            "required": true,
+            "options": ["generic", "coupon", "eventTicket", "storeCard", "loyaltyCard"],
+            "default": "generic",
+            "audited": true
+        },
+        "organizationName": {
+            "type": "varchar",
+            "required": true,
+            "maxLength": 100
+        },
+        "description": {
+            "type": "varchar",
+            "required": true,
+            "maxLength": 255,
+            "tooltip": true
+        },
+        "logoText": {
+            "type": "varchar",
+            "maxLength": 60
+        },
+        "backgroundColor": {
+            "type": "colorpicker",
+            "default": "#1E3A5F"
+        },
+        "foregroundColor": {
+            "type": "colorpicker",
+            "default": "#FFFFFF",
+            "tooltip": true
+        },
+        "labelColor": {
+            "type": "colorpicker",
+            "default": "#C8D3E0",
+            "tooltip": true
+        },
+        "barcodeFormat": {
+            "type": "enum",
+            "options": ["QR", "PDF417", "Aztec", "Code128"],
+            "default": "QR"
+        },
+        "barcodeMessage": {
+            "type": "varchar",
+            "maxLength": 255,
+            "default": "{pass.serialNumber}",
+            "tooltip": true
+        },
+        "barcodeAltText": {
+            "type": "varchar",
+            "maxLength": 100,
+            "default": "{pass.serialNumber}"
+        },
+        "icon": {
+            "type": "image",
+            "previewSize": "small",
+            "tooltip": true
+        },
+        "logo": {
+            "type": "image",
+            "previewSize": "small"
+        },
+        "strip": {
+            "type": "image",
+            "previewSize": "small",
+            "tooltip": true
+        },
+        "background": {
+            "type": "image",
+            "previewSize": "small",
+            "tooltip": true
+        },
+        "thumbnail": {
+            "type": "image",
+            "previewSize": "small"
+        },
+        "frontFields": {
+            "type": "jsonArray",
+            "view": "wallet-passes:views/fields/wallet-field-list",
+            "sectionList": ["header", "primary", "secondary", "auxiliary"],
+            "tooltip": true
+        },
+        "backFields": {
+            "type": "jsonArray",
+            "view": "wallet-passes:views/fields/wallet-field-list",
+            "sectionList": ["back"]
+        },
+        "defaultExpirationDate": {
+            "type": "date"
+        },
+        "validityDays": {
+            "type": "int",
+            "min": 0,
+            "tooltip": true
+        },
+        "relevantDate": {
+            "type": "datetime",
+            "tooltip": true
+        },
+        "isActive": {
+            "type": "bool",
+            "default": true
+        },
+        "notes": {
+            "type": "text"
+        },
+        "googleClassId": {
+            "type": "varchar",
+            "readOnly": true,
+            "maxLength": 255
+        },
+        "passes": {
+            "type": "linkMultiple",
+            "layoutDetailDisabled": true,
+            "layoutListDisabled": true,
+            "layoutMassUpdateDisabled": true,
+            "noLoad": true,
+            "importDisabled": true,
+            "exportDisabled": true
+        },
+        "createdAt": {
+            "type": "datetime",
+            "readOnly": true
+        },
+        "modifiedAt": {
+            "type": "datetime",
+            "readOnly": true
+        },
+        "createdBy": {
+            "type": "link",
+            "readOnly": true,
+            "view": "views/fields/user"
+        },
+        "modifiedBy": {
+            "type": "link",
+            "readOnly": true,
+            "view": "views/fields/user"
+        },
+        "assignedUser": {
+            "type": "link",
+            "view": "views/fields/assigned-user"
+        },
+        "teams": {
+            "type": "linkMultiple",
+            "view": "views/fields/teams"
+        }
+    },
+    "links": {
+        "passes": {
+            "type": "hasMany",
+            "entity": "WalletPass",
+            "foreign": "template"
+        },
+        "createdBy": {
+            "type": "belongsTo",
+            "entity": "User"
+        },
+        "modifiedBy": {
+            "type": "belongsTo",
+            "entity": "User"
+        },
+        "assignedUser": {
+            "type": "belongsTo",
+            "entity": "User"
+        },
+        "teams": {
+            "type": "hasMany",
+            "entity": "Team",
+            "relationName": "entityTeam",
+            "layoutRelationshipsDisabled": true
+        }
+    },
+    "collection": {
+        "orderBy": "name",
+        "order": "asc",
+        "textFilterFields": ["name", "organizationName"]
+    },
+    "indexes": {
+        "name": {
+            "columns": ["name", "deleted"]
+        }
+    }
+}

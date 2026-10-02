@@ -1,0 +1,11 @@
+[
+    {
+        "label": "",
+        "rows": [
+            [{"name": "event"}, {"name": "createdAt"}],
+            [{"name": "pass"}, {"name": "deviceLibraryIdentifier"}],
+            [{"name": "ipAddress"}, {"name": "createdBy"}],
+            [{"name": "message", "fullWidth": true}]
+        ]
+    }
+]

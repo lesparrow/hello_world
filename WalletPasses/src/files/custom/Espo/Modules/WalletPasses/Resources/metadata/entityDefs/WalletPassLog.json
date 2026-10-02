@@ -1,0 +1,82 @@
+{
+    "fields": {
+        "event": {
+            "type": "enum",
+            "readOnly": true,
+            "options": [
+                "Created",
+                "Updated",
+                "Downloaded",
+                "PushSent",
+                "PushFailed",
+                "DeviceRegistered",
+                "DeviceUnregistered",
+                "Scanned",
+                "GoogleSynced",
+                "GoogleError",
+                "Unauthorized",
+                "DeviceLog",
+                "Error"
+            ],
+            "style": {
+                "PushFailed": "danger",
+                "GoogleError": "danger",
+                "Unauthorized": "warning",
+                "Error": "danger",
+                "PushSent": "success",
+                "DeviceRegistered": "success"
+            }
+        },
+        "pass": {
+            "type": "link",
+            "readOnly": true
+        },
+        "message": {
+            "type": "text",
+            "readOnly": true
+        },
+        "deviceLibraryIdentifier": {
+            "type": "varchar",
+            "readOnly": true,
+            "maxLength": 128
+        },
+        "ipAddress": {
+            "type": "varchar",
+            "readOnly": true,
+            "maxLength": 45
+        },
+        "createdAt": {
+            "type": "datetime",
+            "readOnly": true
+        },
+        "createdBy": {
+            "type": "link",
+            "readOnly": true,
+            "view": "views/fields/user"
+        }
+    },
+    "links": {
+        "pass": {
+            "type": "belongsTo",
+            "entity": "WalletPass",
+            "foreign": "logs"
+        },
+        "createdBy": {
+            "type": "belongsTo",
+            "entity": "User"
+        }
+    },
+    "collection": {
+        "orderBy": "createdAt",
+        "order": "desc",
+        "textFilterFields": ["message", "deviceLibraryIdentifier"]
+    },
+    "indexes": {
+        "createdAt": {
+            "columns": ["createdAt", "deleted"]
+        },
+        "event": {
+            "columns": ["event", "deleted"]
+        }
+    }
+}

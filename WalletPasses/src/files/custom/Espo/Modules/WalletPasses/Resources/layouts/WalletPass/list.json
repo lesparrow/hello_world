@@ -1,0 +1,9 @@
+[
+    {"name": "name", "link": true},
+    {"name": "template", "width": 16},
+    {"name": "contact", "width": 16},
+    {"name": "status", "width": 10},
+    {"name": "serialNumber", "width": 14},
+    {"name": "deviceCount", "width": 8},
+    {"name": "expiresAt", "width": 12}
+]

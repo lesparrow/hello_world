@@ -1,0 +1,15 @@
+{
+    "fields": {
+        "walletPasses": "Wallet Passes",
+        "walletPassLink": "Wallet Link"
+    },
+    "links": {
+        "walletPasses": "Wallet Passes"
+    },
+    "labels": {
+        "Wallet Passes": "Wallet Passes"
+    },
+    "tooltips": {
+        "walletPassLink": "Link of the last pass sent with the \"Send Wallet passes\" action. Usable in mass e-mails: {Contact.walletPassLink}."
+    }
+}

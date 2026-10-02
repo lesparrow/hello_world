@@ -1,0 +1,11 @@
+{
+    "fields": {
+        "walletPasses": "Pass Wallet"
+    },
+    "links": {
+        "walletPasses": "Pass Wallet"
+    },
+    "labels": {
+        "Wallet Passes": "Pass Wallet"
+    }
+}

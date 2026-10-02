@@ -1,0 +1,93 @@
+/* Wallet Passes extension — preview and widgets. */
+.wallet-pass-preview {
+    --wp-label-color: #c8d3e0;
+    border-radius: 14px;
+    padding: 12px;
+    max-width: 340px;
+    margin: 0 auto;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    position: relative;
+    overflow: hidden;
+}
+.wallet-pass-preview.wp-inactive { opacity: .6; }
+.wallet-pass-preview .wp-top { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.wallet-pass-preview .wp-logo { max-height: 32px; max-width: 110px; }
+.wallet-pass-preview .wp-logo-text { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wallet-pass-preview .wp-header { display: flex; gap: 10px; }
+.wallet-pass-preview .wp-strip {
+    margin: 10px -12px;
+    min-height: 98px;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: flex-end;
+    padding: 8px 12px;
+}
+.wallet-pass-preview .wp-primary-row { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; }
+.wallet-pass-preview .wp-primary .wp-value { font-size: 1.6em; font-weight: 300; line-height: 1.2; }
+.wallet-pass-preview .wp-thumbnail { max-width: 80px; max-height: 80px; border-radius: 6px; }
+.wallet-pass-preview .wp-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.wallet-pass-preview .wp-row .wp-field { flex: 1 1 0; min-width: 70px; }
+.wallet-pass-preview .wp-label {
+    color: var(--wp-label-color);
+    font-size: .72em;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+.wallet-pass-preview .wp-value { font-size: 1em; word-break: break-word; }
+.wallet-pass-preview .wp-barcode-box {
+    background: #fff;
+    color: #000;
+    border-radius: 8px;
+    margin: 14px auto 2px;
+    padding: 8px;
+    width: fit-content;
+    text-align: center;
+}
+.wallet-pass-preview .wp-barcode img, .wallet-pass-preview .wp-barcode canvas { margin: 0 auto; }
+.wallet-pass-preview .wp-barcode svg { max-width: 220px; }
+.wallet-pass-preview .wp-barcode-generic {
+    width: 180px;
+    height: 60px;
+    line-height: 60px;
+    border: 1px dashed #999;
+    font-size: .8em;
+}
+.wallet-pass-preview .wp-barcode-text { font-size: .75em; margin-top: 4px; }
+.wallet-pass-preview .wp-status-badge {
+    position: absolute;
+    top: 12px;
+    right: -32px;
+    transform: rotate(35deg);
+    background: #c0392b;
+    color: #fff;
+    padding: 2px 40px;
+    font-size: .7em;
+    text-transform: uppercase;
+}
+.wallet-pass-back {
+    max-width: 340px;
+    margin: 10px auto 0;
+    border: 1px solid var(--default-border-color, #ddd);
+    border-radius: 10px;
+    padding: 10px;
+    font-size: .9em;
+}
+.wallet-pass-back .wp-field + .wp-field { margin-top: 8px; }
+.wallet-pass-back .wp-label { color: var(--text-muted-color, #888); font-size: .8em; }
+.wallet-stats { display: flex; gap: 10px; margin-bottom: 10px; }
+.wallet-stat { flex: 1; text-align: center; padding: 8px; border-radius: 8px; background: var(--default-heading-bg-color, #f5f5f5); }
+.wallet-stat-value { display: block; font-size: 1.6em; font-weight: 600; }
+.wallet-stat-label { font-size: .8em; color: var(--text-muted-color, #888); }
+.wallet-stats-qr img { width: 140px; height: 140px; image-rendering: pixelated; }
+.wallet-links-qr { width: 220px; height: 220px; max-width: 100%; image-rendering: pixelated; }
+.wallet-field-row { display: flex; gap: 4px; margin-bottom: 4px; align-items: center; }
+.wallet-field-row > .form-control { width: auto; min-width: 0; flex: 0 0 auto; }
+.wallet-field-row > select[data-name="section"] { flex-basis: 115px; }
+.wallet-field-row > select[data-name="textAlignment"] { flex-basis: 95px; }
+.wallet-field-row > input[data-name="key"] { flex-basis: 110px; }
+.wallet-field-row > input[data-name="label"] { flex: 1 1 0; }
+.wallet-field-row > input[data-name="value"] { flex: 2 1 0; }
+.wallet-field-row > .btn { flex: 0 0 auto; }
+.wallet-related-passes .wallet-link-cell { word-break: break-all; font-size: .85em; }

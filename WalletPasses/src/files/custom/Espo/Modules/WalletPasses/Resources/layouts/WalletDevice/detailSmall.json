@@ -1,0 +1,9 @@
+[
+    {
+        "label": "",
+        "rows": [
+            [{"name": "deviceLibraryIdentifier"}, {"name": "createdAt"}],
+            [{"name": "lastPushAt"}, {"name": "lastPushStatus"}]
+        ]
+    }
+]

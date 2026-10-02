@@ -1,0 +1,10 @@
+[
+    {
+        "label": "",
+        "rows": [
+            [{"name": "name"}, {"name": "passType"}],
+            [{"name": "organizationName"}, {"name": "isActive"}],
+            [{"name": "description", "fullWidth": true}]
+        ]
+    }
+]

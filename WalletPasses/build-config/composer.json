@@ -1,0 +1,17 @@
+{
+    "name": "wallet-passes/runtime",
+    "description": "Runtime dependencies vendored inside the EspoCRM extension package.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "pkpass/pkpass": "^2.5",
+        "bacon/bacon-qr-code": "^3.0"
+    },
+    "config": {
+        "platform": {"php": "8.1.0"},
+        "optimize-autoloader": true,
+        "classmap-authoritative": false,
+        "sort-packages": true
+    }
+}
