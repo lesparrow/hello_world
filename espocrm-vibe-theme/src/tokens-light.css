@@ -1,0 +1,90 @@
+/*
+ * Vibe light tokens.
+ *
+ * Values come from monday.com Vibe (packages/style/src/themes/light-theme.scss).
+ * They are namespaced as --vibe-* because several Vibe names (--link-color,
+ * --border-radius-small, ...) already exist in EspoCRM with another meaning.
+ */
+:root {
+    --vibe-primary: #0073ea;
+    --vibe-primary-hover: #0060b9;
+    --vibe-primary-selected: #cce5ff;
+    --vibe-primary-selected-hover: #aed4fc;
+    --vibe-primary-highlighted: #f0f7ff;
+    --vibe-primary-surface: #eceff8;
+
+    /* App layout surfaces */
+    --vibe-app-bg: #f6f7fb;
+    --vibe-surface: #ffffff;
+    --vibe-navbar-bg: #ffffff;
+    --vibe-input-bg: #ffffff;
+    --vibe-board-column-bg: #eceff8;
+    --vibe-row-hover: #f5f6f8;
+
+    --vibe-text: #323338;
+    --vibe-text-secondary: #676879;
+    --vibe-text-on-primary: #ffffff;
+    --vibe-text-disabled: rgba(50, 51, 56, 0.38);
+    --vibe-inverted-bg: #323338;
+    --vibe-text-on-inverted: #ffffff;
+
+    --vibe-bg: #ffffff;
+    --vibe-bg-hover: rgba(103, 104, 121, 0.1);
+    --vibe-bg-secondary: #ffffff;
+    --vibe-bg-allgrey: #f6f7fb;
+    --vibe-backdrop: rgba(41, 47, 76, 0.7);
+    --vibe-ui-border: #c3c6d4;
+    --vibe-ui-bg: #e7e9ef;
+    --vibe-ui-bg-hover: #d8d9e0;
+    --vibe-layout-border: #d0d4e4;
+    --vibe-layout-border-soft: #e6e9ef;
+
+    --vibe-placeholder: #676879;
+    --vibe-icon: #676879;
+    --vibe-disabled-bg: #ecedf5;
+    --vibe-link: #1f76c2;
+
+    --vibe-positive: #00854d;
+    --vibe-positive-hover: #007038;
+    --vibe-positive-selected: #bbdbc9;
+    --vibe-positive-soft: #e3f2ea;
+    --vibe-negative: #d83a52;
+    --vibe-negative-hover: #b63546;
+    --vibe-negative-selected: #f4c3cb;
+    --vibe-negative-soft: #fbe9ec;
+    --vibe-warning: #ffcb00;
+    --vibe-warning-hover: #eaaa15;
+    --vibe-warning-selected: #fceba1;
+    --vibe-warning-soft: #fff6d6;
+    --vibe-warning-text: #7a5a00;
+    --vibe-info: #9d50dd;
+    --vibe-info-hover: #7d45b0;
+    --vibe-info-selected: #d0aeed;
+    --vibe-info-soft: #f3eafb;
+
+    /* Text on soft (tinted) backgrounds */
+    --vibe-primary-soft-text: #0060b9;
+    --vibe-positive-soft-text: #007038;
+    --vibe-negative-soft-text: #b63546;
+    --vibe-info-soft-text: #7d45b0;
+
+    /* monday.com status palette ("Done", "Working on it", "Stuck", ...) */
+    --vibe-status-done: #00c875;
+    --vibe-status-working: #fdab3d;
+    --vibe-status-stuck: #df2f4a;
+    --vibe-status-blue: #579bfc;
+    --vibe-status-purple: #9d50dd;
+    --vibe-status-grey: #c4c4c4;
+
+    --vibe-shadow-xs: 0px 4px 6px -4px rgba(0, 0, 0, 0.1);
+    --vibe-shadow-small: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    --vibe-shadow-medium: 0px 6px 20px rgba(0, 0, 0, 0.2);
+    --vibe-shadow-large: 0px 15px 50px rgba(0, 0, 0, 0.3);
+    --vibe-shadow-card: 0px 1px 2px rgba(0, 0, 0, 0.04);
+    --vibe-shadow-card-hover: 0px 4px 8px rgba(0, 0, 0, 0.12);
+
+    --vibe-focus-ring: 0 0 0 3px hsla(209, 100%, 50%, 0.5), 0 0 0 1px var(--vibe-primary-hover) inset;
+
+    --vibe-scroll-thumb: #c3c6d4;
+    --vibe-scroll-thumb-hover: #a6a9b9;
+}

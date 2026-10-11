@@ -1,0 +1,252 @@
+/*
+ * Maps Vibe tokens onto EspoCRM CSS variables (see frontend/less/espo/root-variables.less).
+ *
+ * EspoCRM precomputes darkened/lightened shades in LESS, so the derived
+ * variables are recomputed here with color-mix() to follow the Vibe palette.
+ */
+:root {
+    --font-family: Figtree, Inter, Roboto, "Noto Sans", sans-serif;
+    --vibe-title-font-family: Poppins, Figtree, Inter, Roboto, "Noto Sans", sans-serif;
+
+    --border-radius: 4px;
+    --border-radius-small: 4px;
+    --dropdown-border-radius: 8px;
+    --panel-border-radius: 8px;
+    --badge-border-radius-value: 4px;
+
+    --body-bg: var(--vibe-app-bg);
+    --panel-bg: var(--vibe-surface);
+    --main-gray: var(--vibe-ui-bg);
+    --main-gray-5: color-mix(in srgb, var(--vibe-ui-bg), #000 5%);
+    --main-gray-7: color-mix(in srgb, var(--vibe-ui-bg), #000 7%);
+    --main-gray-10: color-mix(in srgb, var(--vibe-ui-bg), #000 10%);
+    --main-gray-12: color-mix(in srgb, var(--vibe-ui-bg), #000 12%);
+    --main-gray-17: color-mix(in srgb, var(--vibe-ui-bg), #000 17%);
+    --main-gray-25: color-mix(in srgb, var(--vibe-ui-bg), #000 25%);
+    --main-gray-40: color-mix(in srgb, var(--vibe-ui-bg), #000 40%);
+
+    --tooltip-bg: var(--vibe-inverted-bg);
+    --tooltip-color: var(--vibe-text-on-inverted);
+
+    --gray-soft: var(--vibe-text-secondary);
+    --gray-light: var(--vibe-ui-border);
+
+    /* Brand */
+    --brand-primary: var(--vibe-primary);
+    --brand-primary-text: var(--vibe-text-on-primary);
+    --brand-primary-5: color-mix(in srgb, var(--vibe-primary), var(--vibe-primary-hover) 50%);
+    --brand-primary-10: var(--vibe-primary-hover);
+    --brand-primary-lighten-10: color-mix(in srgb, var(--vibe-primary), #fff 20%);
+    --brand-primary-lighten-30: var(--vibe-primary-selected-hover);
+    --brand-primary-lighten-50: var(--vibe-primary-selected);
+    --brand-success: var(--vibe-positive);
+    --brand-success-10: var(--vibe-positive-hover);
+    --brand-danger: var(--vibe-negative);
+    --brand-danger-10: var(--vibe-negative-hover);
+    --brand-danger-lighten-20: var(--vibe-negative-selected);
+    --brand-warning: var(--vibe-warning);
+    --brand-warning-10: var(--vibe-warning-hover);
+    --brand-info: var(--vibe-info);
+    --brand-info-10: var(--vibe-info-hover);
+
+    /* Soft states (alerts, state labels, highlighted rows) */
+    --state-default-bg: var(--vibe-ui-bg);
+    --state-default-text: var(--vibe-text);
+    --state-primary-bg: var(--vibe-primary-selected);
+    --state-primary-text: var(--vibe-primary-soft-text);
+    --state-primary-border: var(--vibe-primary-selected-hover);
+    --state-success-bg: var(--vibe-positive-soft);
+    --state-success-text: var(--vibe-positive-soft-text);
+    --state-success-border: var(--vibe-positive-selected);
+    --state-success-bg-5: var(--vibe-positive-selected);
+    --state-success-text-10: var(--vibe-positive-soft-text);
+    --state-success-text-10l: var(--vibe-positive-soft-text);
+    --state-danger-bg: var(--vibe-negative-soft);
+    --state-danger-text: var(--vibe-negative-soft-text);
+    --state-danger-border: var(--vibe-negative-selected);
+    --state-danger-bg-5: var(--vibe-negative-selected);
+    --state-danger-bg-10: var(--vibe-negative-selected);
+    --state-danger-text-10: var(--vibe-negative-soft-text);
+    --state-danger-text-10l: var(--vibe-negative-soft-text);
+    --state-warning-bg: var(--vibe-warning-soft);
+    --state-warning-text: var(--vibe-warning-text);
+    --state-warning-border: var(--vibe-warning-selected);
+    --state-warning-bg-5: var(--vibe-warning-selected);
+    --state-warning-bg-10: var(--vibe-warning-selected);
+    --state-warning-text-10: var(--vibe-warning-text);
+    --state-warning-text-10l: var(--vibe-warning-text);
+    --state-info-bg: var(--vibe-info-soft);
+    --state-info-text: var(--vibe-info-soft-text);
+    --state-info-border: var(--vibe-info-selected);
+    --state-info-bg-5: var(--vibe-info-selected);
+    --state-info-bg-10: var(--vibe-info-selected);
+    --state-info-text-10: var(--vibe-info-soft-text);
+
+    /* Buttons: Vibe "primary", "secondary" and "tertiary" kinds */
+    --btn-default-bg: transparent;
+    --btn-default-border: var(--vibe-ui-border);
+    --btn-default-color: var(--vibe-text);
+    --btn-default-hover-bg: var(--vibe-bg-hover);
+    --btn-default-hover-border: var(--vibe-ui-border);
+    --btn-default-active-bg: var(--vibe-ui-bg-hover);
+    --btn-default-active-border: var(--vibe-ui-border);
+    --btn-primary-bg: var(--vibe-primary);
+    --btn-primary-border: var(--vibe-primary);
+    --btn-primary-color: var(--vibe-text-on-primary);
+    --btn-primary-hover-bg: var(--vibe-primary-hover);
+    --btn-primary-hover-border: var(--vibe-primary-hover);
+    --btn-primary-active-bg: var(--vibe-primary-hover);
+    --btn-primary-active-border: var(--vibe-primary-hover);
+    --btn-success-bg: var(--vibe-positive);
+    --btn-success-border: var(--vibe-positive);
+    --btn-success-color: #fff;
+    --btn-success-hover-bg: var(--vibe-positive-hover);
+    --btn-success-hover-border: var(--vibe-positive-hover);
+    --btn-success-active-bg: var(--vibe-positive-hover);
+    --btn-success-active-border: var(--vibe-positive-hover);
+    --btn-danger-bg: var(--vibe-negative);
+    --btn-danger-border: var(--vibe-negative);
+    --btn-danger-color: #fff;
+    --btn-danger-hover-bg: var(--vibe-negative-hover);
+    --btn-danger-hover-border: var(--vibe-negative-hover);
+    --btn-danger-active-bg: var(--vibe-negative-hover);
+    --btn-danger-active-border: var(--vibe-negative-hover);
+    --btn-warning-bg: var(--vibe-warning);
+    --btn-warning-border: var(--vibe-warning);
+    --btn-warning-color: #323338;
+    --btn-warning-hover-bg: var(--vibe-warning-hover);
+    --btn-warning-hover-border: var(--vibe-warning-hover);
+    --btn-warning-active-bg: var(--vibe-warning-hover);
+    --btn-warning-active-border: var(--vibe-warning-hover);
+    --btn-info-bg: var(--vibe-info);
+    --btn-info-border: var(--vibe-info);
+    --btn-info-color: #fff;
+    --btn-info-hover-bg: var(--vibe-info-hover);
+    --btn-info-hover-border: var(--vibe-info-hover);
+    --btn-info-active-bg: var(--vibe-info-hover);
+    --btn-info-active-border: var(--vibe-info-hover);
+    --btn-text-color: var(--vibe-text);
+    --btn-active-box-shadow: none;
+
+    /* Navigation */
+    --navbar-bg: var(--vibe-navbar-bg);
+    --navbar-link-color: var(--vibe-icon);
+    --navbar-link-icon-color: var(--vibe-icon);
+    --navbar-link-hover-color: var(--vibe-text);
+    --navbar-link-hover-bg: var(--vibe-bg-hover);
+    --navbar-link-active-bg: var(--vibe-bg-hover);
+    --navbar-box-shadow: none;
+    --navbar-border-width: 1px;
+    --navbar-inverse-color: var(--vibe-text-secondary);
+    --navbar-inverse-bg: var(--vibe-navbar-bg);
+    --navbar-inverse-bg-7: var(--vibe-bg-hover);
+    --navbar-inverse-toggle-hover-bg: var(--vibe-bg-hover);
+    --navbar-inverse-link-color: var(--vibe-text);
+    --navbar-inverse-link-hover-color: var(--vibe-text);
+    --navbar-inverse-link-hover-bg: var(--vibe-bg-hover);
+    --navbar-inverse-link-active-bg: var(--vibe-primary-selected);
+    --navbar-inverse-link-icon-color: var(--vibe-icon);
+    --navbar-inverse-link-icon-hover-color: var(--vibe-text);
+    --navbar-inverse-border: var(--vibe-layout-border);
+
+    /* Inputs */
+    --input-color: var(--vibe-text);
+    --input-bg: var(--vibe-input-bg);
+    --input-border: var(--vibe-ui-border);
+    --input-border-focus: var(--vibe-primary);
+    --input-border-focus-rgba: hsla(209, 100%, 50%, 0.25);
+    --input-box-shadow: none;
+    --input-bg-disabled: var(--vibe-disabled-bg);
+    --input-color-disabled: var(--vibe-text-disabled);
+    --input-border-width: 1px;
+    --input-height-base: var(--36px);
+    --input-height-small: var(--32px);
+    --input-height-large: var(--40px);
+
+    /* Modals */
+    --modal-backdrop-bg: var(--vibe-backdrop);
+    --modal-header-bg: var(--vibe-surface);
+    --modal-footer-bg: var(--vibe-surface);
+    --modal-content-bg: var(--vibe-surface);
+    --modal-header-border-color: transparent;
+    --modal-box-shadow: var(--vibe-shadow-large);
+    --modal-border-color: transparent;
+    --modal-border-width: 0;
+    --collapsed-modal-bg: var(--vibe-inverted-bg);
+    --collapsed-modal-text-color: var(--vibe-text-on-inverted);
+
+    /* Text & links */
+    --text-color: var(--vibe-text);
+    --text-muted-color: var(--vibe-text-secondary);
+    --text-gray-color: var(--vibe-text-secondary);
+    --text-solid-color: var(--vibe-text);
+    --link-color: var(--vibe-link);
+    --link-hover-color: var(--vibe-primary-hover);
+    --link-record-color: var(--vibe-text);
+    --link-record-hover-color: var(--vibe-primary);
+    --text-link-color: var(--vibe-link);
+    --text-link-hover-color: var(--vibe-primary-hover);
+
+    /* Tables, panels, borders */
+    --table-bg: transparent;
+    --table-bg-accent: var(--vibe-row-hover);
+    --default-border-color: var(--vibe-layout-border-soft);
+    --default-heading-bg-color: var(--vibe-surface);
+    --panel-border-width: 1px;
+    --panel-default-bg: var(--vibe-surface);
+    --panel-default-text: var(--vibe-text);
+    --panel-default-border: var(--vibe-layout-border-soft);
+    --panel-primary-bg: var(--vibe-primary-highlighted);
+    --panel-primary-border: var(--vibe-primary-selected);
+    --panel-primary-text: var(--vibe-text);
+    --panel-success-bg: var(--vibe-positive-soft);
+    --panel-success-border: var(--vibe-positive-selected);
+    --panel-danger-bg: var(--vibe-negative-soft);
+    --panel-danger-border: var(--vibe-negative-selected);
+    --panel-warning-bg: var(--vibe-warning-soft);
+    --panel-warning-border: var(--vibe-warning-selected);
+    --panel-info-bg: var(--vibe-info-soft);
+    --panel-info-border: var(--vibe-info-selected);
+    --panel-heading-font-size: var(--16px);
+    --login-panel-heading-bg: var(--vibe-surface);
+    --well-bg: var(--vibe-bg-allgrey);
+    --well-border: var(--vibe-layout-border-soft);
+    --code-bg: var(--vibe-bg-allgrey);
+    --code-border-color: var(--vibe-layout-border-soft);
+    --warning-bg: var(--vibe-warning-soft);
+
+    --site-footer-bg: transparent;
+    --site-footer-color: var(--vibe-text-secondary);
+
+    /* Dropdowns & popovers */
+    --popover-bg: var(--vibe-surface);
+    --dropdown-bg: var(--vibe-surface);
+    --dropdown-link-color: var(--vibe-text);
+    --dropdown-link-hover-color: var(--vibe-text);
+    --dropdown-link-hover-bg: var(--vibe-bg-hover);
+    --dropdown-link-active-bg: var(--vibe-primary-selected);
+    --dropdown-border: transparent;
+    --dropdown-border-width: 0px;
+    --dropdown-divider-bg: var(--vibe-layout-border-soft);
+    --dropdown-box-shadow: var(--vibe-shadow-small);
+
+    /* Calendar */
+    --calendar-today-bg: var(--vibe-primary-highlighted);
+    --calendar-border: var(--vibe-layout-border-soft);
+
+    /* Multi-select items (selectize) */
+    --select-item-text-color: var(--vibe-text);
+    --select-item-bg: var(--vibe-ui-bg);
+    --select-item-border: transparent;
+    --select-item-active-text-color: var(--vibe-text);
+    --select-item-active-bg: var(--vibe-primary-selected);
+
+    --label-color: #fff;
+    --label-default-bg: var(--vibe-status-grey);
+
+    --scroll-bg: transparent;
+    --scroll-thumb-bg: var(--vibe-scroll-thumb);
+
+    --default-box-shadow: var(--vibe-shadow-card);
+    --top-bar-box-shadow: none;
+}

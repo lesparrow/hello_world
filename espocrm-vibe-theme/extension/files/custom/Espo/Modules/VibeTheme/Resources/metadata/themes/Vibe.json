@@ -1,0 +1,21 @@
+{
+    "stylesheet": "client/custom/modules/vibe-theme/css/vibe.css",
+    "stylesheetIframe": "client/custom/modules/vibe-theme/css/vibe-iframe.css",
+    "logo": "client/img/logo-light.svg",
+    "fontSize": 14,
+    "textColor": "#323338",
+    "hoverColor": "#0073ea",
+    "chartGridColor": "#e6e9ef",
+    "chartTickColor": "#d0d4e4",
+    "chartSuccessColor": "#00c875",
+    "chartColorList": ["#0073ea", "#00c875", "#fdab3d", "#df2f4a", "#9d50dd", "#579bfc", "#ff7575", "#4eccc6", "#c4c4c4"],
+    "chartColorAlternativeList": ["#579bfc", "#00c875", "#fdab3d", "#9d50dd", "#ff7575"],
+    "calendarColors": {
+        "": "#579bfc",
+        "bg": "#cce5ffa0",
+        "Meeting": "#0073ea",
+        "Call": "#9d50dd",
+        "Task": "#00c875"
+    },
+    "isDark": false
+}

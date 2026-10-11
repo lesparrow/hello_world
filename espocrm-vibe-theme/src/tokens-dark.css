@@ -1,0 +1,81 @@
+/*
+ * Vibe dark tokens.
+ *
+ * Values come from monday.com Vibe (packages/style/src/themes/dark-theme.scss).
+ */
+:root {
+    --vibe-primary: #0073ea;
+    --vibe-primary-hover: #0060b9;
+    --vibe-primary-selected: #133774;
+    --vibe-primary-selected-hover: #0d2e65;
+    --vibe-primary-highlighted: #0d2753;
+    --vibe-primary-surface: #181b34;
+
+    /* App layout surfaces */
+    --vibe-app-bg: #181b34;
+    --vibe-surface: #292f4c;
+    --vibe-navbar-bg: #1f2240;
+    --vibe-input-bg: #181b34;
+    --vibe-board-column-bg: rgba(103, 104, 121, 0.15);
+    --vibe-row-hover: #33375a;
+
+    --vibe-text: #d5d8df;
+    --vibe-text-secondary: #9699a6;
+    --vibe-text-on-primary: #ffffff;
+    --vibe-text-disabled: rgba(213, 216, 223, 0.38);
+    --vibe-inverted-bg: #ffffff;
+    --vibe-text-on-inverted: #323338;
+
+    --vibe-bg: #181b34;
+    --vibe-bg-hover: rgba(103, 104, 121, 0.3);
+    --vibe-bg-secondary: #30324e;
+    --vibe-bg-allgrey: #30324e;
+    --vibe-backdrop: rgba(9, 11, 25, 0.7);
+    --vibe-ui-border: #797e93;
+    --vibe-ui-bg: #434660;
+    --vibe-ui-bg-hover: #35384d;
+    --vibe-layout-border: #4b4e69;
+    --vibe-layout-border-soft: #3c3f59;
+
+    --vibe-placeholder: #c3c6d4;
+    --vibe-icon: #c3c6d4;
+    --vibe-disabled-bg: #3c3f59;
+    --vibe-link: #69a7ef;
+
+    --vibe-positive: #00854d;
+    --vibe-positive-hover: #007038;
+    --vibe-positive-selected: #025231;
+    --vibe-positive-soft: #183b33;
+    --vibe-negative: #d83a52;
+    --vibe-negative-hover: #b63546;
+    --vibe-negative-selected: #642830;
+    --vibe-negative-soft: #3f2433;
+    --vibe-warning: #ffcb00;
+    --vibe-warning-hover: #eaaa15;
+    --vibe-warning-selected: #503e02;
+    --vibe-warning-soft: #3d3622;
+    --vibe-warning-text: #ffd84d;
+    --vibe-info: #9d50dd;
+    --vibe-info-hover: #7d45b0;
+    --vibe-info-selected: #4c2e6b;
+    --vibe-info-soft: #352d55;
+
+    --vibe-status-done: #00c875;
+    --vibe-status-working: #fdab3d;
+    --vibe-status-stuck: #df2f4a;
+    --vibe-status-blue: #579bfc;
+    --vibe-status-purple: #9d50dd;
+    --vibe-status-grey: #797e93;
+
+    --vibe-shadow-xs: 0px 4px 6px -4px rgba(9, 11, 25, 0.5);
+    --vibe-shadow-small: 0px 4px 8px rgba(9, 11, 25, 0.5);
+    --vibe-shadow-medium: 0px 6px 20px rgba(9, 11, 25, 0.5);
+    --vibe-shadow-large: 0px 15px 50px rgba(9, 11, 25, 0.5);
+    --vibe-shadow-card: 0px 1px 2px rgba(9, 11, 25, 0.3);
+    --vibe-shadow-card-hover: 0px 4px 8px rgba(9, 11, 25, 0.5);
+
+    --vibe-focus-ring: 0 0 0 3px hsla(209, 100%, 50%, 0.5), 0 0 0 1px var(--vibe-primary-hover) inset;
+
+    --vibe-scroll-thumb: #4b4e69;
+    --vibe-scroll-thumb-hover: #797e93;
+}
