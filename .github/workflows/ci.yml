@@ -115,6 +115,7 @@ jobs:
         working-directory: engine
         env:
           STATPFE_SETUP_LIVE_CLAUDE: "1"
+          PYTHONIOENCODING: utf-8
         run: python -m pytest -q -rs -s tests/test_ai_setup_live.py -k claude
 
   frontend:

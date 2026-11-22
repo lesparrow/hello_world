@@ -33,7 +33,7 @@ from statpfe.errors import ValidationError
 CLAUDE_INSTALL = {
     "windows": {"display": "irm https://claude.ai/install.ps1 | iex", "shell": "PowerShell",
                 "argv": ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
-                         "irm https://claude.ai/install.ps1 | iex"]},
+                         "[Console]::OutputEncoding = [Text.Encoding]::UTF8; irm https://claude.ai/install.ps1 | iex"]},
     "unix": {"display": "curl -fsSL https://claude.ai/install.sh | bash", "shell": "Terminal",
              "argv": ["bash", "-c", "set -o pipefail; curl -fsSL https://claude.ai/install.sh | bash"]},
 }
