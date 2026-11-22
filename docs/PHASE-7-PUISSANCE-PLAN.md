@@ -83,6 +83,7 @@ apps/desktop/src/components/charts/Charts.tsx   Courbe de puissance
 | Plan : versions, verrouillage, motif obligatoire, immutabilité, références stables, rattachement et écarts, migration du format 4 | Réussis |
 | Rapport : prévu / hors plan / avant le plan, prévue non réalisée, historique, effectif insuffisant, calcul modifié à la main détecté (bloquant) | Réussis |
 | Interface : typecheck, 8 tests `vitest` | Réussis |
+| CI GitHub (commit 5f2c0d4) : moteur sous Linux et Windows, validation contre R recalculée sur la machine de CI (`r-cran-pwr`), interface, installateur Windows (moteur autonome : calcul de taille d = 0,5 → 64 par groupe, rapports Word et PDF ; installation et désinstallation silencieuses) | Tous les jobs réussis |
 | Parcours de bout en bout dans Chromium (vraie interface, vrai moteur) : calcul de taille avec trois effets et 10 % de pertes, enregistrement ; plan rédigé (2 analyses prévues), verrouillé ; analyse lancée et rattachée automatiquement à A1 ; écart justifié à A2 ; analyse hors plan ; plan modifié puis verrouillé en version 2 avec motif ; puissance après la collecte ; contrôles et export Word puis PDF | Réussi, aucune erreur dans la console. Captures dans `captures-phase7/` |
 
 ## 7. Limites et points non terminés
