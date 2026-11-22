@@ -280,7 +280,7 @@ def test_migration_from_format_4(project, tmp_path):
                 zf.write(f, f.relative_to(work).as_posix())
     q = Project.open(str(path))
     try:
-        assert q.dirty and q.describe()["format_version"] == 5
+        assert q.dirty and q.describe()["format_version"] == 6
         assert q.power.list() == [] and q.plan.get()["current"] is None
         assert q.analyses.count() == 3
     finally:

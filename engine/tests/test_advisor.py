@@ -292,7 +292,7 @@ def test_v3_project_is_migrated(tmp_path, study):
             zf.writestr(n, b)
     q = Project.open(str(path))
     try:
-        assert q.dirty and q.describe()["format_version"] == 5
+        assert q.dirty and q.describe()["format_version"] == 6
         old = q.analyses.list()[0]["id"]
         assert q.analyses.get(old)["choice"] == {}
         aid = q.analyses.run(ds, None, "frequencies", {"variable": "Sexe"})

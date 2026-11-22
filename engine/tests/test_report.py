@@ -174,7 +174,7 @@ def test_checks_pass_on_consistent_project(project):
     c = res["checks"]
     assert c["blocking"] == 0
     assert any("identiques aux résultats enregistrés" in x for x in c["passed"])
-    assert any("intelligence artificielle" in x for x in c["passed"])
+    assert any("Aucun texte rédigé avec l'aide d'une IA" in x for x in c["passed"])
     titles = [i["title"] for i in c["items"]]
     assert "Hypothèse(s) sans analyse liée" in titles  # H2
     assert any("analyse exploratoire" in t for t in titles)

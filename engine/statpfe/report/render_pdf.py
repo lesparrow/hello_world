@@ -53,6 +53,8 @@ def _styles() -> dict[str, ParagraphStyle]:
         "note": ParagraphStyle("note", parent=body, fontSize=8.8, leading=12, textColor=GREY, spaceAfter=3),
         "placeholder": ParagraphStyle("placeholder", parent=body, backColor=colors.HexColor("#FFF3B0"),
                                       borderPadding=3, spaceBefore=3, spaceAfter=9),
+        "ai": ParagraphStyle("ai", parent=body, backColor=colors.HexColor("#E8F0FE"), borderPadding=4,
+                             leftIndent=6, rightIndent=6, spaceBefore=2, spaceAfter=8),
         "lead": body,
         "warning": body,
         "h1": ParagraphStyle("h1", parent=body, fontName=f"{FONT}-Bold", fontSize=15, leading=19, spaceBefore=14,

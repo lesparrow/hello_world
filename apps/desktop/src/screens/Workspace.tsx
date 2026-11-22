@@ -7,7 +7,7 @@ import { useHotkeys } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
   IconBook2, IconChartBar, IconChevronDown, IconCopy, IconDatabase, IconDeviceFloppy,
-  IconBolt, IconClipboardList, IconFileText, IconHistory, IconTransform, IconX,
+  IconBolt, IconClipboardList, IconFileText, IconHistory, IconSparkles, IconTransform, IconX,
 } from '@tabler/icons-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { call, runningInTauri } from '../engine/client';
@@ -18,6 +18,7 @@ import { AnalysesPage } from './analysis/AnalysesPage';
 import { ReportPage } from './report/ReportPage';
 import { PlanPage } from './plan/PlanPage';
 import { PowerPage } from './power/PowerPage';
+import { AiSettingsPage } from './ai/AiSettingsPage';
 import { Logo } from '../components/Logo';
 import { StudyPage } from './StudyPage';
 import { studyChanges } from '../lib/studyDiff';
@@ -31,7 +32,7 @@ interface Props {
   onClosed: () => void;
 }
 
-type Section = 'etude' | 'plan' | 'puissance' | 'donnees' | 'preparation' | 'analyses' | 'rapport';
+type Section = 'etude' | 'plan' | 'puissance' | 'donnees' | 'preparation' | 'analyses' | 'rapport' | 'ia';
 
 type PendingClose = 'project' | 'window' | null;
 
@@ -216,6 +217,11 @@ export function Workspace({ project, onChange, onClosed }: Props) {
           leftSection={<IconFileText size={18} />} variant="light" style={{ borderRadius: 8 }}
           disabled={project.analyses_count === 0}
           onClick={() => { void flush(); setSection('rapport'); }} />
+        <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" pt="md" pb={6}>Options</Text>
+        <NavLink active={section === 'ia'} label="IA locale" description="Optionnelle, désactivée par défaut"
+          leftSection={<IconSparkles size={18} />} variant="light" style={{ borderRadius: 8 }}
+          rightSection={project.ai_count ? <Badge size="xs" variant="light" color="gray">{project.ai_count}</Badge> : null}
+          onClick={() => { void flush(); setSection('ia'); }} />
       </AppShell.Navbar>
 
       <AppShell.Main>
@@ -230,8 +236,10 @@ export function Workspace({ project, onChange, onClosed }: Props) {
               variableNames={dataset ? dataset.variables.map((v) => v.name) : []} />
           )}
           {section === 'puissance' && <PowerPage project={project} onChange={onChange} />}
+          {section === 'ia' && <AiSettingsPage />}
           {section === 'analyses' && (
-            <AnalysesPage project={project} onChange={onChange} onGoToData={() => setSection('donnees')} />
+            <AnalysesPage project={project} onChange={onChange} onGoToData={() => setSection('donnees')}
+              onGoToAi={() => setSection('ia')} />
           )}
           {section === 'rapport' && (
             <ReportPage project={project} onChange={onChange} onGoToAnalyses={() => setSection('analyses')} />

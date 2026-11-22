@@ -61,6 +61,36 @@ jobs:
           STATPFE_R_POWER: ${{ runner.temp }}/r_power.csv
         run: python -m pytest -q tests/test_power_r.py
 
+  local-ai:
+    name: IA locale avec un vrai modèle (Ollama)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e "engine[dev]"
+      - name: Installer Ollama et un petit modèle (qwen2.5:0.5b)
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:11434/api/version && break; sleep 2; done
+          ollama pull qwen2.5:0.5b
+          ollama list
+      - name: Parcours complet avec le modèle (protocoles Ollama et OpenAI)
+        working-directory: engine
+        env:
+          STATPFE_AI_LIVE_URL: http://127.0.0.1:11434
+          STATPFE_AI_LIVE_MODEL: qwen2.5:0.5b
+          STATPFE_AI_LIVE_OUT: ${{ runner.temp }}/textes-ia.jsonl
+        run: |
+          python -m pytest -q -rs tests/test_ai_live.py
+          cat "$RUNNER_TEMP/textes-ia.jsonl"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: textes-produits-par-le-modele
+          path: ${{ runner.temp }}/textes-ia.jsonl
+
   frontend:
     name: Interface React
     runs-on: ubuntu-latest
@@ -112,6 +142,10 @@ jobs:
           $out = '{"jsonrpc":"2.0","id":1,"method":"engine.info"}' | & $exe.FullName
           Write-Output $out
           if (-not ($out -match '"name": "statpfe-engine"')) { throw "Le moteur autonome ne répond pas" }
+          # IA locale : désactivée par défaut, ressources de la machine lues (mémoire Windows).
+          $out = '{"jsonrpc":"2.0","id":9,"method":"ai.status"}' | & $exe.FullName
+          Write-Output $out
+          if (-not ($out -match '"state": "desactivee"') -or ($out -match '"memory_total": null')) { throw "Le module IA du moteur autonome est défaillant" }
           # Lecture réelle d'un CSV (pandas embarqué) par le moteur autonome.
           $csv = Join-Path $env:RUNNER_TEMP 'essai.csv'
           [IO.File]::WriteAllText($csv, "groupe;note`nA;12,5`nB;9`n", [Text.Encoding]::GetEncoding(1252))

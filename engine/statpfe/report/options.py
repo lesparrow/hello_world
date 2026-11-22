@@ -72,6 +72,7 @@ def default_options(analysis_ids: list[int], power_ids: list[int] | None = None)
         "analyses": analysis_ids,
         "power": power_ids or [],
         "figures": True,
+        "ai_texts": True,
     }
 
 
@@ -115,5 +116,8 @@ def clean_options(raw: Any) -> dict[str, Any]:
     figures = raw.get("figures", True)
     if not isinstance(figures, bool):
         raise ValidationError("Option « figures » invalide.")
+    ai_texts = raw.get("ai_texts", True)
+    if not isinstance(ai_texts, bool):
+        raise ValidationError("Option « ai_texts » invalide.")
     return {"template": template, "cover": cover, "sections": sections, "analyses": analyses, "power": power,
-            "figures": figures}
+            "figures": figures, "ai_texts": ai_texts}

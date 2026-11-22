@@ -14,9 +14,10 @@ interface Props {
   project: ProjectState;
   onChange: (p: ProjectState) => void;
   onGoToData: () => void;
+  onGoToAi?: () => void;
 }
 
-export function AnalysesPage({ project, onChange, onGoToData }: Props) {
+export function AnalysesPage({ project, onChange, onGoToData, onGoToAi }: Props) {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [list, setList] = useState<AnalysisSummary[] | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -116,7 +117,8 @@ export function AnalysesPage({ project, onChange, onGoToData }: Props) {
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 9 }}>
           {analysis ? (
-            <ResultView key={analysis.id} analysis={analysis}
+            <ResultView key={analysis.id} analysis={analysis} onProjectChange={onChange}
+              onOpenAiSettings={onGoToAi}
               onReproduce={async () => {
                 try {
                   const r = await call('analysis.reproduce', { analysis_id: analysis.id });

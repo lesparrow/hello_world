@@ -247,6 +247,16 @@ def render(document: Document, path: Path, author: str = "") -> None:
                     run.bold = r.bold
                     run.font.size = Pt(9.5)
                     run.font.color.rgb = GREY
+            elif b.style == "ai":
+                _runs(p, b.runs)
+                p.paragraph_format.left_indent = Cm(0.4)
+                p.paragraph_format.right_indent = Cm(0.4)
+                ppr = p._p.get_or_add_pPr()
+                shd = OxmlElement("w:shd")
+                shd.set(qn("w:val"), "clear")
+                shd.set(qn("w:color"), "auto")
+                shd.set(qn("w:fill"), "E8F0FE")
+                ppr.append(shd)
             elif b.style == "placeholder":
                 for r in b.runs:
                     run = p.add_run(r.text)

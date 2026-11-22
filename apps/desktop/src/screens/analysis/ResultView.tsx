@@ -7,7 +7,8 @@ import {
   IconAlertCircle, IconAlertTriangle, IconBan, IconCheck, IconCopy, IconDots, IconInfoCircle,
   IconRefresh, IconTrash,
 } from '@tabler/icons-react';
-import type { Analysis, DiagLevel, ReproductionReport, ResultTable, SummaryStat } from '../../engine/types';
+import type { Analysis, DiagLevel, ProjectState, ReproductionReport, ResultTable, SummaryStat } from '../../engine/types';
+import { AiAssistPanel } from './AiAssistPanel';
 import { ChartView } from '../../components/charts/Charts';
 import { formatCellOf, formatStat } from '../../lib/stats';
 import { formatDateTime } from '../../lib/format';
@@ -30,9 +31,11 @@ interface Props {
   onDuplicate: () => void;
   onDelete: () => void;
   onSaveNote: (note: string) => void;
+  onProjectChange?: (p: ProjectState) => void;
+  onOpenAiSettings?: () => void;
 }
 
-export function ResultView({ analysis, onReproduce, onDuplicate, onDelete, onSaveNote }: Props) {
+export function ResultView({ analysis, onReproduce, onDuplicate, onDelete, onSaveNote, onProjectChange, onOpenAiSettings }: Props) {
   const r = analysis.result;
   const [note, setNote] = useState(analysis.note);
   const [report, setReport] = useState<ReproductionReport | null>(null);
@@ -144,6 +147,8 @@ export function ResultView({ analysis, onReproduce, onDuplicate, onDelete, onSav
       )}
 
       {r.tables.map((t, i) => <ResultTableView key={i} table={t} />)}
+
+      <AiAssistPanel analysisId={analysis.id} onProjectChange={onProjectChange} onOpenSettings={onOpenAiSettings} />
 
       <Accordion variant="contained" chevronPosition="left">
         <Accordion.Item value="choice">

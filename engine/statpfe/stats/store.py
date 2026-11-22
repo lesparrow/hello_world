@@ -66,6 +66,7 @@ class AnalysisStore:
         self._data = data
         self._log = log
         self.plan = None  # PlanStore, attaché par le projet
+        self.on_delete: Callable[[int], None] = lambda _id: None
 
     # ------------------------------------------------------------------ exécution
     def advise(self, dataset_id: Any, version_id: Any, request: Any) -> dict[str, Any]:
@@ -266,6 +267,7 @@ class AnalysisStore:
     def delete(self, analysis_id: Any) -> None:
         row = self._row(analysis_id)
         self._conn.execute("DELETE FROM analyses WHERE id = ?", (row["id"],))
+        self.on_delete(row["id"])
         self._log("analyse", f"Suppression de l'analyse « {row['title']} »", {"analysis_id": row["id"]})
 
     # ------------------------------------------------------------------ interne

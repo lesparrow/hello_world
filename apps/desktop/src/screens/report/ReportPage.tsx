@@ -176,6 +176,8 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
               </SimpleGrid>
               <Switch mt="md" label="Inclure les figures (histogrammes, boîtes à moustaches, barres, nuages de points, courbes de puissance)"
                 checked={options.figures} onChange={(e) => update({ figures: e.currentTarget.checked })} />
+              <Switch mt="xs" label="Inclure les textes rédigés avec l'aide de l'IA locale, relus et retenus (toujours signalés comme tels)"
+                checked={options.ai_texts ?? true} onChange={(e) => update({ ai_texts: e.currentTarget.checked })} />
             </Paper>
 
             <Paper withBorder p="md">

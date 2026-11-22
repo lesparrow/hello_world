@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from statpfe import __version__
+from statpfe.ai.store import SCHEMA_V6_AI, AiTextStore
 from statpfe.core.plan import SCHEMA_V5_PLAN, PlanStore
 from statpfe.core.study import FIELD_LABELS, Study
 from statpfe.core.timeutil import now_iso
@@ -39,7 +40,7 @@ from statpfe.errors import ProjectFileError, UnsavedChangesError, ValidationErro
 
 EXTENSION = ".statpfe"
 FORMAT_NAME = "statpfe-project"
-FORMAT_VERSION = 5
+FORMAT_VERSION = 6
 MANIFEST = "manifest.json"
 DATABASE = "project.sqlite"
 REQUIRED_MEMBERS = {MANIFEST, DATABASE}
@@ -123,6 +124,8 @@ class Project:
         self.plan = PlanStore(conn, self._log, self._touch, self.power.exists)
         self.power.locked_references = self.plan.power_references
         self.analyses.plan = self.plan
+        self.ai_texts = AiTextStore(conn, self._log)
+        self.analyses.on_delete = self.ai_texts.delete_for_analysis
         self.reports = ReportService(self)
 
     # ------------------------------------------------------------------ création
@@ -140,6 +143,7 @@ class Project:
             conn.executescript(SCHEMA_V2)
             conn.executescript(SCHEMA_V3)
             conn.executescript(SCHEMA_V5_POWER + SCHEMA_V5_PLAN)
+            conn.executescript(SCHEMA_V6_AI)
             created = now_iso()
             conn.executemany(
                 "INSERT INTO meta (key, value) VALUES (?, ?)",
@@ -219,6 +223,7 @@ class Project:
             "datasets": self.data.list(),
             "analyses_count": self.analyses.count(),
             "power_count": self.power.count(),
+            "ai_count": self.ai_texts.count(),
             "plan_status": self._plan_status(),
         }
 
@@ -446,5 +451,7 @@ def _migrate(conn: sqlite3.Connection) -> bool:
         conn.executescript(MIGRATE_V3_TO_V4)
     if version < 5:
         conn.executescript(SCHEMA_V5_POWER + SCHEMA_V5_PLAN)
+    if version < 6:
+        conn.executescript(SCHEMA_V6_AI)
     conn.execute("UPDATE meta SET value = ? WHERE key = 'format_version'", (str(FORMAT_VERSION),))
     return True

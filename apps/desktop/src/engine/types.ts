@@ -30,6 +30,7 @@ export interface ProjectState {
   datasets: DatasetSummary[];
   analyses_count: number;
   power_count: number;
+  ai_count: number;
   plan_status: { version: number; status: PlanVersionStatus; locked_version: number | null } | null;
 }
 
@@ -559,6 +560,7 @@ export interface ReportOptions {
   analyses: number[];
   power: number[];
   figures: boolean;
+  ai_texts: boolean;
 }
 
 export interface ReportCheck {
@@ -582,7 +584,110 @@ export interface ReportExport {
   checks: ReportCheck;
 }
 
+// ---------------------------------------------------------------- IA locale (optionnelle)
+export type AiProvider = 'ollama' | 'openai';
+export type AiState = 'desactivee' | 'serveur_absent' | 'aucun_modele' | 'modele_absent' | 'modele_a_choisir'
+  | 'prete' | 'inconnu';
+
+export interface AiSettings {
+  enabled: boolean;
+  provider: AiProvider;
+  base_url: string;
+  model: string;
+  temperature: number;
+  max_tokens: number;
+  timeout: number;
+}
+
+export interface AiModel { name: string; size: number | null; parameters: string | null; quantization: string | null }
+
+export interface AiResources {
+  memory_total: number | null;
+  memory_available: number | null;
+  disk_free: number | null;
+  cpu_cores: number | null;
+  recommendation: { size: string; examples: string[]; note: string } | null;
+  warnings: string[];
+}
+
+export interface AiStatus {
+  settings: AiSettings;
+  providers: { key: AiProvider; label: string; default_url: string }[];
+  resources: AiResources;
+  server: { reachable: boolean; error: string | null } | null;
+  models: AiModel[];
+  state: AiState;
+  message: string;
+  ready: boolean;
+}
+
+export interface AiTask { key: string; label: string; help: string; needs_text: boolean }
+
+export interface AiContext {
+  text: string;
+  hash: string;
+  sections: string[];
+  excluded: string[];
+  truncated: boolean;
+  chars: number;
+}
+
+export interface AiChecks {
+  numbers_total: number;
+  unverified: { text: string; start: number; end: number }[];
+  warnings: string[];
+  empty: boolean;
+  blocking: boolean;
+}
+
+export type AiTextStatus = 'proposition' | 'retenu' | 'ecarte';
+
+export interface AiText {
+  id: number;
+  analysis_id: number;
+  created_at: string;
+  task: string;
+  task_label: string;
+  provider: AiProvider;
+  model: string;
+  settings: AiSettings;
+  prompt_version: string;
+  context: string;
+  context_hash: string;
+  raw_text: string;
+  text: string;
+  checks: AiChecks;
+  status: AiTextStatus;
+  status_label: string;
+  edited: boolean;
+  reviewed_at: string | null;
+  updated_at: string;
+  duration: number | null;
+}
+
+export interface AiJob {
+  id: number;
+  status: 'en_cours' | 'termine' | 'erreur' | 'annule';
+  text: string;
+  error: string | null;
+  elapsed: number;
+  finish: { finish?: string; model?: string };
+  meta: { analysis_id: number; task: string; task_label: string };
+  ai_text: AiText | null;
+}
+
 export interface EngineMethods {
+  'ai.status': { params: { probe?: boolean }; result: AiStatus };
+  'ai.update_settings': { params: { changes: Partial<AiSettings> }; result: AiStatus };
+  'ai.tasks': { params: Record<string, never>; result: AiTask[] };
+  'ai.preview': { params: { analysis_id: number }; result: AiContext };
+  'ai.generate': { params: { analysis_id: number; task: string; user_text?: string }; result: AiJob };
+  'ai.job': { params: { job_id: number }; result: AiJob };
+  'ai.cancel': { params: { job_id: number }; result: AiJob };
+  'ai.texts': { params: { analysis_id?: number }; result: AiText[] };
+  'ai.check': { params: { text_id: number; text: string }; result: AiChecks };
+  'ai.keep': { params: { text_id: number; text: string; reviewed: boolean }; result: { ai_text: AiText; project: ProjectState } };
+  'ai.discard': { params: { text_id: number }; result: { ai_text: AiText; project: ProjectState } };
   'engine.info': { params: Record<string, never>; result: EngineInfo };
   'app.recent_projects': { params: Record<string, never>; result: RecentProject[] };
   'app.forget_recent': { params: { path: string }; result: null };

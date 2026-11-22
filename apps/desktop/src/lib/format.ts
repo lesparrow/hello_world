@@ -31,3 +31,14 @@ export function suggestFileName(title: string): string {
     .slice(0, 60);
   return `${base || 'projet'}.statpfe`;
 }
+
+/** Taille en octets lisible en français (« 15,6 Go »). */
+export function formatBytes(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return 'inconnue';
+  const units = ['octets', 'Ko', 'Mo', 'Go', 'To'];
+  let v = n;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1; }
+  const digits = i >= 3 ? 1 : 0;
+  return `${v.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits })} ${units[i]}`;
+}

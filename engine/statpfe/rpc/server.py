@@ -39,7 +39,10 @@ class Engine:
     """État du moteur : au plus un projet ouvert à la fois."""
 
     def __init__(self) -> None:
+        from statpfe.ai.service import AiService
+
         self.project: Project | None = None
+        self.ai = AiService()
         self.methods: dict[str, Callable[[dict[str, Any]], Any]] = {
             "engine.info": self.info,
             "app.recent_projects": self.recent_projects,
@@ -80,6 +83,17 @@ class Engine:
             "power.rename": self.power_rename,
             "power.delete": self.power_delete,
             "power.from_analysis": self.power_from_analysis,
+            "ai.status": self.ai_status,
+            "ai.update_settings": self.ai_update_settings,
+            "ai.tasks": self.ai_tasks,
+            "ai.preview": self.ai_preview,
+            "ai.generate": self.ai_generate,
+            "ai.job": self.ai_job,
+            "ai.cancel": self.ai_cancel,
+            "ai.texts": self.ai_texts,
+            "ai.check": self.ai_check,
+            "ai.keep": self.ai_keep,
+            "ai.discard": self.ai_discard,
             "plan.get": self.plan_get,
             "plan.save": self.plan_save,
             "plan.lock": self.plan_lock,
@@ -141,6 +155,7 @@ class Engine:
         project = self._require_project()
         project.close(discard_changes=bool(params.get("discard_changes")))
         self.project = None
+        self.ai.jobs.cancel_all()
 
     # -------------------------------------------------------------- données
     def data_inspect(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -281,6 +296,47 @@ class Engine:
         project = self._require_project()
         return from_analysis(project.analyses.get(params.get("analysis_id")))
 
+    # -------------------------------------------------------------- IA locale (optionnelle)
+    def ai_status(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self.ai.status(probe=params.get("probe", True) is not False)
+
+    def ai_update_settings(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self.ai.update_settings(params.get("changes"))
+
+    def ai_tasks(self, _: dict[str, Any]) -> list[dict[str, Any]]:
+        from statpfe.ai.prompts import catalog
+
+        return catalog()
+
+    def ai_preview(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self.ai.preview(self._require_project(), params.get("analysis_id"))
+
+    def ai_generate(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self.ai.generate(self._require_project(), params.get("analysis_id"), params.get("task"),
+                                params.get("user_text"))
+
+    def ai_job(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self.ai.job(self.project, params.get("job_id"))
+
+    def ai_cancel(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self.ai.cancel(self.project, params.get("job_id"))
+
+    def ai_texts(self, params: dict[str, Any]) -> list[dict[str, Any]]:
+        return self._require_project().ai_texts.list(params.get("analysis_id"))
+
+    def ai_check(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self._require_project().ai_texts.check_text(params.get("text_id"), params.get("text"))
+
+    def ai_keep(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        item = project.ai_texts.keep(params.get("text_id"), params.get("text"), params.get("reviewed"))
+        return {"ai_text": item, "project": project.describe()}
+
+    def ai_discard(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        item = project.ai_texts.discard(params.get("text_id"))
+        return {"ai_text": item, "project": project.describe()}
+
     # -------------------------------------------------------------- plan d'analyse
     def plan_get(self, _: dict[str, Any]) -> dict[str, Any]:
         return self._require_project().plan.get()
@@ -328,6 +384,7 @@ class Engine:
     def shutdown(self) -> None:
         """Arrêt du moteur : les modifications non enregistrées sont abandonnées,
         le fichier projet sur disque reste intact."""
+        self.ai.jobs.cancel_all()
         if self.project:
             self.project.close(discard_changes=True)
             self.project = None

@@ -120,8 +120,7 @@ def run_checks(project, options: dict[str, Any]) -> dict[str, Any]:
     if todo:
         add("information", "Sections à rédiger", f"{', '.join(todo)} : emplacements marqués « à rédiger » pour "
                                                    "l'auteur.")
-    passed.append("Aucun texte généré par intelligence artificielle : les lectures des résultats sont produites par "
-                  "des règles fixes et signalées comme telles.")
+    _ai_checks(project, options, analyses, add, passed)
     passed.append("Le rapport est présenté comme un document de travail à réviser, non comme un travail validé.")
     items.sort(key=lambda i: LEVEL_ORDER[i["level"]])
     return {"items": items, "passed": passed, "blocking": sum(i["level"] == "bloquant" for i in items)}
@@ -216,3 +215,50 @@ def _plan_checks(project, options: dict[str, Any], analyses: list[dict[str, Any]
                         f"{gap} (analyse prévue {item['id']}).", a["id"])
     passed.append(f"Plan d'analyse verrouillé (version {locked['version']}) : les analyses prévues et les analyses "
                   "hors plan sont distinguées dans le rapport.")
+
+
+def _ai_checks(project, options: dict[str, Any], analyses: list[dict[str, Any]], add, passed: list[str]) -> None:
+    from statpfe.ai import context as ai_context
+    from statpfe.ai import guard
+
+    texts = [t for a in analyses for t in project.ai_texts.list(a["id"])]
+    kept = [t for t in texts if t["status"] == "retenu"]
+    pending = [t for t in texts if t["status"] == "proposition"]
+    if pending:
+        add("information", f"{len(pending)} proposition(s) de l'IA non relue(s)",
+            "Elles ne figurent pas dans le rapport. Relisez-les et retenez-les, ou écartez-les, depuis le résultat de "
+            "l'analyse.")
+    if kept and not options.get("ai_texts", True):
+        add("information", "Textes de l'IA non inclus",
+            f"{len(kept)} texte(s) retenu(s) après relecture ne seront pas inclus (option désactivée).")
+    if not kept or not options.get("ai_texts", True):
+        passed.append("Aucun texte rédigé avec l'aide d'une IA n'est inclus : les lectures des résultats sont "
+                      "produites par des règles fixes et signalées comme telles.")
+        return
+    by_id = {a["id"]: a for a in analyses}
+    problems = 0
+    for t in kept:
+        a = by_id[t["analysis_id"]]
+        name = f"« {a['title']} »"
+        checks = guard.check(t["text"], t["context"])
+        if checks["blocking"]:
+            problems += 1
+            add("bloquant", f"{name} : texte de l'IA non vérifiable",
+                "Le texte retenu contient des nombres absents des résultats calculés. Corrigez-le ou écartez-le.",
+                a["id"])
+            continue
+        try:
+            now = ai_context.build(project, a)
+        except Exception as exc:  # noqa: BLE001 - variable devenue identifiante, par exemple
+            problems += 1
+            add("important", f"{name} : texte de l'IA à revoir", getattr(exc, "message", str(exc)), a["id"])
+            continue
+        if now["hash"] != t["context_hash"]:
+            problems += 1
+            add("important", f"{name} : contexte modifié depuis la proposition de l'IA",
+                "Les libellés ou informations de l'analyse transmis à l'IA ont changé depuis la rédaction du texte "
+                "retenu : relisez-le.", a["id"])
+    if not problems:
+        passed.append(f"{len(kept)} texte(s) rédigé(s) avec l'aide de l'IA locale, relu(s) et retenu(s) par l'auteur, "
+                      "sont signalés comme tels dans le rapport ; chacun de leurs nombres figure dans les résultats "
+                      "calculés.")

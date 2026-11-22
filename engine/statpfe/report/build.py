@@ -85,6 +85,7 @@ class Builder:
         self.tables = 0
         self.figures = 0
         self._datasets: dict[int, dict[str, Any] | None] = {}
+        self.ai_used: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------------ outils
     def add(self, *blocks) -> None:
@@ -421,6 +422,30 @@ class Builder:
             self.add(Para([Run("Diagnostics", bold=True)]))
             self.add(Bullets([[Run(f"{DIAG_LABEL.get(d['level'], d['level'])} : ", bold=True),
                                Run(d["title"] + (f" {d['detail']}" if d.get("detail") else ""))] for d in diags]))
+        if self.o.get("ai_texts", True):
+            for t in self.p.ai_texts.kept(a["id"]):
+                self.ai_text(t)
+
+    def ai_text(self, t: dict[str, Any]) -> None:
+        """Texte retenu par l'auteur, toujours signalé comme rédigé avec l'aide d'une IA."""
+        self.ai_used.append(t)
+        self.add(Para([Run("Texte rédigé avec l'aide d'une IA locale", bold=True),
+                       Run(f" ({t['task_label'].lower()} ; modèle {t['model']} ; proposition du "
+                           f"{_fr_date(t['created_at'])}), relu et retenu par l'auteur"
+                           + (" puis modifié" if t["edited"] else "") + ". Il ne remplace pas le jugement de "
+                           "l'auteur ni celui de l'encadrant.", italic=True)], "ai"))
+        bullets: list[list[Run]] = []
+        for line in [x.strip() for x in t["text"].split("\n")]:
+            if line.startswith(("- ", "• ", "* ")):
+                bullets.append([Run(line[2:].strip())])
+                continue
+            if bullets:
+                self.add(Bullets(bullets))
+                bullets = []
+            if line:
+                self.add(Para([Run(line)], "ai"))
+        if bullets:
+            self.add(Bullets(bullets))
 
     # ------------------------------------------------------------------ plan d'analyse
     def plan_short(self, a: dict[str, Any]) -> str:
@@ -670,8 +695,33 @@ class Builder:
                 ["Choix de la méthode", mode],
                 ["Plan d'analyse", self.status[a["id"]]["label"]],
                 ["État des données", a["status_label"]],
+                ["Textes rédigés avec l'aide d'une IA", self.ai_summary(a["id"])],
             ]
             self.add(Table(None, f"{self.label(a)} : {a['title']}", ["Élément", "Valeur"], rows, key_value=True))
+        self.ai_annex()
+
+    def ai_summary(self, analysis_id: int) -> str:
+        texts = self.p.ai_texts.list(analysis_id)
+        kept = [t for t in texts if t["status"] == "retenu"] if self.o.get("ai_texts", True) else []
+        if not texts:
+            return "aucun"
+        return (f"{len(texts)} proposition(s) de l'IA locale, {len(kept)} retenue(s) dans ce rapport après relecture"
+                + (f" (modèle(s) : {', '.join(sorted({t['model'] for t in kept}))})" if kept else ""))
+
+    def ai_annex(self) -> None:
+        self.add(Para([Run("Utilisation de l'intelligence artificielle. ", bold=True)]))
+        if not self.ai_used:
+            self.add(Para.of("Aucun texte de ce rapport n'a été rédigé avec l'aide d'une intelligence artificielle. "
+                             "Les lectures des résultats sont produites par des règles fixes du logiciel."))
+            return
+        models = ", ".join(sorted({t["model"] for t in self.ai_used}))
+        self.add(Para.of(
+            f"{len(self.ai_used)} texte(s) de ce rapport, encadré(s) et signalé(s) comme tel(s), ont été rédigés avec "
+            f"l'aide d'un modèle de langage exécuté sur l'ordinateur de l'auteur ({models}), puis relus et retenus "
+            "par l'auteur. Le modèle n'a reçu que des résultats déjà calculés par STATPFE (jamais les données "
+            "brutes) ; il n'a effectué aucun calcul. Un contrôle automatique a vérifié que chaque nombre de ces "
+            "textes figure dans les résultats calculés. Ce contrôle ne garantit pas l'exactitude du propos : "
+            "l'auteur en reste responsable."))
 
     def journal(self) -> None:
         self.h1("Journal méthodologique", annex=True)

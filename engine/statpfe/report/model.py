@@ -15,7 +15,7 @@ class Run:
 @dataclass
 class Para:
     runs: list[Run]
-    style: str = "body"  # body | note | placeholder | lead | warning
+    style: str = "body"  # body | note | placeholder | lead | warning | ai
 
     @classmethod
     def of(cls, text: str, style: str = "body") -> "Para":
