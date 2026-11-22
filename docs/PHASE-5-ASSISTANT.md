@@ -67,7 +67,7 @@ apps/desktop/src/engine/types.ts                       Types de l'assistant et d
 | Interface : typecheck, 8 tests `vitest` | Réussis |
 | Parcours de bout en bout dans Chromium (vraie interface, vrai moteur), enquête fictive de 61 réponses avec deux hypothèses : comparaison Note × Tutorat guidée (Welch recommandé, suivi, H1 liée), lien Note × Satisfaction (Pearson recommandé, Spearman choisi : bouton bloqué sans justification, puis justification enregistrée et inscrite au journal), fréquences en choix direct avec nature « exploratoire » | Réussi, aucune erreur dans la console. Captures dans `captures-phase5/` |
 
-La CI (Ubuntu, Windows, validation contre R, installateur Windows) est relancée sur ce commit.
+CI sur ce commit : moteur sous Ubuntu et Windows, validation contre R, interface et installateur Windows (calcul réel par le moteur autonome, installation et désinstallation silencieuses) : tous réussis.
 
 ## 7. Limites et points non terminés
 
