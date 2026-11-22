@@ -71,7 +71,7 @@ apps/desktop/src/screens/report/ReportPage.tsx  Écran « Rapport »
 | Rendu du .docx vérifié en le convertissant avec LibreOffice (mise en page, tableaux, figures) | Correct |
 | Moteur autonome PyInstaller sous Linux : projet, import, Welch, export Word et PDF | Réussi (100 Mo, contre 86 Mo avant) |
 
-La CI (Ubuntu, Windows, validation contre R, installateur Windows avec export Word et PDF par le moteur autonome) est relancée sur ce commit.
+CI sur ce commit : moteur sous Ubuntu et Windows (241 tests), validation contre R, interface, et installateur Windows où le moteur autonome produit réellement un rapport Word et un rapport PDF : tous réussis.
 
 ## 7. Limites et points non terminés
 
