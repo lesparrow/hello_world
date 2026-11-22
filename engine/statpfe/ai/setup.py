@@ -253,11 +253,20 @@ def _no_window() -> dict[str, Any]:
     return {}
 
 
+def _child_env() -> dict[str, str]:
+    env = dict(os.environ)
+    if sys.platform == "win32":
+        # Un PSModulePath hérité de PowerShell 7 empêche Windows PowerShell 5.1 de charger ses
+        # modules (Get-FileHash introuvable pendant l'installation) : on le laisse reconstruire.
+        env.pop("PSModulePath", None)
+    return env
+
+
 def _run_process(job: SetupJob, argv: list[str], timeout: int, keep_stdin: bool = False,
                  on_line: Callable[[str], None] | None = None) -> int:
     try:
         proc = subprocess.Popen(argv, stdin=subprocess.PIPE if keep_stdin else subprocess.DEVNULL,
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **_no_window())
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=_child_env(), **_no_window())
     except OSError as exc:
         raise _StepError(f"Impossible de lancer « {argv[0]} » ({exc.__class__.__name__}).") from None
     job.proc = proc
