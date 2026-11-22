@@ -12,7 +12,7 @@ import json
 import os
 import sys
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from statpfe.rpc.server import Engine
 
@@ -52,7 +52,8 @@ def main() -> int:
         def log_message(self, *_args) -> None:
             pass
 
-    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    # Serveur à un seul fil : le moteur (et SQLite) est utilisé depuis un seul fil, comme dans l'application.
+    server = HTTPServer(("127.0.0.1", port), Handler)
     print(f"Passerelle de développement sur http://127.0.0.1:{port}/rpc", file=sys.stderr)
     try:
         server.serve_forever()

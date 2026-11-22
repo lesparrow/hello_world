@@ -11,7 +11,9 @@ import {
 } from '@tabler/icons-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { call, runningInTauri } from '../engine/client';
-import type { ProjectState, Study } from '../engine/types';
+import type { Dataset, ProjectState, Study } from '../engine/types';
+import { DataPage } from './data/DataPage';
+import { PreparationPage } from './data/PreparationPage';
 import { Logo } from '../components/Logo';
 import { StudyPage } from './StudyPage';
 import { studyChanges } from '../lib/studyDiff';
@@ -28,11 +30,11 @@ interface Props {
 // Étapes du parcours. Celles qui ne sont pas encore développées sont affichées
 // comme telles et ne sont pas cliquables.
 const UPCOMING = [
-  { label: 'Données', icon: IconDatabase, phase: 'Phase 3' },
-  { label: 'Préparation', icon: IconTransform, phase: 'Phase 3' },
   { label: 'Analyses', icon: IconChartBar, phase: 'Phase 4' },
   { label: 'Rapport', icon: IconFileText, phase: 'Phase 6' },
 ];
+
+type Section = 'etude' | 'donnees' | 'preparation';
 
 type PendingClose = 'project' | 'window' | null;
 
@@ -40,6 +42,24 @@ export function Workspace({ project, onChange, onClosed }: Props) {
   const [draft, setDraft] = useState<Study>(project.study);
   const [saving, setSaving] = useState(false);
   const [pendingClose, setPendingClose] = useState<PendingClose>(null);
+  const [section, setSection] = useState<Section>('etude');
+  const [datasetId, setDatasetId] = useState<number | null>(project.datasets[0]?.id ?? null);
+  const [dataset, setDataset] = useState<Dataset | null>(null);
+
+  // Charge le jeu de données sélectionné (le moteur recalcule dictionnaire, qualité et versions).
+  useEffect(() => {
+    if (datasetId === null) { setDataset(null); return; }
+    let cancelled = false;
+    call('data.get', { dataset_id: datasetId })
+      .then((d) => !cancelled && setDataset(d))
+      .catch((err) => !cancelled && notifyError(err, 'Impossible de charger les données'));
+    return () => { cancelled = true; };
+  }, [datasetId]);
+
+  const applyDataResult = useCallback((r: { dataset: Dataset; project: ProjectState }) => {
+    setDataset(r.dataset);
+    onChange(r.project);
+  }, [onChange]);
   const projectRef = useRef(project);
   projectRef.current = project;
   const draftRef = useRef(draft);
@@ -127,7 +147,8 @@ export function Workspace({ project, onChange, onClosed }: Props) {
   useHotkeys([['mod+S', () => void save()]], []);
 
   return (
-    <AppShell header={{ height: 60 }} navbar={{ width: 240, breakpoint: 0 }} aside={{ width: 300, breakpoint: 'md' }} padding={0}>
+    <AppShell header={{ height: 60 }} navbar={{ width: 240, breakpoint: 0 }}
+      aside={{ width: 300, breakpoint: 'md', collapsed: { desktop: section !== 'etude', mobile: true } }} padding={0}>
       <AppShell.Header px="md">
         <Group h="100%" justify="space-between" wrap="nowrap">
           <Group gap="lg" wrap="nowrap" style={{ minWidth: 0 }}>
@@ -167,8 +188,17 @@ export function Workspace({ project, onChange, onClosed }: Props) {
 
       <AppShell.Navbar p="sm">
         <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" py={6}>Parcours</Text>
-        <NavLink active label="Étude" description="Problématique, objectifs, hypothèses"
-          leftSection={<IconBook2 size={18} />} variant="light" style={{ borderRadius: 8 }} />
+        <NavLink active={section === 'etude'} label="Étude" description="Problématique, objectifs, hypothèses"
+          leftSection={<IconBook2 size={18} />} variant="light" style={{ borderRadius: 8 }}
+          onClick={() => { void flush(); setSection('etude'); }} />
+        <NavLink active={section === 'donnees'} label="Données" description="Import, dictionnaire, qualité"
+          leftSection={<IconDatabase size={18} />} variant="light" style={{ borderRadius: 8 }}
+          rightSection={project.datasets.length ? <Badge size="xs" variant="light">{project.datasets.length}</Badge> : null}
+          onClick={() => { void flush(); setSection('donnees'); }} />
+        <NavLink active={section === 'preparation'} label="Préparation" description="Versions et transformations"
+          leftSection={<IconTransform size={18} />} variant="light" style={{ borderRadius: 8 }}
+          disabled={project.datasets.length === 0}
+          onClick={() => { void flush(); setSection('preparation'); }} />
         {UPCOMING.map((s) => (
           <NavLink key={s.label} disabled label={s.label} leftSection={<s.icon size={18} />}
             rightSection={<Badge size="xs" variant="outline" color="gray">{s.phase}</Badge>}
@@ -181,7 +211,14 @@ export function Workspace({ project, onChange, onClosed }: Props) {
 
       <AppShell.Main>
         <ScrollArea h="calc(100vh - 60px)">
-          <StudyPage draft={draft} onDraft={setDraft} onCommit={() => void flush()} />
+          {section === 'etude' && <StudyPage draft={draft} onDraft={setDraft} onCommit={() => void flush()} />}
+          {section === 'donnees' && (
+            <DataPage project={project} dataset={dataset} onSelectDataset={setDatasetId} onResult={applyDataResult}
+              onImported={(id, p) => { onChange(p); setDatasetId(id); if (id === datasetId) call('data.get', { dataset_id: id }).then(setDataset); }} />
+          )}
+          {section === 'preparation' && (
+            <PreparationPage dataset={dataset} onResult={applyDataResult} onGoToData={() => setSection('donnees')} />
+          )}
         </ScrollArea>
       </AppShell.Main>
 

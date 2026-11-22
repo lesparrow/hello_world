@@ -2,10 +2,11 @@
 
 Logiciel local d'analyse statistique guidée pour les étudiants en PFE, master et doctorat : de la question de recherche au rapport académique, avec des calculs fiables, une méthode expliquée et une traçabilité complète.
 
-**État actuel : Phase 2 (socle).** On peut créer, modifier, enregistrer, dupliquer, fermer et rouvrir un projet d'étude. L'import de données et les analyses ne sont pas encore disponibles.
+**État actuel : Phase 3 (données).** On peut créer et rouvrir un projet d'étude, importer des données CSV ou Excel, corriger le dictionnaire des variables, consulter un diagnostic de qualité et préparer des versions de travail avec des transformations réversibles. Les analyses statistiques ne sont pas encore disponibles (Phase 4).
 
 - Architecture : [docs/PHASE-1-AUDIT-ARCHITECTURE.md](docs/PHASE-1-AUDIT-ARCHITECTURE.md)
 - Rapport de la Phase 2 : [docs/PHASE-2-SOCLE.md](docs/PHASE-2-SOCLE.md)
+- Rapport de la Phase 3 : [docs/PHASE-3-DONNEES.md](docs/PHASE-3-DONNEES.md)
 
 ## Organisation
 

@@ -81,6 +81,13 @@ jobs:
           $out = '{"jsonrpc":"2.0","id":1,"method":"engine.info"}' | & $exe.FullName
           Write-Output $out
           if (-not ($out -match '"name": "statpfe-engine"')) { throw "Le moteur autonome ne répond pas" }
+          # Lecture réelle d'un CSV (pandas embarqué) par le moteur autonome.
+          $csv = Join-Path $env:RUNNER_TEMP 'essai.csv'
+          [IO.File]::WriteAllText($csv, "groupe;note`nA;12,5`nB;9`n", [Text.Encoding]::GetEncoding(1252))
+          $req = @{ jsonrpc = '2.0'; id = 2; method = 'data.inspect_file'; params = @{ path = $csv } } | ConvertTo-Json -Compress
+          $out = $req | & $exe.FullName
+          Write-Output $out
+          if (-not ($out -match '"rows": 2')) { throw "Le moteur autonome ne lit pas les fichiers CSV" }
 
       - name: Construire l'application et les installateurs
         working-directory: apps/desktop

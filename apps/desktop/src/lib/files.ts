@@ -30,3 +30,15 @@ export async function pickProjectDestination(suggestedName: string): Promise<str
       : null;
   return picked ? withProjectExtension(picked) : null;
 }
+
+const dataFilters = [
+  { name: 'Données (CSV, Excel)', extensions: ['csv', 'txt', 'tsv', 'xlsx', 'xlsm'] },
+];
+
+export async function pickDataFile(): Promise<string | null> {
+  if (runningInTauri()) {
+    const picked = await open({ multiple: false, directory: false, filters: dataFilters, title: 'Importer des données' });
+    return typeof picked === 'string' ? picked : null;
+  }
+  return browserPrompt ? browserPrompt({ title: 'Chemin du fichier de données à importer' }) : null;
+}
