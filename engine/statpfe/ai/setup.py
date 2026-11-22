@@ -331,7 +331,9 @@ def _pull(job: SetupJob, s: ai_settings.AiSettings, model: str) -> None:
         detail = exc.read(300).decode("utf-8", "replace")
         raise _StepError(f"Ollama a refusé le téléchargement (HTTP {exc.code}) : {detail}") from None
     except (urllib.error.URLError, OSError) as exc:
-        raise _StepError("Ollama ne répond pas : vérifiez qu'il est installé et lancé.") from exc
+        reason = getattr(exc, "reason", exc)
+        raise _StepError(f"Ollama ne répond pas ({reason}) : vérifiez qu'il est installé et lancé, puis "
+                         "réessayez.") from None
     started = time.monotonic()
     last_status = ""
     with resp:
