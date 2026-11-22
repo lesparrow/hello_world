@@ -60,7 +60,8 @@ apps/desktop/src-tauri/            Coquille Tauri (lancement du moteur, dialogue
 | Parcours de bout en bout dans Chromium (vraie interface + vrai moteur) : créer un projet, modifier, Ctrl+S, modifier puis fermer sans enregistrer, rouvrir depuis les récents et vérifier que seules les données enregistrées sont présentes | Réussi, aucune erreur dans la console |
 | Application Tauri compilée en mode release sous Linux, lancée sous écran virtuel : le moteur autonome démarre, l'accueil affiche les projets récents, ouverture d'un projet réussie | Réussi (captures dans le dossier du projet) |
 | Moteur autonome PyInstaller (Linux) : réponse à `engine.info` | Réussi, 12 Mo |
-| Installateur Windows, installation et désinstallation silencieuses | Confié à la CI : voir le résultat du job « Installateur Windows » sur la PR |
+| Tests du moteur sous **Windows** (CI) | Réussis après correction d'un bug réel trouvé par la CI : l'enregistrement échouait sous Windows (`fsync` sur un fichier ouvert en lecture seule) |
+| Installateur Windows (CI `windows-latest`) : moteur autonome qui répond, construction NSIS + MSI, installation silencieuse, présence de `statpfe.exe` et `statpfe-engine.exe`, moteur installé qui répond, désinstallation silencieuse | Réussi. Artefact `statpfe-windows-installateurs` (environ 22 Mo) |
 
 ## 7. Limites et points non terminés
 
