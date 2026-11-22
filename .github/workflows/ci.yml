@@ -74,8 +74,8 @@ jobs:
       - name: Installer Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
-          ok=0; for i in $(seq 1 60); do curl -sf http://127.0.0.1:11434/api/tags >/dev/null && ok=$((ok+1)) || ok=0; [ $ok -ge 3 ] && break; sleep 2; done
-          curl -sf http://127.0.0.1:11434/api/version
+          # Selon le runner, le service n'est pas démarré (pas de systemd) : le test suivant le
+          # démarre alors par le bouton « Démarrer Ollama » de STATPFE.
       - name: Télécharger le modèle par l'assistant de STATPFE (qwen2.5:0.5b)
         working-directory: engine
         env:

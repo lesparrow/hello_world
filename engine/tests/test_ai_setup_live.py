@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 import pytest
 
@@ -38,8 +39,19 @@ def test_real_claude_code_install():
 def test_real_ollama_pull():
     model = os.environ["STATPFE_SETUP_LIVE_PULL"]
     e = Engine()
-    call(e, "ai.update_settings", changes={"enabled": True, "provider": "ollama",
-                                           "base_url": os.environ["STATPFE_AI_LIVE_URL"]})
+    st = call(e, "ai.update_settings", changes={"enabled": True, "provider": "ollama",
+                                                "base_url": os.environ["STATPFE_AI_LIVE_URL"]})
+    print("état :", st["state"], "ollama installé :", st["ollama_installed"])
+    if st["state"] == "serveur_absent":
+        assert st["ollama_installed"] is True
+        call(e, "ai.setup_ollama_start")  # bouton « Démarrer Ollama »
+        for _ in range(60):
+            time.sleep(1)
+            st = call(e, "ai.status")
+            if st["state"] != "serveur_absent":
+                break
+        print("après démarrage :", st["state"])
+        assert st["state"] in ("aucun_modele", "modele_a_choisir"), st
     snap = wait_setup(e, call(e, "ai.setup_ollama_pull", model=model, confirm=True)["id"], timeout=1200)
     print("\n".join(snap["log"]), "\nerreur :", snap["error"])
     assert snap["status"] == "termine" and snap["progress"] == 1.0, snap
