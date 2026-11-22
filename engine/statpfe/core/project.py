@@ -31,6 +31,7 @@ from statpfe import __version__
 from statpfe.core.study import FIELD_LABELS, Study
 from statpfe.core.timeutil import now_iso
 from statpfe.data.store import SCHEMA_V2, DataStore
+from statpfe.report.service import ReportService
 from statpfe.stats.store import MIGRATE_V3_TO_V4, SCHEMA_V3, AnalysisStore
 from statpfe.errors import ProjectFileError, UnsavedChangesError, ValidationError
 
@@ -116,6 +117,7 @@ class Project:
         self._closed = False
         self.data = DataStore(conn, workdir, self._log)
         self.analyses = AnalysisStore(conn, self.data, self._log)
+        self.reports = ReportService(self)
 
     # ------------------------------------------------------------------ création
     @classmethod

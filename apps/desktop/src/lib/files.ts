@@ -42,3 +42,15 @@ export async function pickDataFile(): Promise<string | null> {
   }
   return browserPrompt ? browserPrompt({ title: 'Chemin du fichier de données à importer' }) : null;
 }
+
+/** Emplacement d'un rapport exporté (Word ou PDF). */
+export async function pickReportDestination(suggestedName: string, format: 'docx' | 'pdf'): Promise<string | null> {
+  const filters = [format === 'docx' ? { name: 'Document Word', extensions: ['docx'] } : { name: 'PDF', extensions: ['pdf'] }];
+  const picked = runningInTauri()
+    ? await save({ filters, defaultPath: suggestedName, title: 'Exporter le rapport' })
+    : browserPrompt
+      ? await browserPrompt({ title: 'Chemin complet du rapport à exporter', defaultPath: `/tmp/${suggestedName}` })
+      : null;
+  if (!picked) return null;
+  return picked.toLowerCase().endsWith(`.${format}`) ? picked : `${picked}.${format}`;
+}

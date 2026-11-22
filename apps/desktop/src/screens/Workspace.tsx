@@ -15,6 +15,7 @@ import type { Dataset, ProjectState, Study } from '../engine/types';
 import { DataPage } from './data/DataPage';
 import { PreparationPage } from './data/PreparationPage';
 import { AnalysesPage } from './analysis/AnalysesPage';
+import { ReportPage } from './report/ReportPage';
 import { Logo } from '../components/Logo';
 import { StudyPage } from './StudyPage';
 import { studyChanges } from '../lib/studyDiff';
@@ -28,13 +29,7 @@ interface Props {
   onClosed: () => void;
 }
 
-// Étapes du parcours. Celles qui ne sont pas encore développées sont affichées
-// comme telles et ne sont pas cliquables.
-const UPCOMING = [
-  { label: 'Rapport', icon: IconFileText, phase: 'Phase 6' },
-];
-
-type Section = 'etude' | 'donnees' | 'preparation' | 'analyses';
+type Section = 'etude' | 'donnees' | 'preparation' | 'analyses' | 'rapport';
 
 type PendingClose = 'project' | 'window' | null;
 
@@ -204,14 +199,10 @@ export function Workspace({ project, onChange, onClosed }: Props) {
           disabled={project.datasets.length === 0}
           rightSection={project.analyses_count ? <Badge size="xs" variant="light">{project.analyses_count}</Badge> : null}
           onClick={() => { void flush(); setSection('analyses'); }} />
-        {UPCOMING.map((s) => (
-          <NavLink key={s.label} disabled label={s.label} leftSection={<s.icon size={18} />}
-            rightSection={<Badge size="xs" variant="outline" color="gray">{s.phase}</Badge>}
-            style={{ borderRadius: 8 }} />
-        ))}
-        <Text size="xs" c="dimmed" px="sm" mt="auto">
-          Les étapes grisées sont en développement et seront activées dans les prochaines versions.
-        </Text>
+        <NavLink active={section === 'rapport'} label="Rapport" description="Word ou PDF, contrôles avant export"
+          leftSection={<IconFileText size={18} />} variant="light" style={{ borderRadius: 8 }}
+          disabled={project.analyses_count === 0}
+          onClick={() => { void flush(); setSection('rapport'); }} />
       </AppShell.Navbar>
 
       <AppShell.Main>
@@ -223,6 +214,9 @@ export function Workspace({ project, onChange, onClosed }: Props) {
           )}
           {section === 'analyses' && (
             <AnalysesPage project={project} onChange={onChange} onGoToData={() => setSection('donnees')} />
+          )}
+          {section === 'rapport' && (
+            <ReportPage project={project} onChange={onChange} onGoToAnalyses={() => setSection('analyses')} />
           )}
           {section === 'preparation' && (
             <PreparationPage dataset={dataset} onResult={applyDataResult} onGoToData={() => setSection('donnees')} />

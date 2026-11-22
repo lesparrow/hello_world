@@ -122,6 +122,21 @@ jobs:
           $out = ($lines -join "`n") | & $exe.FullName
           Write-Output $out
           if (-not ($out -match '"key": "t", "label": "t", "value": 5\.07796')) { throw "Le moteur autonome ne calcule pas le test de Welch" }
+          # Rapports réels (python-docx, reportlab, matplotlib embarqués) : Word et PDF.
+          $docx = Join-Path $env:RUNNER_TEMP 'rapport.docx'
+          $pdf = Join-Path $env:RUNNER_TEMP 'rapport.pdf'
+          $lines += @(
+            (@{ jsonrpc = '2.0'; id = 6; method = 'report.export'; params = @{ path = $docx; format = 'docx'; options = @{ analyses = @(1) } } } | ConvertTo-Json -Compress -Depth 5),
+            (@{ jsonrpc = '2.0'; id = 7; method = 'report.export'; params = @{ path = $pdf; format = 'pdf'; options = @{ analyses = @(1) } } } | ConvertTo-Json -Compress -Depth 5)
+          )
+          Remove-Item $proj -ErrorAction SilentlyContinue
+          $out = ($lines -join "`n") | & $exe.FullName
+          Write-Output $out
+          foreach ($f in @($docx, $pdf)) {
+            if (-not (Test-Path $f) -or (Get-Item $f).Length -lt 20000) { throw "Rapport non produit : $f" }
+          }
+          $head = [IO.File]::ReadAllBytes($pdf)[0..4]
+          if ([Text.Encoding]::ASCII.GetString($head) -ne '%PDF-') { throw "Le rapport PDF est invalide" }
 
       - name: Construire l'application et les installateurs
         working-directory: apps/desktop

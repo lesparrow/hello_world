@@ -8,6 +8,7 @@ par exemple `statpfe-engine-x86_64-pc-windows-msvc.exe`.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -25,6 +26,12 @@ def target_triple() -> str:
     raise SystemExit("Impossible de déterminer le triplet de la plateforme (rustc -vV).")
 
 
+def _docx_parts_marker() -> str:
+    import docx.parts
+
+    return str(Path(docx.parts.__file__))
+
+
 def main() -> int:
     build = ENGINE_DIR / "build" / "pyinstaller"
     subprocess.run(
@@ -36,6 +43,18 @@ def main() -> int:
             "--workpath", str(build / "work"),
             "--specpath", str(build),
             "--paths", str(ENGINE_DIR),
+            # Modèles Word de python-docx (document, en-têtes, pieds de page) : fichiers de données.
+            "--collect-data", "docx",
+            # python-docx lit « docx/parts/../templates/… » : le dossier docx/parts doit exister sur disque.
+            "--add-data", f"{_docx_parts_marker()}{os.pathsep}docx/parts",
+            # matplotlib ne sert qu'à dessiner des images (backend Agg) : pas d'interface graphique.
+            "--exclude-module", "tkinter",
+            "--exclude-module", "matplotlib.backends.backend_tkagg",
+            "--exclude-module", "matplotlib.backends.backend_qtagg",
+            "--exclude-module", "PyQt5",
+            "--exclude-module", "PyQt6",
+            "--exclude-module", "PySide6",
+            "--exclude-module", "IPython",
             str(ENGINE_DIR / "packaging" / "entry.py"),
         ],
         check=True,

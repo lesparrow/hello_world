@@ -163,6 +163,33 @@ class AnalysisStore:
                 "identical_results": not differences, "differences": differences[:50],
                 "same_environment": same_env, "environment": environment(), "checked_at": now_iso()}
 
+    def verify(self, analysis_id: Any) -> dict[str, Any]:
+        """Contrôle avant rapport : recalcule l'analyse et compare valeurs, effectifs, tableaux et graphiques.
+
+        Contrairement à `reproduce`, rien n'est inscrit au journal."""
+        row = self._row(analysis_id)
+        status, _ = self._status(row)
+        out: dict[str, Any] = {"status": status, "status_label": STATUS[status], "checked": False,
+                               "differences": [], "error": None, "rows": None}
+        if status != "a_jour":
+            return out
+        if row["method"] not in catalog.METHODS:
+            out["error"] = "Méthode inconnue de cette version du logiciel."
+            return out
+        df, variables, _ = self._materialize(row["dataset_id"], row["version_id"])
+        out["rows"] = len(df)
+        try:
+            fresh = catalog.run(row["method"], df, variables, json.loads(row["params"]))
+        except StatpfeError as exc:
+            out["error"] = exc.message
+            return out
+        fresh = json.loads(json.dumps(fresh, ensure_ascii=False, allow_nan=False))
+        stored = json.loads(row["result"])
+        keys = ("values", "n_used", "summary", "tables", "charts")
+        out["checked"] = True
+        out["differences"] = _compare({k: stored.get(k) for k in keys}, {k: fresh.get(k) for k in keys})[:20]
+        return out
+
     def levels(self, dataset_id: Any, version_id: Any, key: Any) -> list[dict[str, Any]]:
         """Modalités présentes d'une variable (ordre du dictionnaire), pour choisir les groupes à comparer."""
         from statpfe.stats.common import MAX_GROUP_LEVELS, as_labels, level_label, ordered_levels

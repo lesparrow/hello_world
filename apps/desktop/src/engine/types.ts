@@ -365,6 +365,45 @@ export interface ReproductionReport {
   checked_at: string;
 }
 
+export type ReportFormat = 'docx' | 'pdf';
+export type CheckLevel = 'bloquant' | 'important' | 'methodologique' | 'information';
+
+export interface ReportTemplates {
+  templates: { key: string; label: string; document: string; sections: string[] }[];
+  sections: { key: string; label: string }[];
+  cover_fields: { key: string; label: string }[];
+  formats: { key: ReportFormat; label: string }[];
+}
+
+export interface ReportOptions {
+  template: string;
+  cover: Record<string, string>;
+  sections: Record<string, boolean>;
+  analyses: number[];
+  figures: boolean;
+}
+
+export interface ReportCheck {
+  items: { level: CheckLevel; title: string; detail: string; analysis_id: number | null }[];
+  passed: string[];
+  blocking: number;
+}
+
+export interface OutlineItem {
+  kind: 'heading' | 'table' | 'figure';
+  level?: number;
+  text: string;
+}
+
+export interface ReportExport {
+  path: string;
+  file_name: string;
+  size: number;
+  tables: number;
+  figures: number;
+  checks: ReportCheck;
+}
+
 export interface EngineMethods {
   'engine.info': { params: Record<string, never>; result: EngineInfo };
   'app.recent_projects': { params: Record<string, never>; result: RecentProject[] };
@@ -409,6 +448,16 @@ export interface EngineMethods {
       choice?: ChoiceInput;
     };
     result: { analysis: Analysis; project: ProjectState };
+  };
+  'report.templates': { params: Record<string, never>; result: ReportTemplates };
+  'report.options': { params: Record<string, never>; result: ReportOptions };
+  'report.check': {
+    params: { options: ReportOptions };
+    result: { options: ReportOptions; checks: ReportCheck; outline: OutlineItem[]; project: ProjectState };
+  };
+  'report.export': {
+    params: { path: string; format: ReportFormat; options: ReportOptions };
+    result: { export: ReportExport; project: ProjectState };
   };
   'analysis.advise': {
     params: { dataset_id: number; version_id: number | null; request: AdviceRequest };

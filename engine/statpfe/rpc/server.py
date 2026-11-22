@@ -72,6 +72,10 @@ class Engine:
             "analysis.reproduce": self.analysis_reproduce,
             "analysis.levels": self.analysis_levels,
             "analysis.advise": self.analysis_advise,
+            "report.templates": self.report_templates,
+            "report.options": self.report_options,
+            "report.check": self.report_check,
+            "report.export": self.report_export,
         }
 
     # -------------------------------------------------------------- méthodes
@@ -224,6 +228,24 @@ class Engine:
         project = self._require_project()
         report = project.analyses.reproduce(params.get("analysis_id"))
         return {"report": report, "project": project.describe()}
+
+    # -------------------------------------------------------------- rapports
+    def report_templates(self, _: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.report.options import templates
+
+        return templates()
+
+    def report_options(self, _: dict[str, Any]) -> dict[str, Any]:
+        return self._require_project().reports.options()
+
+    def report_check(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        return {**project.reports.check(params.get("options")), "project": project.describe()}
+
+    def report_export(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        result = project.reports.export(params.get("path"), params.get("format"), params.get("options"))
+        return {"export": result, "project": project.describe()}
 
     @staticmethod
     def _dataset_and_project(project: Project, params: dict[str, Any]) -> dict[str, Any]:
