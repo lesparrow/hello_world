@@ -3,6 +3,8 @@
 Date : 22 novembre 2026
 Statut : **proposition, en attente de validation**. Aucune fonctionnalité n'est implémentée à ce stade.
 
+Révision 2 (22/11/2026) : à la demande du porteur du projet, qui fait de la qualité de l'interface une priorité, l'architecture recommandée passe de Python/Qt (option A) à **React + Tauri avec un moteur Python (option B)**.
+
 ---
 
 ## 1. Objectif de la phase
@@ -53,7 +55,7 @@ Conséquences honnêtes :
 
 Critères issus du cahier des charges : fiabilité des calculs, fonctionnement 100 % local, maintenabilité par une petite équipe, packaging Windows d'abord, validation scientifique, rapports Word/PDF.
 
-### Option A : Python seul, interface Qt (PySide6) — **recommandée**
+### Option A : Python seul, interface Qt (PySide6)
 
 - Moteur : `scipy.stats` + `statsmodels` (licences BSD, largement validées, utilisées en recherche).
 - Données : `pandas` + `openpyxl` (Excel) ; `pyreadstat` pour SPSS plus tard.
@@ -70,15 +72,16 @@ Critères issus du cahier des charges : fiabilité des calculs, fonctionnement 1
 | Fonctionne hors ligne, aucun serveur local ni port ouvert. | |
 | Linux et macOS possibles plus tard avec le même code. | |
 
-### Option B : interface web (Tauri ou Electron, TypeScript) + moteur Python en processus séparé
+### Option B : interface React (Tauri) + moteur Python en processus séparé — **recommandée**
 
 | Avantages | Limites / risques |
 |---|---|
-| Interface très moderne, riche écosystème de composants. | Deux langages, deux chaînes de build, un protocole interne à sécuriser. |
-| | Packaging Python embarqué + webview : la partie la plus fragile du projet sur Windows. |
-| | Coût de maintenance environ doublé pour une petite équipe. |
+| Interface très moderne et soignée : c'est l'exigence prioritaire du porteur du projet. | Deux langages (TypeScript et Python), deux chaînes de build. |
+| Énorme écosystème de composants (tableaux de données, formulaires, assistants pas à pas, graphiques interactifs). | Le moteur Python doit être embarqué dans l'installateur : partie la plus délicate, à construire dès la Phase 2. |
+| Tauri utilise WebView2, déjà présent sur Windows 10/11 : installateur plus léger qu'Electron. | Un protocole interne entre interface et moteur, à concevoir proprement. |
+| Le moteur Python reste testable seul, sans l'interface. | Petite partie en Rust (Tauri), limitée à la gestion de la fenêtre et du processus. |
 
-À reconsidérer seulement si l'interface Qt se révèle bloquante après le MVP. Le moteur de l'option A étant indépendant de l'interface, ce changement resterait possible sans réécrire les calculs.
+Electron serait une alternative valable (tout en JavaScript côté coquille, plus mature) mais plus lourde (environ 100 Mo de plus) avec une surface d'attaque plus large. Tauri est retenu ; si son intégration avec le moteur Python posait problème en Phase 2, basculer vers Electron ne toucherait ni l'interface React ni le moteur.
 
 ### Option C : R + Shiny en local
 
@@ -100,31 +103,43 @@ Rejetée : contraire à l'exigence « les données de recherche restent sur l'or
 |---|---|---|---|---|
 | Fiabilité des calculs | ●●● | ●●● | ●●● | ●●● |
 | Local / confidentialité | ●●● | ●●● | ●●● | ● |
-| Simplicité / maintenance | ●●● | ● | ●● | ●● |
-| Packaging Windows | ●● | ● | ● | n/a |
+| Simplicité / maintenance | ●●● | ●● | ●● | ●● |
+| Packaging Windows | ●● | ●● | ● | n/a |
 | Qualité d'interface | ●● | ●●● | ● | ●●● |
+
+L'option A est plus simple, mais l'option B l'emporte car la qualité de l'interface est un critère prioritaire pour le public visé.
 
 ---
 
-## 4. Architecture recommandée (option A)
+## 4. Architecture recommandée (option B)
 
-### 4.1 Découpage en couches
+### 4.1 Composants et découpage
 
 ```text
-statpfe/
-  core/        Modèle du projet, versions de données, journal, format de fichier
-  data/        Import CSV/Excel, détection de types, dictionnaire, transformations
-  engine/      Méthodes statistiques (pures, sans interface), diagnostics, avertissements
-  advisor/     Assistant méthodologique déterministe (règles explicites)
-  report/      Génération Word/PDF, contrôles de cohérence avant export
-  ai/          (Phase 8) Module optionnel, désactivable, n'accède qu'aux résultats déjà calculés
-  ui/          Interface PySide6, ne fait aucun calcul
-tests/
-  engine/      Tests unitaires + cas limites
-  reference/   Jeux de données de référence + résultats attendus produits par R
+apps/desktop/            Coquille Tauri (Rust minimal) : fenêtre, menus, dialogues fichiers,
+                         lancement et arrêt du moteur Python
+apps/desktop/src/        Interface React + TypeScript : écrans, assistants, tableaux, graphiques.
+                         Aucun calcul statistique.
+engine/statpfe/          Moteur Python, utilisable sans l'interface :
+  core/                  Modèle du projet, versions de données, journal, format de fichier
+  data/                  Import CSV/Excel, détection de types, dictionnaire, transformations
+  methods/               Méthodes statistiques, diagnostics, avertissements
+  advisor/               Assistant méthodologique déterministe (règles explicites)
+  report/                Génération Word/PDF, contrôles de cohérence avant export
+  charts/                Spécifications de graphiques (Vega-Lite) et rendu pour les rapports
+  ai/                    (Phase 8) Module optionnel, désactivable
+  rpc/                   Point d'entrée : requêtes JSON reçues de l'interface
+engine/tests/            Tests unitaires, cas limites, références R
 ```
 
-Règle structurante : **l'interface n'appelle que `core`, `data`, `engine`, `advisor` et `report`**. Toute valeur numérique affichée provient d'un objet résultat produit par `engine`.
+Choix techniques :
+
+- **Interface** : React 19 + TypeScript + Vite, bibliothèque de composants accessible (par ex. shadcn/ui sur Radix, ou Mantine), tableau de données virtualisé pour les gros fichiers, interface en français d'abord avec i18n prévue.
+- **Communication interface ↔ moteur** : le moteur Python tourne comme processus enfant (« sidecar » Tauri) et échange des messages JSON-RPC via son entrée/sortie standard. **Aucun port réseau ouvert**, aucun serveur local exposé. Les types des messages sont définis une seule fois (schémas JSON) et partagés entre Python et TypeScript.
+- **Graphiques** : le moteur produit une spécification **Vega-Lite** à partir des données calculées. L'interface l'affiche de manière interactive (`vega-embed`), et le rapport utilise la même spécification rendue en image par `vl-convert` (hors ligne). Résultat : le graphique à l'écran et celui du rapport sont strictement identiques.
+- **Packaging** : moteur Python figé avec PyInstaller, embarqué comme sidecar ; installateur Windows (MSI/NSIS) produit par Tauri sur runner GitHub Actions `windows-latest`.
+
+Règle structurante : **toute valeur numérique affichée provient d'un objet résultat produit par le moteur Python.** L'interface ne fait que présenter.
 
 ### 4.2 Contrat d'une méthode statistique
 
@@ -150,7 +165,9 @@ Chaque analyse enregistre : version de données, transformations, méthode, para
 
 ### 4.5 Sécurité et confidentialité
 
-- Aucun serveur local, aucun port ouvert, aucun appel réseau dans le MVP.
+- Aucun serveur local, aucun port ouvert, aucun appel réseau dans le MVP : la communication passe par l'entrée/sortie standard du processus moteur.
+- Tauri configuré au plus strict : permissions (« capabilities ») limitées aux dialogues de fichiers nécessaires, politique de sécurité du contenu (CSP) interdisant tout script distant, pas d'accès système direct depuis React.
+- Le moteur Python est arrêté proprement à la fermeture de l'application et redémarré si besoin, sans perte du projet.
 - Chemins de fichiers validés, écriture atomique des projets (fichier temporaire puis renommage) et sauvegarde automatique de la version précédente.
 - Journal technique sans contenu des données.
 - Détection simple des colonnes potentiellement identifiantes (noms, e-mails, téléphones) dès la Phase 3, masquage en aperçu.
@@ -161,7 +178,7 @@ Piste : exécution locale via `llama.cpp` ou Ollama, modèle de petite taille, d
 
 ### 4.7 Licences
 
-Dépendances prévues sous licences permissives (BSD, MIT, LGPL pour Qt). À éviter : PyQt (GPL) et `pingouin` (GPL-3), qui imposeraient la GPL à STATPFE. Le choix de la licence de STATPFE lui-même (open source ou propriétaire) est à décider par le porteur du projet.
+Dépendances prévues sous licences permissives (MIT pour React, Tauri, Vega ; BSD pour scipy, statsmodels, pandas). À éviter : `pingouin` (GPL-3), qui imposerait la GPL à STATPFE. Le choix de la licence de STATPFE lui-même (open source ou propriétaire) est à décider par le porteur du projet.
 
 ---
 
@@ -171,7 +188,8 @@ Dépendances prévues sous licences permissives (BSD, MIT, LGPL pour Qt). À év
 |---|---|---|
 | Concurrence de **jamovi** et **JASP** (gratuits, open source, interface simple) | Produit | Se différencier sur ce qu'ils ne font pas bien : parcours guidé de la question de recherche au rapport PFE en français, assistant méthodologique expliqué, rapport Word prêt à intégrer, traçabilité. À valider auprès d'étudiants dès le MVP. |
 | Erreurs de convention statistique | Scientifique | Validation systématique contre R en CI, conventions documentées. |
-| Packaging Windows fragile | Technique | Build sur runner Windows dès la Phase 2, test manuel sur vrai PC à chaque jalon. |
+| Packaging Windows fragile (moteur Python embarqué dans Tauri) | Technique | Installateur construit sur runner Windows dès la Phase 2, avant toute fonctionnalité ; test manuel sur vrai PC à chaque jalon. |
+| Deux langages à maintenir | Maintenance | Frontière unique et typée (JSON-RPC + schémas partagés), aucune logique statistique côté TypeScript. |
 | Antivirus signalant l'exécutable non signé | Distribution | Prévoir un certificat de signature de code avant diffusion large. |
 | Périmètre très large pour une petite équipe | Projet | MVP resserré, méthodes avancées seulement après retour utilisateurs. |
 | Données personnelles dans les enquêtes | Confidentialité | Fonctionnement local, détection des identifiants, pas de télémétrie. |
@@ -184,7 +202,7 @@ Les durées sont des ordres de grandeur pour une personne travaillant avec Claud
 
 | Phase | Contenu | Livrable vérifiable |
 |---|---|---|
-| 2. Socle | Squelette PySide6, créer/ouvrir/sauvegarder/fermer un projet `.statpfe`, CI (tests + build Windows) | Exécutable Windows qui crée et rouvre un projet |
+| 2. Socle | Coquille Tauri + React, moteur Python en sidecar (JSON-RPC), système de design de l'interface, créer/ouvrir/sauvegarder/fermer un projet `.statpfe`, CI (tests + installateur Windows) | Installateur Windows qui lance l'appli, crée et rouvre un projet |
 | 3. Données | Import CSV/Excel, aperçu, dictionnaire, manquants, doublons, versions, transformations de base | Import d'un vrai fichier d'enquête sans perte |
 | 4. Statistiques fondamentales | Descriptives, fréquences, tableaux croisés, histogramme, boxplot, t (Student, Welch, apparié), Mann-Whitney, Wilcoxon, Pearson, Spearman, khi-deux, Fisher, diagnostics | Tests de référence contre R au vert |
 | 5. Assistant méthodologique | Arbre de décision explicite, justifications, alternatives, choix motivé enregistré | Recommandation affichée avec ses raisons |
@@ -224,7 +242,7 @@ Le fichier `text.txt` n'a pas de lien avec le projet ; il pourra être supprimé
 
 1. **Objectif** : audit et choix d'architecture.
 2. **Observé** : dépôt vide de code (un fichier d'exercice), Python 3.13 disponible, R et Windows absents de l'environnement.
-3. **Décision proposée** : Python + PySide6 + scipy/statsmodels, validé contre R en CI, Windows d'abord.
+3. **Décision proposée** : interface React + TypeScript dans Tauri, moteur Python (scipy/statsmodels) en processus séparé, validé contre R en CI, Windows d'abord.
 4. **Fichiers concernés** : ce document et `README.md`.
 5. **Implémenté** : rien de fonctionnel, volontairement.
 6. **Tests exécutés** : aucun test applicatif (pas de code). Vérifié seulement la disponibilité des outils et des paquets.
