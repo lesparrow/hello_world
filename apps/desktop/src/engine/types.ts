@@ -274,8 +274,79 @@ export interface AnalysisSummary {
   status_label: string;
 }
 
+export type AdviceObjective = 'describe' | 'compare_groups' | 'compare_paired' | 'relate';
+export type AnalysisPurpose = 'confirmatoire' | 'exploratoire';
+
+export interface AdviceRequest {
+  objective: AdviceObjective;
+  variables: Record<string, string | string[]>;
+  levels?: string[];
+  independent?: boolean;
+  purpose?: AnalysisPurpose | null;
+  hypothesis?: number | null;
+}
+
+export interface AdviceAlternative {
+  method: string | null;
+  label: string;
+  params: AnalysisParams;
+  when: string;
+  available: boolean;
+}
+
+export interface Advice {
+  rules_version: string;
+  objective: AdviceObjective;
+  objective_label: string;
+  recommendation: {
+    method: string;
+    label: string;
+    params: AnalysisParams;
+    reasons: string[];
+    conditions: string[];
+    checks: string[];
+    limits: string[];
+  } | null;
+  blocking: string | null;
+  alternatives: AdviceAlternative[];
+  missing_information: string[];
+  observations: string[];
+  principle: string;
+  request: AdviceRequest;
+}
+
+/** Choix transmis au moteur avec l'analyse (le moteur recalcule la recommandation). */
+export interface ChoiceInput {
+  mode: 'assistant' | 'direct';
+  request?: AdviceRequest;
+  reason?: string;
+  purpose?: AnalysisPurpose | null;
+  hypothesis?: number | null;
+}
+
+/** Choix enregistré avec l'analyse. */
+export interface MethodChoice {
+  mode: 'assistant' | 'direct';
+  chosen?: string;
+  chosen_label?: string;
+  reason?: string;
+  purpose?: AnalysisPurpose | null;
+  purpose_label?: string | null;
+  hypothesis?: number | null;
+  hypothesis_text?: string | null;
+  rules_version?: string;
+  objective?: AdviceObjective;
+  objective_label?: string;
+  recommended?: string | null;
+  recommended_label?: string | null;
+  recommendation_reasons?: string[];
+  followed?: boolean;
+  missing_information?: string[];
+}
+
 export interface Analysis extends AnalysisSummary {
   note: string;
+  choice: MethodChoice;
   current_fingerprint: string | null;
   params: AnalysisParams;
   result: AnalysisResult;
@@ -334,8 +405,14 @@ export interface EngineMethods {
   'data.remove_step': { params: { dataset_id: number; version_id: number; index: number }; result: DatasetAndProject };
   'analysis.catalog': { params: Record<string, never>; result: Catalog };
   'analysis.run': {
-    params: { dataset_id: number; version_id: number | null; method: string; params: AnalysisParams; title?: string };
+    params: { dataset_id: number; version_id: number | null; method: string; params: AnalysisParams; title?: string;
+      choice?: ChoiceInput;
+    };
     result: { analysis: Analysis; project: ProjectState };
+  };
+  'analysis.advise': {
+    params: { dataset_id: number; version_id: number | null; request: AdviceRequest };
+    result: Advice;
   };
   'analysis.levels': {
     params: { dataset_id: number; version_id: number | null; key: string };

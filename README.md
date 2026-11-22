@@ -2,12 +2,13 @@
 
 Logiciel local d'analyse statistique guidée pour les étudiants en PFE, master et doctorat : de la question de recherche au rapport académique, avec des calculs fiables, une méthode expliquée et une traçabilité complète.
 
-**État actuel : Phase 4 (statistiques fondamentales).** On peut créer et rouvrir un projet d'étude, importer des données CSV ou Excel, corriger le dictionnaire des variables, préparer des versions de travail, puis lancer des analyses : descriptives, fréquences, tableaux croisés, tests t (Student, Welch, apparié), Mann-Whitney, Wilcoxon, corrélations de Pearson et Spearman, khi-deux et Fisher. Chaque méthode est validée contre R en CI, et chaque analyse enregistre la version et l'empreinte des données utilisées. L'assistant méthodologique et les rapports viendront ensuite.
+**État actuel : Phase 5 (assistant méthodologique).** On peut créer et rouvrir un projet d'étude, importer des données CSV ou Excel, corriger le dictionnaire des variables, préparer des versions de travail, puis lancer des analyses : descriptives, fréquences, tableaux croisés, tests t (Student, Welch, apparié), Mann-Whitney, Wilcoxon, corrélations de Pearson et Spearman, khi-deux et Fisher. Chaque méthode est validée contre R en CI, et chaque analyse enregistre la version et l'empreinte des données utilisées. Un assistant déterministe (sans IA) recommande une méthode selon l'objectif et les données, explique pourquoi, et enregistre le choix final avec sa justification. Les rapports viendront ensuite.
 
 - Architecture : [docs/PHASE-1-AUDIT-ARCHITECTURE.md](docs/PHASE-1-AUDIT-ARCHITECTURE.md)
 - Rapport de la Phase 2 : [docs/PHASE-2-SOCLE.md](docs/PHASE-2-SOCLE.md)
 - Rapport de la Phase 3 : [docs/PHASE-3-DONNEES.md](docs/PHASE-3-DONNEES.md)
 - Rapport de la Phase 4 : [docs/PHASE-4-STATISTIQUES.md](docs/PHASE-4-STATISTIQUES.md)
+- Rapport de la Phase 5 : [docs/PHASE-5-ASSISTANT.md](docs/PHASE-5-ASSISTANT.md)
 
 ## Organisation
 

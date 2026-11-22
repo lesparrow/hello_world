@@ -22,7 +22,7 @@ from statpfe import __version__
 from statpfe.core.timeutil import now_iso
 from statpfe.data.store import DataStore, fingerprint
 from statpfe.errors import StatpfeError, ValidationError
-from statpfe.stats import catalog
+from statpfe.stats import advisor, catalog
 
 SCHEMA_V3 = """
 CREATE TABLE IF NOT EXISTS analyses (
@@ -37,9 +37,13 @@ CREATE TABLE IF NOT EXISTS analyses (
     environment TEXT NOT NULL,
     created_at TEXT NOT NULL,
     title TEXT NOT NULL,
-    note TEXT NOT NULL DEFAULT ''
+    note TEXT NOT NULL DEFAULT '',
+    choice TEXT NOT NULL DEFAULT '{}'
 );
 """
+# Format 4 : ajout du choix de méthode (assistant méthodologique) aux projets au format 3.
+MIGRATE_V3_TO_V4 = "ALTER TABLE analyses ADD COLUMN choice TEXT NOT NULL DEFAULT '{}';"
+
 
 ORIGINAL = "Données d'origine"
 STATUS = {
@@ -63,23 +67,78 @@ class AnalysisStore:
         self._log = log
 
     # ------------------------------------------------------------------ exécution
-    def run(self, dataset_id: Any, version_id: Any, method: Any, params: Any, title: Any = None) -> int:
+    def advise(self, dataset_id: Any, version_id: Any, request: Any) -> dict[str, Any]:
+        ds = self._data._dataset_row(dataset_id)
+        df, variables, _ = self._materialize(ds["id"], version_id)
+        return advisor.advise(df, variables, request, self._hypotheses())
+
+    def run(self, dataset_id: Any, version_id: Any, method: Any, params: Any, title: Any = None,
+            choice: Any = None) -> int:
         ds = self._data._dataset_row(dataset_id)
         version_name = self._version_name(ds["id"], version_id)
         df, variables, _ = self._materialize(ds["id"], version_id)
         result = catalog.run(method, df, variables, params)
+        recorded_choice = self._choice(choice, method, df, variables)
         clean_params = json.loads(json.dumps(params or {}, ensure_ascii=False))
         name = _clean_title(title) if title else result["title"]
         cur = self._conn.execute(
             "INSERT INTO analyses (dataset_id, version_id, version_name, data_fingerprint, method, params, result,"
-            " environment, created_at, title) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " environment, created_at, title, choice) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (ds["id"], version_id, version_name, fingerprint(df), method,
              json.dumps(clean_params, ensure_ascii=False), json.dumps(result, ensure_ascii=False, allow_nan=False),
-             json.dumps(environment()), now_iso(), name))
+             json.dumps(environment()), now_iso(), name, json.dumps(recorded_choice, ensure_ascii=False)))
         analysis_id = int(cur.lastrowid)
         self._log("analyse", f"Analyse : {result['method_label']} ({', '.join(result['variables'])}) sur "
                              f"« {ds['name']} », {version_name}", {"analysis_id": analysis_id, "method": method})
+        if recorded_choice.get("mode") == "assistant" and not recorded_choice.get("followed"):
+            self._log("choix_methode", f"Méthode choisie différente de la recommandation "
+                                       f"({recorded_choice.get('recommended_label') or 'aucune'} → "
+                                       f"{recorded_choice['chosen_label']}), justification enregistrée",
+                      {"analysis_id": analysis_id})
         return analysis_id
+
+    def _hypotheses(self) -> list[str]:
+        return [r[0] for r in self._conn.execute("SELECT text FROM hypotheses ORDER BY position")]
+
+    def _choice(self, choice: Any, method: str, df, variables) -> dict[str, Any]:
+        """Choix de la méthode, recalculé et validé par le moteur (l'interface ne fait que le transmettre)."""
+        if choice is None:
+            choice = {"mode": "direct"}
+        if not isinstance(choice, dict) or choice.get("mode") not in ("assistant", "direct"):
+            raise ValidationError("Choix de méthode invalide.")
+        reason = choice.get("reason", "")
+        if not isinstance(reason, str) or len(reason) > 2000:
+            raise ValidationError("La justification ne doit pas dépasser 2000 caractères.")
+        reason = reason.strip()
+        purpose = choice.get("purpose")
+        if purpose not in (None, *advisor.PURPOSES):
+            raise ValidationError("Nature de l'analyse inconnue.")
+        hypotheses = self._hypotheses()
+        hyp = choice.get("hypothesis")
+        if hyp is not None and (not isinstance(hyp, int) or isinstance(hyp, bool) or not 0 <= hyp < len(hypotheses)):
+            raise ValidationError("Hypothèse inconnue.")
+        out: dict[str, Any] = {
+            "mode": choice["mode"], "chosen": method, "chosen_label": catalog.METHODS[method]["label"],
+            "reason": reason, "purpose": purpose, "purpose_label": advisor.PURPOSES.get(purpose) if purpose else None,
+            "hypothesis": hyp, "hypothesis_text": hypotheses[hyp] if hyp is not None else None,
+        }
+        if choice["mode"] == "assistant":
+            request = choice.get("request")
+            if not isinstance(request, dict):
+                raise ValidationError("Demande d'assistance manquante.")
+            request = {**request, "purpose": purpose, "hypothesis": hyp}
+            advice = advisor.advise(df, variables, request, hypotheses)
+            rec = advice["recommendation"]
+            followed = rec is not None and rec["method"] == method
+            if not followed and not reason:
+                raise ValidationError("Vous avez choisi une autre méthode que celle recommandée : indiquez la raison de "
+                                      "ce choix.")
+            out.update(rules_version=advice["rules_version"], objective=advice["objective"],
+                       objective_label=advice["objective_label"],
+                       recommended=rec["method"] if rec else None, recommended_label=rec["label"] if rec else None,
+                       recommendation_reasons=rec["reasons"] if rec else [], followed=followed,
+                       missing_information=advice["missing_information"])
+        return out
 
     def reproduce(self, analysis_id: Any) -> dict[str, Any]:
         """Recalcule l'analyse à l'identique sur les données actuelles et compare (sans rien enregistrer)."""
@@ -150,7 +209,7 @@ class AnalysisStore:
             "data_fingerprint": row["data_fingerprint"], "current_fingerprint": current_fp,
             "params": json.loads(row["params"]), "result": json.loads(row["result"]),
             "environment": json.loads(row["environment"]), "created_at": row["created_at"],
-            "status": status, "status_label": STATUS[status],
+            "status": status, "status_label": STATUS[status], "choice": json.loads(row["choice"]),
         }
 
     def count(self) -> int:
@@ -218,7 +277,7 @@ class AnalysisStore:
             raise ValidationError("Analyse inconnue.")
         cur = self._conn.execute(
             "SELECT id, dataset_id, version_id, version_name, data_fingerprint, method, params, result, environment,"
-            " created_at, title, note FROM analyses WHERE id = ?", (analysis_id,))
+            " created_at, title, note, choice FROM analyses WHERE id = ?", (analysis_id,))
         r = cur.fetchone()
         if r is None:
             raise ValidationError("Analyse inconnue.")

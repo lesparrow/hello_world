@@ -146,6 +146,17 @@ export function ResultView({ analysis, onReproduce, onDuplicate, onDelete, onSav
       {r.tables.map((t, i) => <ResultTableView key={i} table={t} />)}
 
       <Accordion variant="contained" chevronPosition="left">
+        <Accordion.Item value="choice">
+          <Accordion.Control>
+            Choix de la méthode{' '}
+            {analysis.choice?.mode === 'assistant' && (
+              <Badge size="xs" ml={4} variant="light" color={analysis.choice.followed ? 'teal' : 'yellow'}>
+                {analysis.choice.followed ? 'recommandation suivie' : 'autre méthode, justifiée'}
+              </Badge>
+            )}
+          </Accordion.Control>
+          <Accordion.Panel><ChoiceView analysis={analysis} /></Accordion.Panel>
+        </Accordion.Item>
         <Accordion.Item value="trace">
           <Accordion.Control>Traçabilité et reproductibilité</Accordion.Control>
           <Accordion.Panel>
@@ -175,6 +186,35 @@ export function ResultView({ analysis, onReproduce, onDuplicate, onDelete, onSav
           </Accordion.Panel>
         </Accordion.Item>
       </Accordion>
+    </Stack>
+  );
+}
+
+function ChoiceView({ analysis }: { analysis: Analysis }) {
+  const c = analysis.choice ?? { mode: 'direct' };
+  return (
+    <Stack gap={6}>
+      <Line label="Mode" value={c.mode === 'assistant' ? "Choisie avec l'assistant méthodologique"
+        : c.mode === 'direct' ? "Choisie directement, sans l'assistant" : 'Non enregistré (analyse antérieure à cette version)'} />
+      {c.mode === 'assistant' && (
+        <>
+          <Line label="Objectif" value={c.objective_label ?? '—'} />
+          <Line label="Méthode recommandée" value={c.recommended_label ?? 'Aucune (situation non couverte)'} />
+          {c.recommendation_reasons && c.recommendation_reasons.length > 0 && (
+            <Line label="Raisons de la recommandation" value={c.recommendation_reasons.join(' ')} />
+          )}
+          <Line label="Méthode retenue" value={c.chosen_label ?? analysis.method_label} />
+          {!c.followed && <Line label="Justification de l'écart" value={c.reason || '—'} />}
+          {c.missing_information && c.missing_information.length > 0 && (
+            <Line label="Informations manquantes au moment du choix" value={c.missing_information.join(' ')} />
+          )}
+          <Line label="Version des règles" value={c.rules_version ?? '—'} />
+        </>
+      )}
+      {c.mode === 'direct' && c.reason && <Line label="Justification" value={c.reason} />}
+      <Line label="Nature de l'analyse" value={c.purpose_label ?? 'Non précisée'} />
+      <Line label="Hypothèse liée" value={c.hypothesis_text != null && c.hypothesis != null
+        ? `H${c.hypothesis + 1} : ${c.hypothesis_text}` : 'Aucune'} />
     </Stack>
   );
 }
@@ -234,7 +274,7 @@ function Line({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <Group gap="sm" align="flex-start" wrap="nowrap">
       <Text size="sm" c="dimmed" w={230} style={{ flexShrink: 0 }}>{label}</Text>
-      <Box style={{ minWidth: 0, fontSize: 'var(--mantine-font-size-sm)', wordBreak: 'break-all' }}>{value}</Box>
+      <Box style={{ minWidth: 0, fontSize: 'var(--mantine-font-size-sm)', overflowWrap: 'anywhere' }}>{value}</Box>
     </Group>
   );
 }

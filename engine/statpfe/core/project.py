@@ -31,12 +31,12 @@ from statpfe import __version__
 from statpfe.core.study import FIELD_LABELS, Study
 from statpfe.core.timeutil import now_iso
 from statpfe.data.store import SCHEMA_V2, DataStore
-from statpfe.stats.store import SCHEMA_V3, AnalysisStore
+from statpfe.stats.store import MIGRATE_V3_TO_V4, SCHEMA_V3, AnalysisStore
 from statpfe.errors import ProjectFileError, UnsavedChangesError, ValidationError
 
 EXTENSION = ".statpfe"
 FORMAT_NAME = "statpfe-project"
-FORMAT_VERSION = 3
+FORMAT_VERSION = 4
 MANIFEST = "manifest.json"
 DATABASE = "project.sqlite"
 REQUIRED_MEMBERS = {MANIFEST, DATABASE}
@@ -420,6 +420,8 @@ def _migrate(conn: sqlite3.Connection) -> bool:
     if version < 2:
         conn.executescript(SCHEMA_V2)
     if version < 3:
-        conn.executescript(SCHEMA_V3)
+        conn.executescript(SCHEMA_V3)  # crée directement la table au format 4
+    elif version == 3:
+        conn.executescript(MIGRATE_V3_TO_V4)
     conn.execute("UPDATE meta SET value = ? WHERE key = 'format_version'", (str(FORMAT_VERSION),))
     return True

@@ -4,12 +4,16 @@ import {
   Stack, Switch, Text, TextInput, ThemeIcon, UnstyledButton,
 } from '@mantine/core';
 import {
-  IconArrowLeft, IconArrowsLeftRight, IconChartDots, IconInfoCircle, IconListNumbers, IconTable, IconUsers,
+  IconArrowLeft, IconArrowsLeftRight, IconBulb, IconChartDots, IconChevronRight, IconInfoCircle, IconListNumbers,
+  IconTable, IconUsers,
 } from '@tabler/icons-react';
 import { call, errorMessage } from '../../engine/client';
 import type {
-  Analysis, AnalysisParams, Catalog, Dataset, MethodInfo, MethodVariable, ProjectState, Variable,
+  Analysis, AnalysisParams, AnalysisPurpose, Catalog, ChoiceInput, Dataset, MethodInfo, MethodVariable, ProjectState,
+  Variable,
 } from '../../engine/types';
+import { AdvisorStep, EMPTY_GUIDE, type GuideState, type GuidedChoice } from './AdvisorStep';
+import { exclusionReason } from './variables';
 
 export interface AnalysisDraft {
   dataset_id: number;
@@ -38,16 +42,6 @@ const ALTERNATIVES = [
   { value: 'greater', label: 'Unilatérale >' },
 ];
 
-/** Raison pour laquelle une variable ne peut pas être choisie (ou null). */
-export function exclusionReason(v: Variable, kind: MethodVariable['kind']): string | null {
-  if (v.role === 'identifiant') return 'identifiant';
-  if (v.role === 'exclue') return 'exclue des analyses';
-  if (v.potential_identifier) return 'identifiant potentiel';
-  if (kind === 'quantitative' && v.type !== 'numerique') return 'non numérique';
-  if (kind === 'qualitative' && v.type === 'date') return 'date';
-  return null;
-}
-
 export function NewAnalysisModal({ opened, onClose, project, catalog, initial, onDone }: Props) {
   const [method, setMethod] = useState<MethodInfo | null>(null);
   const [datasetId, setDatasetId] = useState<number | null>(null);
@@ -58,12 +52,23 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
   const [levels, setLevels] = useState<{ value: string; label: string; count: number }[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [guideMode, setGuideMode] = useState(false);
+  const [guide, setGuide] = useState<GuideState>(EMPTY_GUIDE);
+  const [guided, setGuided] = useState<GuidedChoice | null>(null);
+  const [purpose, setPurpose] = useState<AnalysisPurpose | null>(null);
+  const [hypothesis, setHypothesis] = useState<number | null>(null);
+  const hypotheses = project.study.hypotheses;
 
   // Ouverture : reprise d'un brouillon (duplication) ou nouvelle analyse.
   useEffect(() => {
     if (!opened) return;
     setError(null);
     setTitle('');
+    setGuideMode(false);
+    setGuide(EMPTY_GUIDE);
+    setGuided(null);
+    setPurpose(null);
+    setHypothesis(null);
     if (initial) {
       setMethod(catalog.methods.find((m) => m.key === initial.method) ?? null);
       setDatasetId(initial.dataset_id);
@@ -129,9 +134,10 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
     if (!method || datasetId === null) return;
     setBusy(true);
     setError(null);
+    const choice: ChoiceInput = guided ? guided.choice : { mode: 'direct', purpose, hypothesis };
     try {
       const r = await call('analysis.run', {
-        dataset_id: datasetId, version_id: versionId, method: method.key, params,
+        dataset_id: datasetId, version_id: versionId, method: method.key, params, choice,
         ...(title.trim() ? { title: title.trim() } : {}),
       });
       onDone(r.analysis, r.project);
@@ -142,11 +148,68 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
     }
   };
 
+  const sourceSelects = (
+    <Group grow>
+      <Select label="Jeu de données" value={datasetId === null ? null : String(datasetId)} allowDeselect={false}
+        disabled={Boolean(guided)}
+        data={project.datasets.map((d) => ({ value: String(d.id), label: d.name }))}
+        onChange={(v) => {
+          setDatasetId(v ? Number(v) : null); setVersionId(null); setParams({}); setGuide(EMPTY_GUIDE);
+        }} />
+      <Select label="Version des données" allowDeselect={false} disabled={Boolean(guided)}
+        value={versionId === null ? 'original' : String(versionId)}
+        data={[{ value: 'original', label: "Données d'origine" },
+          ...(dataset?.versions ?? []).map((v) => ({
+            value: String(v.id), label: v.error ? `${v.name} (à corriger)` : `${v.name} (${v.rows} lignes)`,
+            disabled: Boolean(v.error),
+          }))]}
+        onChange={(v) => { setVersionId(!v || v === 'original' ? null : Number(v)); setGuide((g) => ({ ...g, advice: null, selected: null })); }} />
+    </Group>
+  );
+
+  const startGuide = () => { setError(null); setGuideMode(true); };
+  const proceedGuided = (c: GuidedChoice) => {
+    setGuided(c);
+    setParams(c.params);
+    setMethod(catalog.methods.find((m) => m.key === c.method) ?? null);
+  };
+  const backToMethods = () => {
+    setError(null);
+    setMethod(null);
+    if (guided) { setGuided(null); setParams({}); }
+  };
+
+  const modalTitle = method ? method.label
+    : guideMode ? "Nouvelle analyse : l'assistant vous aide à choisir" : 'Nouvelle analyse : que voulez-vous faire ?';
+
   return (
-    <Modal opened={opened} onClose={onClose} size={method ? 980 : 860} centered
-      title={<Text fw={650}>{method ? method.label : 'Nouvelle analyse : que voulez-vous faire ?'}</Text>}>
-      {!method ? (
+    <Modal opened={opened} onClose={onClose} size={method || guideMode ? 1040 : 860} centered
+      title={<Text fw={650}>{modalTitle}</Text>}>
+      {!method && guideMode && datasetId !== null ? (
+        <AdvisorStep datasetId={datasetId} versionId={versionId} variables={variables} hypotheses={hypotheses}
+          value={guide} onChange={setGuide} onProceed={proceedGuided}
+          onDirect={() => { setGuideMode(false); setError(null); }} header={sourceSelects} />
+      ) : !method ? (
         <Stack gap="md">
+          <UnstyledButton onClick={startGuide} aria-label="Être guidé" disabled={datasetId === null}>
+            <Paper withBorder p="md" className="method-card"
+              style={{ borderColor: 'var(--mantine-color-brand-4)', background: 'var(--mantine-color-brand-0)' }}>
+              <Group justify="space-between" wrap="nowrap">
+                <Group gap="sm" wrap="nowrap">
+                  <ThemeIcon size="lg" variant="filled"><IconBulb size={20} /></ThemeIcon>
+                  <div>
+                    <Text fw={650}>Être guidé dans le choix de la méthode</Text>
+                    <Text size="sm" c="dimmed">
+                      Décrivez votre objectif et vos variables : l'assistant recommande une méthode, explique pourquoi
+                      et indique ses conditions et ses limites.
+                    </Text>
+                  </div>
+                </Group>
+                <IconChevronRight size={20} />
+              </Group>
+            </Paper>
+          </UnstyledButton>
+          <Divider label="ou choisissez directement une méthode" labelPosition="center" />
           {families.map(([fam, label]) => {
             const Icon = FAMILY_ICON[fam] ?? IconTable;
             return (
@@ -169,39 +232,35 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
             );
           })}
           <Text size="xs" c="dimmed">
-            Seules les méthodes implémentées et validées contre R sont proposées. L'assistant de choix de méthode
-            arrivera avec la phase suivante.
+            Seules les méthodes implémentées et validées contre R sont proposées.
           </Text>
         </Stack>
       ) : (
         <Grid gap="lg">
           <Grid.Col span={{ base: 12, md: 7 }}>
             <Stack gap="sm">
-              <Group grow>
-                <Select label="Jeu de données" value={datasetId === null ? null : String(datasetId)} allowDeselect={false}
-                  data={project.datasets.map((d) => ({ value: String(d.id), label: d.name }))}
-                  onChange={(v) => { setDatasetId(v ? Number(v) : null); setVersionId(null); setParams({}); }} />
-                <Select label="Version des données" allowDeselect={false}
-                  value={versionId === null ? 'original' : String(versionId)}
-                  data={[{ value: 'original', label: "Données d'origine" },
-                    ...(dataset?.versions ?? []).map((v) => ({
-                      value: String(v.id), label: v.error ? `${v.name} (à corriger)` : `${v.name} (${v.rows} lignes)`,
-                      disabled: Boolean(v.error),
-                    }))]}
-                  onChange={(v) => setVersionId(!v || v === 'original' ? null : Number(v))} />
-              </Group>
+              {guided && (
+                <Alert color={guided.followed ? 'teal' : 'yellow'} variant="light" icon={<IconBulb size={16} />}
+                  title={guided.followed ? "Méthode recommandée par l'assistant" : 'Méthode choisie par vous'}>
+                  {guided.followed
+                    ? "Les variables viennent de l'assistant. Pour les changer, revenez à l'assistant."
+                    : `L'assistant recommandait « ${catalog.methods.find((m) => m.key === guided.recommended)?.label
+                      ?? 'aucune méthode'} ». Votre justification sera enregistrée avec l'analyse.`}
+                </Alert>
+              )}
+              {sourceSelects}
 
               <Divider label="Variables" labelPosition="left" />
               {method.variables.map((mv) => (
                 <VariablePicker key={mv.name} spec={mv} variables={variables} value={params[mv.name]}
-                  onChange={(v) => setParam(mv.name, v)} />
+                  disabled={Boolean(guided)} onChange={(v) => setParam(mv.name, v)} />
               ))}
 
               {usesLevels && levels && levels.length > 2 && (
                 <Group grow>
                   {[0, 1].map((i) => (
                     <Select key={i} label={i === 0 ? 'Groupe 1' : 'Groupe 2'} allowDeselect={false}
-                      value={(params.levels as string[] | undefined)?.[i] ?? null}
+                      disabled={Boolean(guided)} value={(params.levels as string[] | undefined)?.[i] ?? null}
                       data={levels.map((l) => ({ value: l.value, label: `${l.label} (n = ${l.count})` }))}
                       onChange={(v) => {
                         const cur = [...((params.levels as string[] | undefined) ?? ['', ''])];
@@ -256,6 +315,25 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
                   onChange={(e) => setParam('correction', e.currentTarget.checked ? null : false)} />
               )}
 
+              {!guided && (
+                <>
+                  <Divider label="Contexte (facultatif)" labelPosition="left" />
+                  <Group grow align="flex-start">
+                    <Select label="Nature de l'analyse" value={purpose ?? 'none'} allowDeselect={false}
+                      data={[{ value: 'none', label: 'Non précisée' },
+                        { value: 'confirmatoire', label: 'Confirmatoire (hypothèse fixée à l\'avance)' },
+                        { value: 'exploratoire', label: 'Exploratoire (recherche de pistes)' }]}
+                      onChange={(v) => setPurpose(!v || v === 'none' ? null : v as AnalysisPurpose)} />
+                    {hypotheses.length > 0 && (
+                      <Select label="Hypothèse mise à l'épreuve" clearable placeholder="Aucune"
+                        data={hypotheses.map((h, i) => ({ value: String(i), label: `H${i + 1} : ${h}` }))}
+                        value={hypothesis === null ? null : String(hypothesis)}
+                        onChange={(v) => setHypothesis(v === null ? null : Number(v))} />
+                    )}
+                  </Group>
+                </>
+              )}
+
               <TextInput label="Titre de l'analyse (facultatif)" placeholder={method.label} maxLength={200}
                 value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
 
@@ -263,8 +341,8 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
 
               <Group justify="space-between" mt="xs">
                 <Button variant="default" leftSection={<IconArrowLeft size={16} />}
-                  onClick={() => { setMethod(null); setError(null); }} disabled={Boolean(initial)}>
-                  Autre méthode
+                  onClick={backToMethods} disabled={Boolean(initial)}>
+                  {guided ? "Retour à l'assistant" : 'Autre méthode'}
                 </Button>
                 <Button onClick={submit} loading={busy} disabled={Boolean(missingVariable) || datasetId === null}>
                   Calculer
@@ -285,8 +363,8 @@ function labelOf(levels: { value: string; label: string }[], v: string | undefin
   return levels.find((l) => l.value === v)?.label ?? v ?? '';
 }
 
-function VariablePicker({ spec, variables, value, onChange }: {
-  spec: MethodVariable; variables: Variable[]; value: unknown; onChange: (v: unknown) => void;
+function VariablePicker({ spec, variables, value, onChange, disabled }: {
+  spec: MethodVariable; variables: Variable[]; value: unknown; onChange: (v: unknown) => void; disabled?: boolean;
 }) {
   const data = variables.map((v) => {
     const reason = exclusionReason(v, spec.kind);
@@ -295,12 +373,12 @@ function VariablePicker({ spec, variables, value, onChange }: {
   });
   if (spec.multiple) {
     return (
-      <MultiSelect label={spec.label} data={data} searchable value={(value as string[]) ?? []} maxValues={30}
+      <MultiSelect label={spec.label} data={data} searchable disabled={disabled} value={(value as string[]) ?? []} maxValues={30}
         onChange={onChange} placeholder="Choisir une ou plusieurs variables" nothingFoundMessage="Aucune variable" />
     );
   }
   return (
-    <Select label={spec.label} data={data} searchable clearable={spec.optional}
+    <Select label={spec.label} data={data} searchable disabled={disabled} clearable={spec.optional}
       value={(value as string) ?? null} onChange={onChange} placeholder={spec.optional ? 'Aucune' : 'Choisir une variable'}
       nothingFoundMessage="Aucune variable" />
   );
