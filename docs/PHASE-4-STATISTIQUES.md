@@ -64,7 +64,7 @@ apps/desktop/src/components/charts/    Histogramme, boîte à moustaches, barres
 | Interface : typecheck, 8 tests `vitest`, build | Réussis |
 | Parcours de bout en bout dans Chromium (vraie interface, vrai moteur), enquête fictive de 61 réponses : import, test de Welch, khi-deux, descriptives, Spearman, variable « Nom » refusée dans les listes, reproduction (résultats identiques), Ctrl+S, fermeture, réouverture : les 4 analyses sont retrouvées | Réussi, aucune erreur dans la console |
 | Moteur autonome PyInstaller sous Linux avec scipy : projet, import, test de Welch, Mann-Whitney | Réussi (86 Mo) |
-| CI : moteur sous Ubuntu et Windows, validation R, installateur Windows avec calcul d'un test de Welch par le moteur autonome | Voir le résultat de la CI ci-dessous |
+| CI : 180 tests du moteur sous Ubuntu et Windows, validation contre R recalculée par R 4.x, interface, installateur Windows (calcul d'un test de Welch par le moteur autonome avec scipy embarqué, installation et désinstallation silencieuses) | Réussi |
 
 ## 7. Limites et points non terminés
 
