@@ -36,6 +36,23 @@ class FakeModelServer:
                 self.end_headers()
                 self.wfile.write(body)
 
+            def _pull(self, model) -> None:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/x-ndjson")
+                self.send_header("Transfer-Encoding", "chunked")
+                self.end_headers()
+                if model == "inexistant:1b":
+                    self._chunk(json.dumps({"error": "pull model manifest: file does not exist"}) + "\n")
+                else:
+                    self._chunk(json.dumps({"status": "pulling manifest"}) + "\n")
+                    for done in (0, 500_000_000, 1_000_000_000):
+                        time.sleep(server.delay)
+                        self._chunk(json.dumps({"status": "pulling abc", "total": 1_000_000_000,
+                                                "completed": done}) + "\n")
+                    self._chunk(json.dumps({"status": "success"}) + "\n")
+                    server.models.append(model)
+                self.wfile.write(b"0\r\n\r\n")
+
             def do_GET(self) -> None:  # noqa: N802
                 if self.path == "/api/tags":
                     self._json(200, {"models": [{"name": m, "size": 1_000_000_000,
@@ -49,6 +66,9 @@ class FakeModelServer:
             def do_POST(self) -> None:  # noqa: N802
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 server.requests.append({"path": self.path, "body": body})
+                if self.path == "/api/pull":
+                    self._pull(body.get("model"))
+                    return
                 if body.get("model") not in server.models:
                     self._json(404, {"error": f"model '{body.get('model')}' not found"})
                     return

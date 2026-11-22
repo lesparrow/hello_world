@@ -27,6 +27,18 @@ import json, os, sys, time
 log = {{"argv": sys.argv[1:], "cwd": os.getcwd(), "cwd_files": os.listdir(os.getcwd())}}
 if sys.argv[1:] == ["--version"]:
     print("9.9.9 (Claude Code)"); sys.exit(0)
+auth = os.environ.get("FAKE_CLAUDE_AUTH_FILE")
+if sys.argv[1:] == ["auth", "status", "--json"]:
+    print(json.dumps({{"loggedIn": auth is None or os.path.exists(auth), "authMethod": "claude.ai"}})); sys.exit(0)
+if sys.argv[1:] == ["auth", "login"]:
+    print("Opening browser to sign in…", flush=True)
+    print("If the browser didn't open, visit:", flush=True)
+    print("https://claude.ai/oauth/authorize?code=true&state=test", flush=True)
+    sys.stdout.write("Paste code here if prompted > "); sys.stdout.flush()
+    code = sys.stdin.readline().strip()
+    if code == "bon-code":
+        open(auth, "w").write("ok"); print("Login successful."); sys.exit(0)
+    print("Invalid code"); sys.exit(1)
 args = sys.argv[1:]
 log["system"] = open(args[args.index("--system-prompt-file") + 1], encoding="utf-8").read()
 log["stdin"] = sys.stdin.read()
@@ -80,7 +92,9 @@ def test_consent_is_required_and_recorded(tmp_path, fake_claude):
         st = call(e, "ai.update_settings", changes={"cloud_consent": True})
         assert st["state"] == "prete" and st["settings"]["cloud_consent_at"]
         assert st["claude_executable"] == str(fake_claude[0])
-        assert [m["name"] for m in st["models"]] == ["sonnet", "opus", "fable"]
+        assert [m["name"] for m in st["models"]] == ["sonnet", "opus", "haiku", "fable"]
+        assert st["models"][0]["recommended"] and st["models"][0]["description"]
+        assert st["claude_auth"]["logged_in"] is True
         st = call(e, "ai.update_settings", changes={"cloud_consent": False})
         assert st["state"] == "consentement_requis" and st["settings"]["cloud_consent_at"] is None
         # Retour au mode local : modèle à rechoisir.
@@ -95,7 +109,8 @@ def test_claude_absent(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     e = __import__("statpfe.rpc.server", fromlist=["Engine"]).Engine()
     st = call(e, "ai.update_settings", changes={"enabled": True, "provider": "claude_code", "cloud_consent": True})
-    assert st["state"] == "claude_absent" and "introuvable" in st["server"]["error"]
+    assert st["state"] == "claude_absent" and st["claude_executable"] is None
+    assert "claude.ai/install" in st["claude_install"]["command"]
 
 
 def test_generation_runs_claude_without_tools(tmp_path, fake_claude):

@@ -24,9 +24,15 @@ PROVIDERS = {
 }
 LOCAL_PROVIDERS = {"ollama", "openai"}
 CLAUDE_MODELS = [
-    {"name": "sonnet", "label": "Sonnet (conseillé : rapide et précis)"},
-    {"name": "opus", "label": "Opus (le plus approfondi, plus lent)"},
-    {"name": "fable", "label": "Fable"},
+    {"name": "sonnet", "label": "Sonnet", "recommended": True,
+     "description": "Conseillé : rédaction précise et nuancée, rapide (quelques secondes)."},
+    {"name": "opus", "label": "Opus", "recommended": False,
+     "description": "Plus approfondi pour une discussion ou des limites délicates ; plus lent et consomme davantage "
+                    "votre quota."},
+    {"name": "haiku", "label": "Haiku", "recommended": False,
+     "description": "Le plus rapide et le plus économe ; suffisant pour expliquer une méthode, moins nuancé."},
+    {"name": "fable", "label": "Fable", "recommended": False,
+     "description": "Le plus avancé ; selon votre abonnement Claude, il peut ne pas être disponible."},
 ]
 CLAUDE_EXECUTABLES = {"claude", "claude.exe", "claude.cmd"}
 LOOPBACK_NAMES = {"localhost"}

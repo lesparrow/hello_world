@@ -28,6 +28,35 @@ RECOMMENDATIONS = [
 ]
 
 
+# Modèles locaux gratuits proposés au téléchargement (bibliothèque Ollama). Tailles de
+# téléchargement approximatives (quantification par défaut d'Ollama, 4 bits).
+LOCAL_CATALOG = [
+    {"name": "qwen2.5:1.5b", "parameters": "1,5 milliard", "download_gb": 1.0, "min_memory_gb": 4,
+     "note": "Très léger ; pour expliquer une méthode."},
+    {"name": "llama3.2:3b", "parameters": "3 milliards", "download_gb": 2.0, "min_memory_gb": 8,
+     "note": "Léger, correct en français."},
+    {"name": "qwen2.5:3b", "parameters": "3 milliards", "download_gb": 1.9, "min_memory_gb": 8,
+     "note": "Bon compromis pour un PC de 8 Go."},
+    {"name": "mistral:7b", "parameters": "7 milliards", "download_gb": 4.1, "min_memory_gb": 16,
+     "note": "Bon en français (modèle d'origine française)."},
+    {"name": "qwen2.5:7b", "parameters": "7 milliards", "download_gb": 4.7, "min_memory_gb": 16,
+     "note": "Meilleure qualité de rédaction parmi les modèles proposés."},
+]
+
+
+def local_catalog(total_memory: int | None, installed: set[str] | None = None) -> list[dict]:
+    """Catalogue avec, pour chaque modèle, s'il convient à la mémoire de l'ordinateur et s'il est installé."""
+    installed = installed or set()
+    fits = [m for m in LOCAL_CATALOG if total_memory is None or total_memory >= m["min_memory_gb"] * GB * 0.95]
+    best = max(fits, key=lambda m: m["min_memory_gb"])["min_memory_gb"] if fits else None
+    out = []
+    for m in LOCAL_CATALOG:
+        ok = m in fits
+        out.append({**m, "fits": ok, "recommended": ok and m["min_memory_gb"] == best,
+                    "installed": m["name"] in installed or m["name"] + ":latest" in installed})
+    return out
+
+
 def memory() -> tuple[int | None, int | None]:
     """(mémoire totale, mémoire disponible) en octets, ou None si inconnue."""
     try:

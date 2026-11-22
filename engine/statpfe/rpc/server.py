@@ -94,6 +94,14 @@ class Engine:
             "ai.check": self.ai_check,
             "ai.keep": self.ai_keep,
             "ai.discard": self.ai_discard,
+            "ai.setup_claude_install": lambda p: self.ai.setup.claude_install(p.get("confirm")).snapshot(),
+            "ai.setup_claude_login": lambda p: self.ai.setup.claude_login().snapshot(),
+            "ai.setup_code": lambda p: self.ai.setup.send_code(p.get("job_id"), p.get("code")).snapshot(),
+            "ai.setup_ollama_pull": lambda p: self.ai.setup.ollama_pull(p.get("model"), p.get("confirm")).snapshot(),
+            "ai.setup_ollama_start": lambda p: self._ollama_start(),
+            "ai.setup_job": lambda p: self.ai.setup.get(p.get("job_id")).snapshot(),
+            "ai.setup_cancel": lambda p: self.ai.setup.cancel(p.get("job_id")).snapshot(),
+            "ai.open_link": lambda p: self._open_link(p.get("url")),
             "plan.get": self.plan_get,
             "plan.save": self.plan_save,
             "plan.lock": self.plan_lock,
@@ -297,6 +305,18 @@ class Engine:
         return from_analysis(project.analyses.get(params.get("analysis_id")))
 
     # -------------------------------------------------------------- IA locale (optionnelle)
+    @staticmethod
+    def _ollama_start() -> dict[str, Any]:
+        from statpfe.ai import setup
+
+        return setup.ollama_start()
+
+    @staticmethod
+    def _open_link(url: Any) -> dict[str, Any]:
+        from statpfe.ai import setup
+
+        return setup.open_link(url)
+
     def ai_status(self, params: dict[str, Any]) -> dict[str, Any]:
         return self.ai.status(probe=params.get("probe", True) is not False)
 
@@ -385,6 +405,7 @@ class Engine:
         """Arrêt du moteur : les modifications non enregistrées sont abandonnées,
         le fichier projet sur disque reste intact."""
         self.ai.jobs.cancel_all()
+        self.ai.setup.cancel_all()
         if self.project:
             self.project.close(discard_changes=True)
             self.project = None

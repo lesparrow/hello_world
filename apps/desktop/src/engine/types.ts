@@ -587,7 +587,7 @@ export interface ReportExport {
 // ---------------------------------------------------------------- IA locale (optionnelle)
 export type AiProvider = 'ollama' | 'openai' | 'claude_code';
 export type AiState = 'desactivee' | 'serveur_absent' | 'aucun_modele' | 'modele_absent' | 'modele_a_choisir'
-  | 'prete' | 'inconnu' | 'consentement_requis' | 'claude_absent';
+  | 'prete' | 'inconnu' | 'consentement_requis' | 'claude_absent' | 'claude_non_connecte';
 
 export interface AiSettings {
   enabled: boolean;
@@ -601,7 +601,32 @@ export interface AiSettings {
   cloud_consent_at: string | null;
 }
 
-export interface AiModel { name: string; size: number | null; parameters: string | null; quantization: string | null }
+export interface AiModel {
+  name: string; size: number | null; parameters: string | null; quantization: string | null;
+  description?: string; recommended?: boolean; version?: string;
+}
+
+export interface ClaudeModelInfo { name: string; label: string; description: string; recommended: boolean }
+
+export interface LocalModelInfo {
+  name: string; parameters: string; download_gb: number; min_memory_gb: number; note: string;
+  fits: boolean; recommended: boolean; installed: boolean;
+}
+
+export interface AiSetupJob {
+  id: number;
+  kind: 'claude_install' | 'claude_login' | 'ollama_pull';
+  label: string;
+  status: 'en_cours' | 'termine' | 'erreur' | 'annule';
+  log: string[];
+  error: string | null;
+  url: string | null;
+  waiting_code: boolean;
+  progress: number | null;
+  detail: string;
+  result: Record<string, unknown>;
+  elapsed: number;
+}
 
 export interface AiResources {
   memory_total: number | null;
@@ -618,7 +643,13 @@ export interface AiStatus {
   resources: AiResources;
   server: { reachable: boolean; error: string | null } | null;
   models: AiModel[];
-  claude_executable?: string | null;
+  claude_executable: string | null;
+  claude_auth: { logged_in: boolean | null; method: string | null; error: string | null } | null;
+  claude_models: ClaudeModelInfo[];
+  claude_install: { command: string; shell: string; doc: string };
+  local_catalog: LocalModelInfo[];
+  ollama_download: string;
+  ollama_installed: boolean | null;
   state: AiState;
   message: string;
   ready: boolean;
@@ -691,6 +722,14 @@ export interface EngineMethods {
   'ai.check': { params: { text_id: number; text: string }; result: AiChecks };
   'ai.keep': { params: { text_id: number; text: string; reviewed: boolean }; result: { ai_text: AiText; project: ProjectState } };
   'ai.discard': { params: { text_id: number }; result: { ai_text: AiText; project: ProjectState } };
+  'ai.setup_claude_install': { params: { confirm: boolean }; result: AiSetupJob };
+  'ai.setup_claude_login': { params: Record<string, never>; result: AiSetupJob };
+  'ai.setup_code': { params: { job_id: number; code: string }; result: AiSetupJob };
+  'ai.setup_ollama_pull': { params: { model: string; confirm: boolean }; result: AiSetupJob };
+  'ai.setup_ollama_start': { params: Record<string, never>; result: { started: boolean } };
+  'ai.setup_job': { params: { job_id: number }; result: AiSetupJob };
+  'ai.setup_cancel': { params: { job_id: number }; result: AiSetupJob };
+  'ai.open_link': { params: { url: string }; result: { opened: boolean } };
   'engine.info': { params: Record<string, never>; result: EngineInfo };
   'app.recent_projects': { params: Record<string, never>; result: RecentProject[] };
   'app.forget_recent': { params: { path: string }; result: null };

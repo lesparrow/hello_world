@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
-  Alert, Badge, Box, Button, Code, Group, List, Loader, NumberInput, Paper, SegmentedControl, Select, SimpleGrid,
-  Slider, Stack, Switch, Text, TextInput, Title,
+  Accordion, Alert, Badge, Box, Button, Code, Group, List, Loader, NumberInput, Paper, SegmentedControl, Select,
+  SimpleGrid, Slider, Stack, Switch, Table, Text, TextInput, Title, UnstyledButton,
 } from '@mantine/core';
 import {
-  IconAlertTriangle, IconCheck, IconCpu, IconLock, IconPlugConnected, IconRefresh, IconSparkles,
+  IconAlertTriangle, IconCheck, IconCloud, IconCpu, IconDeviceDesktop, IconLock, IconPlugConnected, IconRefresh,
+  IconSparkles,
 } from '@tabler/icons-react';
+import { ClaudeSetup, LocalSetup } from './AiSetup';
 import { call } from '../../engine/client';
 import type { AiProvider, AiSettings, AiState, AiStatus } from '../../engine/types';
 import { formatBytes } from '../../lib/format';
@@ -14,7 +17,32 @@ import { notifyError } from '../../App';
 export const AI_STATE_COLOR: Record<AiState, string> = {
   desactivee: 'gray', serveur_absent: 'red', aucun_modele: 'orange', modele_absent: 'orange',
   modele_a_choisir: 'yellow', prete: 'teal', inconnu: 'gray', consentement_requis: 'orange', claude_absent: 'red',
+  claude_non_connecte: 'orange',
 };
+
+const COMPARISON: [string, string, string][] = [
+  ['Qualité de rédaction', 'Très bonne, nuancée', 'Correcte à bonne selon le modèle et le PC'],
+  ['Vitesse', 'Quelques secondes', 'De quelques secondes à une minute sans carte graphique'],
+  ['Coût', 'Compte dans votre abonnement Claude', 'Gratuit'],
+  ['Confidentialité', 'Résultats calculés envoyés à Anthropic (avec votre autorisation)', "Rien ne quitte l'ordinateur"],
+  ['Internet', 'Nécessaire', "Seulement pour télécharger le modèle, une fois"],
+  ['Installation', 'Claude Code + connexion au compte (assistée)', 'Ollama + un modèle de 1 à 5 Go (assistée)'],
+];
+
+function ChoiceCard({ active, disabled, onClick, icon, title, badge, text }: {
+  active: boolean; disabled: boolean; onClick: () => void; icon: ReactNode; title: string; badge: ReactNode; text: string;
+}) {
+  return (
+    <UnstyledButton onClick={onClick} disabled={disabled} aria-pressed={active}>
+      <Paper withBorder p="md" radius="md" h="100%"
+        style={{ borderColor: active ? 'var(--mantine-color-blue-6)' : undefined, borderWidth: active ? 2 : 1,
+          background: active ? 'var(--mantine-color-blue-0)' : undefined }}>
+        <Group gap="xs" mb={4}>{icon}<Text fw={650}>{title}</Text>{badge}{active && <Badge size="sm" variant="outline">choisie</Badge>}</Group>
+        <Text size="sm" c="dimmed">{text}</Text>
+      </Paper>
+    </UnstyledButton>
+  );
+}
 
 interface Props { onStatus?: (s: AiStatus) => void }
 
@@ -37,9 +65,6 @@ export function AiSettingsPage({ onStatus }: Props) {
   }, [apply]);
 
   useEffect(() => { void refresh(); }, [refresh]);
-
-  const [path, setPath] = useState('');
-  useEffect(() => { if (status) setPath(status.settings.claude_path); }, [status]);
 
   const update = async (changes: Partial<AiSettings> & { cloud_consent?: boolean }) => {
     setBusy(true);
@@ -104,79 +129,68 @@ export function AiSettingsPage({ onStatus }: Props) {
 
       {s.enabled && (
         <Paper withBorder p="md">
+          <Text fw={600} mb="sm">Choisissez votre IA</Text>
+          <SimpleGrid cols={{ base: 1, md: 2 }} mb="sm">
+            <ChoiceCard active={cloud} disabled={busy} onClick={() => { if (!cloud) void update({ provider: 'claude_code' }); }}
+              icon={<IconCloud size={22} />} title="Claude (en ligne)" badge={<Badge size="sm" color="violet">meilleure qualité</Badge>}
+              text="Claude d'Anthropic, via Claude Code. Rédaction la plus fiable et la plus nuancée. Nécessite un compte Claude et Internet ; les résultats calculés sont envoyés à Anthropic avec votre autorisation." />
+            <ChoiceCard active={!cloud} disabled={busy} onClick={() => { if (cloud) void update({ provider: 'ollama' }); }}
+              icon={<IconDeviceDesktop size={22} />} title="IA locale" badge={<Badge size="sm" color="teal">gratuite</Badge>}
+              text="Un modèle libre (Qwen, Llama, Mistral…) qui tourne sur cet ordinateur avec Ollama. Gratuit, sans compte, rien ne quitte l'ordinateur ; qualité selon la puissance du PC." />
+          </SimpleGrid>
+          <Table withTableBorder fz="sm" mb="md" verticalSpacing={4}>
+            <Table.Thead>
+              <Table.Tr><Table.Th /><Table.Th>Claude (en ligne)</Table.Th><Table.Th>IA locale</Table.Th></Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {COMPARISON.map(([k, c, l]) => (
+                <Table.Tr key={k}><Table.Td fw={550}>{k}</Table.Td><Table.Td>{c}</Table.Td><Table.Td>{l}</Table.Td></Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+
           <Group justify="space-between" mb="sm">
-            <Group gap="xs"><IconPlugConnected size={18} /><Text fw={600}>Modèle utilisé</Text></Group>
+            <Group gap="xs"><IconPlugConnected size={18} /><Text fw={600}>{cloud ? 'Mise en route de Claude' : 'Mise en route de l\'IA locale'}</Text></Group>
             <Button size="xs" variant="light" leftSection={<IconRefresh size={14} />} loading={busy} onClick={() => void refresh()}>
-              Tester la connexion
+              Vérifier
             </Button>
           </Group>
-          <Stack gap="sm">
-            <SegmentedControl value={s.provider} disabled={busy}
-              data={status.providers.map((p) => ({ value: p.key, label: p.label }))}
-              onChange={(v) => void update({ provider: v as AiProvider })} />
-            {!cloud && (
-              <TextInput label="Adresse" description="Uniquement une adresse de cet ordinateur (127.0.0.1, localhost ou ::1)."
-                value={url} onChange={(e) => setUrl(e.currentTarget.value)} disabled={busy}
-                onBlur={() => { if (url !== s.base_url) void update({ base_url: url }); }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && url !== s.base_url) void update({ base_url: url }); }} />
-            )}
-            {cloud && (
-              <Paper withBorder p="sm" bg="var(--mantine-color-orange-0)">
-                <Text fw={600} size="sm" mb={4}>Mode en ligne : les résultats calculés quittent cet ordinateur</Text>
-                <List size="sm" spacing={2}>
-                  <List.Item>Claude Code (programme d'Anthropic, à installer et à connecter à votre compte Claude) envoie
-                    la demande au service Claude d'Anthropic, selon les conditions de votre compte.</List.Item>
-                  <List.Item>Seuls les résultats déjà calculés sont transmis (vous pouvez les afficher avant chaque envoi) :
-                    jamais les données brutes, ni les variables identifiantes, ni le titre de l'étude.</List.Item>
-                  <List.Item>Claude Code est lancé sans aucun outil : il ne peut ni lire vos fichiers ni exécuter de commande.</List.Item>
-                  <List.Item>Vérifiez que votre établissement et votre comité d'éthique autorisent ce type de service pour vos données.</List.Item>
-                </List>
-                <Switch mt="sm" checked={!!s.cloud_consent_at} disabled={busy}
-                  onChange={(e) => void update({ cloud_consent: e.currentTarget.checked })}
-                  label="J'autorise l'envoi des résultats calculés à Claude (Anthropic)"
-                  description={s.cloud_consent_at ? `Autorisation donnée le ${new Date(s.cloud_consent_at).toLocaleString('fr-FR')} ; vous pouvez la retirer à tout moment.` : undefined} />
-              </Paper>
-            )}
-            {cloud && (
-              <TextInput label="Chemin de Claude Code (facultatif)"
-                description={status.claude_executable ? `Trouvé automatiquement : ${status.claude_executable}` : "Laissez vide pour le chercher automatiquement."}
-                placeholder="Par exemple C:\Users\vous\.local\bin\claude.exe" value={path}
-                onChange={(e) => setPath(e.currentTarget.value)} disabled={busy}
-                onBlur={() => { if (path !== s.claude_path) void update({ claude_path: path }); }} />
-            )}
-            <Alert variant="light" color={AI_STATE_COLOR[status.state]}
-              icon={status.ready ? <IconCheck size={18} /> : <IconAlertTriangle size={18} />}>
-              <Text size="sm" fw={550}>{status.message}</Text>
-              {status.server?.error && <Text size="xs" c="dimmed">{status.server.error}</Text>}
-              {status.state === 'serveur_absent' && s.provider === 'ollama' && (
-                <Text size="sm" mt={6}>
-                  Installez Ollama (gratuit, ollama.com), lancez-le, puis installez un modèle, par exemple
-                  {' '}<Code>ollama pull {rec?.examples[0] ?? 'qwen2.5:3b'}</Code>. Revenez ensuite ici et testez la connexion.
-                </Text>
+          <Alert variant="light" mb="sm" color={AI_STATE_COLOR[status.state]}
+            icon={status.ready ? <IconCheck size={18} /> : <IconAlertTriangle size={18} />}>
+            <Text size="sm" fw={550}>{status.message}</Text>
+            {status.server?.error && !cloud && <Text size="xs" c="dimmed">{status.server.error}</Text>}
+          </Alert>
+
+          {cloud ? <ClaudeSetup status={status} busy={busy} update={update} refresh={refresh} /> : (
+            <Stack gap="sm">
+              <LocalSetup status={status} busy={busy} update={update} refresh={refresh} />
+              {status.models.length > 0 && (
+                <Select label="Modèle utilisé" placeholder="Choisir un modèle installé" value={s.model || null} disabled={busy}
+                  allowDeselect={false}
+                  data={status.models.map((m) => ({
+                    value: m.name,
+                    label: [m.name, m.parameters, m.quantization, m.size ? formatBytes(m.size) : null].filter(Boolean).join(' · '),
+                  }))}
+                  onChange={(v) => v && void update({ model: v })} />
               )}
-              {status.state === 'claude_absent' && (
-                <Text size="sm" mt={6}>
-                  Installez Claude Code (claude.com/claude-code), lancez <Code>claude</Code> une fois dans un terminal pour
-                  vous connecter à votre compte, puis testez à nouveau la connexion.
-                </Text>
-              )}
-              {status.state === 'aucun_modele' && (
-                <Text size="sm" mt={6}>
-                  Installez un modèle, par exemple <Code>ollama pull {rec?.examples[0] ?? 'qwen2.5:3b'}</Code>, puis
-                  testez à nouveau la connexion.
-                </Text>
-              )}
-            </Alert>
-            {status.models.length > 0 && (status.state !== 'consentement_requis') && (
-              <Select label="Modèle" placeholder="Choisir un modèle installé" value={s.model || null} disabled={busy}
-                allowDeselect={false}
-                data={status.models.map((m) => ({
-                  value: m.name,
-                  label: [m.name, m.parameters, m.quantization, m.size ? formatBytes(m.size) : null].filter(Boolean).join(' · '),
-                }))}
-                onChange={(v) => v && void update({ model: v })} />
-            )}
-          </Stack>
+              <Accordion variant="contained">
+                <Accordion.Item value="serveur">
+                  <Accordion.Control><Text size="sm">Serveur de modèles (avancé)</Text></Accordion.Control>
+                  <Accordion.Panel>
+                    <Stack gap="xs">
+                      <SegmentedControl value={s.provider} disabled={busy}
+                        data={status.providers.filter((p) => p.key !== 'claude_code').map((p) => ({ value: p.key, label: p.label }))}
+                        onChange={(v) => void update({ provider: v as AiProvider })} />
+                      <TextInput label="Adresse" description="Uniquement une adresse de cet ordinateur (127.0.0.1, localhost ou ::1)."
+                        value={url} onChange={(e) => setUrl(e.currentTarget.value)} disabled={busy}
+                        onBlur={() => { if (url !== s.base_url) void update({ base_url: url }); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && url !== s.base_url) void update({ base_url: url }); }} />
+                    </Stack>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              </Accordion>
+            </Stack>
+          )}
         </Paper>
       )}
 

@@ -73,8 +73,8 @@ def list_models(settings: AiSettings) -> list[dict[str, Any]]:
             ver = claude_code.version(settings)
         except claude_code.ClaudeCodeError as exc:
             raise AiUnavailable(str(exc)) from None
-        return [{"name": m["name"], "size": None, "parameters": m["label"], "quantization": None, "version": ver}
-                for m in CLAUDE_MODELS]
+        return [{"name": m["name"], "size": None, "parameters": m["label"], "quantization": None, "version": ver,
+                 "description": m["description"], "recommended": m["recommended"]} for m in CLAUDE_MODELS]
     if settings.provider == "ollama":
         data = _get_json(settings, "/api/tags")
         out = []

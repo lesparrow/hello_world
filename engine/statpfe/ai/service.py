@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from statpfe.ai import client, context, guard, prompts, settings, system
+from statpfe.ai import client, context, guard, prompts, settings, setup, system
 from statpfe.ai.jobs import JobManager
 from statpfe.errors import ValidationError
 
@@ -17,27 +17,43 @@ STATES = {
     "prete": "L'IA est prête.",
     "consentement_requis": "Claude Code envoie les résultats calculés au service en ligne d'Anthropic : votre "
                            "autorisation explicite est nécessaire.",
-    "claude_absent": "Claude Code est introuvable ou ne démarre pas sur cet ordinateur.",
+    "claude_absent": "Claude Code n'est pas installé sur cet ordinateur (ou ne démarre pas).",
+    "claude_non_connecte": "Claude Code est installé, mais pas encore connecté à votre compte Claude.",
 }
 
 
 class AiService:
     def __init__(self) -> None:
         self.jobs = JobManager()
+        self.setup = setup.SetupManager()
 
     # ------------------------------------------------------------------ état
     def status(self, probe: bool = True) -> dict[str, Any]:
         s = settings.load()
+        res = system.resources()
         out: dict[str, Any] = {"settings": s.to_dict(), "providers": [{"key": k, **v} for k, v in
                                                                         settings.PROVIDERS.items()],
-                               "resources": system.resources(), "server": None, "models": []}
+                               "resources": res, "server": None, "models": [],
+                               "claude_models": settings.CLAUDE_MODELS, "claude_install": setup.claude_install_info(),
+                               "local_catalog": system.local_catalog(res["memory_total"]),
+                               "ollama_download": setup.OLLAMA_DOWNLOAD, "ollama_installed": None,
+                               "claude_executable": None, "claude_auth": None}
         if not s.enabled:
             return {**out, "state": "desactivee", "message": STATES["desactivee"], "ready": False}
         cloud = s.provider == "claude_code"
         if cloud:
+            # Ordre des étapes : installer, se connecter, autoriser l'envoi. Les deux premières
+            # n'envoient aucune donnée d'étude.
             from statpfe.ai import claude_code
 
             out["claude_executable"] = claude_code.executable(s)
+            if out["claude_executable"] is None:
+                return {**out, "state": "claude_absent", "message": STATES["claude_absent"], "ready": False}
+            if probe:
+                out["claude_auth"] = claude_code.auth_status(s)
+                if out["claude_auth"]["logged_in"] is False:
+                    return {**out, "state": "claude_non_connecte", "message": STATES["claude_non_connecte"],
+                            "ready": False}
         if cloud and not s.cloud_consent_at:
             return {**out, "state": "consentement_requis", "message": STATES["consentement_requis"], "ready": False}
         if not probe:
@@ -47,9 +63,14 @@ class AiService:
             out["server"] = {"reachable": True, "error": None}
         except client.AiUnavailable as exc:
             out["server"] = {"reachable": False, "error": str(exc)}
+            if s.provider == "ollama":
+                out["ollama_installed"] = setup.ollama_executable() is not None
             state = "claude_absent" if cloud else "serveur_absent"
             return {**out, "state": state, "message": STATES[state], "ready": False}
         out["models"] = models
+        if s.provider == "ollama":
+            out["ollama_installed"] = True
+            out["local_catalog"] = system.local_catalog(res["memory_total"], {m["name"] for m in models})
         names = {m["name"] for m in models}
         if not models:
             state = "aucun_modele"

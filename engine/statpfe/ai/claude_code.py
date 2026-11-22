@@ -68,6 +68,23 @@ def version(settings: AiSettings) -> str:
     return out.stdout.strip()[:100]
 
 
+def auth_status(settings: AiSettings) -> dict[str, Any]:
+    """État de connexion au compte Claude (« claude auth status --json »). N'envoie aucune donnée d'étude."""
+    exe = executable(settings)
+    if exe is None:
+        return {"logged_in": None, "method": None, "error": "Claude Code est introuvable."}
+    try:
+        out = subprocess.run([exe, "auth", "status", "--json"], capture_output=True, text=True,
+                             timeout=VERSION_TIMEOUT, stdin=subprocess.DEVNULL, **_no_window())
+        data = json.loads(out.stdout or "{}")
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return {"logged_in": None, "method": None, "error": "État de connexion illisible."}
+    if not isinstance(data, dict) or not isinstance(data.get("loggedIn"), bool):
+        return {"logged_in": None, "method": None, "error": "État de connexion illisible."}
+    method = data.get("authMethod")
+    return {"logged_in": data["loggedIn"], "method": method if isinstance(method, str) else None, "error": None}
+
+
 def command(exe: str, settings: AiSettings, system_file: str) -> list[str]:
     return [exe, "-p", "--safe-mode", "--tools", "", "--strict-mcp-config", "--no-session-persistence",
             "--output-format", "stream-json", "--include-partial-messages", "--verbose",

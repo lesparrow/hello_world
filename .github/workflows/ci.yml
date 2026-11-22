@@ -71,11 +71,17 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e "engine[dev]"
-      - name: Installer Ollama et un petit modèle (qwen2.5:0.5b)
+      - name: Installer Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:11434/api/version && break; sleep 2; done
-          ollama pull qwen2.5:0.5b
+      - name: Télécharger le modèle par l'assistant de STATPFE (qwen2.5:0.5b)
+        working-directory: engine
+        env:
+          STATPFE_AI_LIVE_URL: http://127.0.0.1:11434
+          STATPFE_SETUP_LIVE_PULL: qwen2.5:0.5b
+        run: |
+          python -m pytest -q -rs -s tests/test_ai_setup_live.py -k ollama
           ollama list
       - name: Parcours complet avec le modèle (protocoles Ollama et OpenAI)
         working-directory: engine
@@ -90,6 +96,26 @@ jobs:
         with:
           name: textes-produits-par-le-modele
           path: ${{ runner.temp }}/textes-ia.jsonl
+
+  claude-code-install:
+    name: Installation de Claude Code par l'assistant (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e "engine[dev]"
+      - name: Installation réelle par la commande officielle, puis détection
+        working-directory: engine
+        env:
+          STATPFE_SETUP_LIVE_CLAUDE: "1"
+        run: python -m pytest -q -rs -s tests/test_ai_setup_live.py -k claude
 
   frontend:
     name: Interface React
