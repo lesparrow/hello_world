@@ -61,7 +61,7 @@ engine/tests/test_data.py           49 nouveaux tests
 | Interface : typecheck, 5 tests `vitest`, build | Réussis |
 | Parcours de bout en bout dans Chromium (vraie interface, vrai moteur) avec une enquête fictive de 61 réponses en cp1252 : création du projet, import, aperçu masqué, déclaration de « NSP » et « 99 » comme manquants, onglet qualité, version de travail avec suppression des doublons (61 → 60 lignes) et score z de la note, Ctrl+S, fermeture, réouverture : les deux étapes sont retrouvées | Réussi, aucune erreur dans la console |
 | Moteur autonome PyInstaller sous Linux avec pandas : lecture d'un CSV et d'un classeur Excel | Réussi (57 Mo, démarrage environ 1,2 s) |
-| CI Windows : tests du moteur, construction de l'installateur, lecture d'un CSV cp1252 par le moteur autonome, installation et désinstallation | Voir le résultat de la CI sur la PR |
+| CI Windows : 93 tests du moteur, construction de l'installateur, lecture d'un CSV cp1252 par le moteur autonome (pandas embarqué), installation et désinstallation silencieuses | Réussi |
 
 ## 7. Limites et points non terminés
 
