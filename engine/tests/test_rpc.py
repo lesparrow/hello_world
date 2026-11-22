@@ -102,3 +102,25 @@ def test_real_subprocess_utf8(tmp_path, study):
     assert responses[0]["result"]["name"] == "statpfe-engine"
     assert responses[1]["result"]["study"]["title"] == study["title"]
     assert Path(path).is_file()
+
+
+def test_data_workflow_over_rpc(tmp_path, study):
+    from data_helpers import write_csv
+
+    e = Engine()
+    call(e, "project.create", {"path": str(tmp_path / "e.statpfe"), "study": study})
+    src = str(write_csv(tmp_path))
+    info = call(e, "data.inspect_file", {"path": src})["result"]
+    r = call(e, "data.import", {"path": src, "options": info["options"], "name": "Enquête"})["result"]
+    ds_id = r["dataset_id"]
+    assert r["project"]["datasets"][0]["name"] == "Enquête" and r["project"]["dirty"]
+    r = call(e, "data.create_version", {"dataset_id": ds_id, "name": "Travail"})["result"]
+    vid = r["version_id"]
+    r = call(e, "data.add_step", {"dataset_id": ds_id, "version_id": vid, "step": {"op": "remove_duplicates"}})
+    assert r["result"]["dataset"]["versions"][0]["rows"] == 10
+    page = call(e, "data.preview", {"dataset_id": ds_id, "version_id": vid, "limit": 5})["result"]
+    assert page["total"] == 10
+    bad = call(e, "data.add_step", {"dataset_id": ds_id, "version_id": vid, "step": {"op": "x"}})
+    assert bad["error"]["code"] == -32000
+    missing = call(e, "data.inspect_file", {"path": str(tmp_path / "absent.csv")})
+    assert "introuvable" in missing["error"]["message"]

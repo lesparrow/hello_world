@@ -7,7 +7,7 @@ name = "statpfe-engine"
 version = "0.1.0"
 description = "Moteur de calcul et de gestion de projets de STATPFE Desktop"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["pandas>=2.2", "numpy>=1.26", "openpyxl>=3.1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]

@@ -51,6 +51,18 @@ class Engine:
             "project.save": self.save,
             "project.save_as": self.save_as,
             "project.close": self.close,
+            "data.inspect_file": self.data_inspect,
+            "data.import": self.data_import,
+            "data.get": self.data_get,
+            "data.delete": self.data_delete,
+            "data.preview": self.data_preview,
+            "data.quality": self.data_quality,
+            "data.update_variable": self.data_update_variable,
+            "data.create_version": self.data_create_version,
+            "data.rename_version": self.data_rename_version,
+            "data.delete_version": self.data_delete_version,
+            "data.add_step": self.data_add_step,
+            "data.remove_step": self.data_remove_step,
         }
 
     # -------------------------------------------------------------- méthodes
@@ -103,6 +115,68 @@ class Engine:
         project = self._require_project()
         project.close(discard_changes=bool(params.get("discard_changes")))
         self.project = None
+
+    # -------------------------------------------------------------- données
+    def data_inspect(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.data.store import DataStore
+
+        return DataStore.inspect(params.get("path"), params.get("options"))
+
+    def data_import(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        dataset_id = project.data.import_file(params.get("path"), params.get("options"), params.get("name"))
+        return {"dataset_id": dataset_id, "project": project.describe()}
+
+    def data_get(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self._require_project().data.get(params.get("dataset_id"))
+
+    def data_delete(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.data.delete_dataset(params.get("dataset_id"))
+        return project.describe()
+
+    def data_preview(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self._require_project().data.preview(
+            params.get("dataset_id"), params.get("version_id"), params.get("offset"), params.get("limit"),
+            bool(params.get("reveal_identifiers")))
+
+    def data_quality(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self._require_project().data.version_quality(params.get("dataset_id"), params.get("version_id"))
+
+    def data_update_variable(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.data.update_variable(params.get("dataset_id"), params.get("key"), params.get("changes"))
+        return self._dataset_and_project(project, params)
+
+    def data_create_version(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        version_id = project.data.create_version(params.get("dataset_id"), params.get("name"),
+                                                 params.get("from_version_id"))
+        return {"version_id": version_id, **self._dataset_and_project(project, params)}
+
+    def data_rename_version(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.data.rename_version(params.get("version_id"), params.get("name"))
+        return self._dataset_and_project(project, params)
+
+    def data_delete_version(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.data.delete_version(params.get("version_id"))
+        return self._dataset_and_project(project, params)
+
+    def data_add_step(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.data.add_step(params.get("version_id"), params.get("step"))
+        return self._dataset_and_project(project, params)
+
+    def data_remove_step(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.data.remove_step(params.get("version_id"), params.get("index"))
+        return self._dataset_and_project(project, params)
+
+    @staticmethod
+    def _dataset_and_project(project: Project, params: dict[str, Any]) -> dict[str, Any]:
+        return {"dataset": project.data.get(params.get("dataset_id")), "project": project.describe()}
 
     def shutdown(self) -> None:
         """Arrêt du moteur : les modifications non enregistrées sont abandonnées,

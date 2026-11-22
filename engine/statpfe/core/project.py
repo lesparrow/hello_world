@@ -3,7 +3,9 @@
 Un fichier `.statpfe` est une archive ZIP contenant :
 
 - `manifest.json` : identification du format et versions ;
-- `project.sqlite` : base de données de l'étude (informations, hypothèses, journal).
+- `project.sqlite` : base de données de l'étude (informations, hypothèses, journal,
+  dictionnaires des variables, versions de données) ;
+- `sources/<sha256>.<ext>` : copie exacte de chaque fichier de données importé.
 
 Pendant l'édition, la base est décompressée dans un dossier de travail temporaire.
 L'enregistrement écrit une nouvelle archive à côté du fichier cible puis la met en
@@ -15,26 +17,29 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import sqlite3
 import tempfile
 import uuid
 import zipfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from statpfe import __version__
 from statpfe.core.study import FIELD_LABELS, Study
+from statpfe.core.timeutil import now_iso
+from statpfe.data.store import SCHEMA_V2, DataStore
 from statpfe.errors import ProjectFileError, UnsavedChangesError, ValidationError
 
 EXTENSION = ".statpfe"
 FORMAT_NAME = "statpfe-project"
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 MANIFEST = "manifest.json"
 DATABASE = "project.sqlite"
-ALLOWED_MEMBERS = {MANIFEST, DATABASE}
+REQUIRED_MEMBERS = {MANIFEST, DATABASE}
+SOURCE_MEMBER = re.compile(r"^sources/[0-9a-f]{64}\.(csv|txt|tsv|xlsx|xlsm)$")
 MAX_ARCHIVE_MEMBER_SIZE = 2 * 1024**3  # 2 Go : garde-fou contre les archives piégées
 
 SCHEMA = """
@@ -63,10 +68,6 @@ CREATE TABLE journal (
     details TEXT NOT NULL DEFAULT '{}'
 );
 """
-
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def normalize_project_path(raw: Any, *, must_exist: bool) -> Path:
@@ -112,6 +113,7 @@ class Project:
         self._conn = conn
         self.dirty = False
         self._closed = False
+        self.data = DataStore(conn, workdir, self._log)
 
     # ------------------------------------------------------------------ création
     @classmethod
@@ -125,6 +127,7 @@ class Project:
         try:
             conn = _connect(workdir / DATABASE)
             conn.executescript(SCHEMA)
+            conn.executescript(SCHEMA_V2)
             created = now_iso()
             conn.executemany(
                 "INSERT INTO meta (key, value) VALUES (?, ?)",
@@ -155,9 +158,12 @@ class Project:
             _extract_archive(path, workdir)
             conn = _connect(workdir / DATABASE)
             _check_database(conn, path)
+            migrated = _migrate(conn)
             project = cls(path, workdir, conn)
+            if migrated:
+                project._log("migration", f"Mise à jour du format du projet vers la version {FORMAT_VERSION}")
             project._log("ouverture", "Ouverture du projet")
-            project.dirty = False  # l'ouverture seule ne doit pas exiger d'enregistrement
+            project.dirty = migrated  # l'ouverture seule ne doit pas exiger d'enregistrement
             return project
         except BaseException:
             shutil.rmtree(workdir, ignore_errors=True)
@@ -198,6 +204,7 @@ class Project:
             "dirty": self.dirty,
             "study": self.study.to_dict(),
             "journal": [e.to_dict() for e in self.journal()],
+            "datasets": self.data.list(),
         }
 
     # ------------------------------------------------------------------ modification
@@ -221,7 +228,7 @@ class Project:
             "INSERT OR REPLACE INTO meta (key, value) VALUES ('saved_at', ?)", (now_iso(),)
         )
         self._conn.commit()
-        _write_archive(self._conn, self.path, self.project_id)
+        _write_archive(self._conn, self.path, self.project_id, self.data.source_files())
         self.dirty = False
 
     def save_as(self, raw_path: Any, *, overwrite: bool = False) -> None:
@@ -306,7 +313,7 @@ def _write_study(conn: sqlite3.Connection, study: Study) -> None:
     )
 
 
-def _write_archive(conn: sqlite3.Connection, path: Path, project_id: str) -> None:
+def _write_archive(conn: sqlite3.Connection, path: Path, project_id: str, source_files: list[Path]) -> None:
     tmp_dir = Path(tempfile.mkdtemp(prefix="statpfe-save-"))
     tmp_archive = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
@@ -325,6 +332,9 @@ def _write_archive(conn: sqlite3.Connection, path: Path, project_id: str) -> Non
         with zipfile.ZipFile(tmp_archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(MANIFEST, json.dumps(manifest, ensure_ascii=False, indent=2))
             zf.write(snapshot, DATABASE)
+            for src in source_files:
+                # Fichiers déjà compressés (xlsx) ou non : stockés tels quels, octet pour octet.
+                zf.write(src, f"sources/{src.name}")
         # Ouverture en écriture : sous Windows, fsync échoue sur un fichier ouvert en lecture seule.
         with open(tmp_archive, "r+b") as fh:
             os.fsync(fh.fileno())
@@ -345,11 +355,13 @@ def _extract_archive(path: Path, workdir: Path) -> None:
     try:
         with zipfile.ZipFile(path) as zf:
             names = set(zf.namelist())
-            if not ALLOWED_MEMBERS <= names:
+            if not REQUIRED_MEMBERS <= names:
                 raise bad
-            # On n'extrait que les fichiers attendus, par leur nom exact : aucune
-            # entrée de l'archive ne peut écrire en dehors du dossier de travail.
-            for member in ALLOWED_MEMBERS:
+            # On n'extrait que les fichiers attendus, dont le nom est vérifié par un
+            # motif strict : aucune entrée de l'archive ne peut écrire en dehors du
+            # dossier de travail.
+            sources = sorted(n for n in names if SOURCE_MEMBER.match(n))
+            for member in [*REQUIRED_MEMBERS, *sources]:
                 if zf.getinfo(member).file_size > MAX_ARCHIVE_MEMBER_SIZE:
                     raise bad
             manifest = json.loads(zf.read(MANIFEST).decode("utf-8"))
@@ -365,6 +377,11 @@ def _extract_archive(path: Path, workdir: Path) -> None:
                 )
             with zf.open(DATABASE) as src, open(workdir / DATABASE, "wb") as dst:
                 shutil.copyfileobj(src, dst)
+            if sources:
+                (workdir / "sources").mkdir()
+            for member in sources:
+                with zf.open(member) as src, open(workdir / member, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
     except ProjectFileError:
         raise
     except (zipfile.BadZipFile, KeyError, ValueError, UnicodeDecodeError) as exc:
@@ -389,3 +406,14 @@ def _check_database(conn: sqlite3.Connection, path: Path) -> None:
     except ProjectFileError:
         conn.close()
         raise
+
+
+def _migrate(conn: sqlite3.Connection) -> bool:
+    """Met à jour la base d'un projet créé avec un format plus ancien."""
+    version = int(conn.execute("SELECT value FROM meta WHERE key = 'format_version'").fetchone()[0])
+    if version >= FORMAT_VERSION:
+        return False
+    if version < 2:
+        conn.executescript(SCHEMA_V2)
+    conn.execute("UPDATE meta SET value = ? WHERE key = 'format_version'", (str(FORMAT_VERSION),))
+    return True
