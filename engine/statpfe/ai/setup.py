@@ -257,8 +257,14 @@ def _child_env() -> dict[str, str]:
     env = dict(os.environ)
     if sys.platform == "win32":
         # Un PSModulePath hérité de PowerShell 7 empêche Windows PowerShell 5.1 de charger ses
-        # modules (Get-FileHash introuvable pendant l'installation) : on le laisse reconstruire.
-        env.pop("PSModulePath", None)
+        # modules (Get-FileHash introuvable pendant l'installation, constaté dans le CI) : on
+        # donne explicitement les dossiers de modules de Windows PowerShell.
+        windir = env.get("SystemRoot") or env.get("windir") or r"C:\Windows"
+        program_files = env.get("ProgramFiles") or r"C:\Program Files"
+        docs = os.path.join(os.path.expanduser("~"), "Documents", "WindowsPowerShell", "Modules")
+        env["PSModulePath"] = os.pathsep.join([
+            docs, os.path.join(program_files, "WindowsPowerShell", "Modules"),
+            os.path.join(windir, "System32", "WindowsPowerShell", "v1.0", "Modules")])
     return env
 
 
