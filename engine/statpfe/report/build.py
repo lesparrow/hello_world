@@ -20,7 +20,7 @@ from statpfe.report.model import (
 )
 from statpfe.core.plan import ALTERNATIVES as PLAN_ALT
 from statpfe.core.plan import ROLES as PLAN_ROLES
-from statpfe.core.plan import classify, describe_item, item_variables
+from statpfe.core.plan import classify, describe_item, item_variables, power_gap
 from statpfe.report.options import COVER_FIELDS, TEMPLATES
 from statpfe.stats.catalog import METHODS
 
@@ -482,7 +482,7 @@ class Builder:
                          PLAN_ROLES[item["role"]], PLAN_ALT[item["alternative"]],
                          ", ".join(self.label(a) for a in done) if done else "Non présente dans ce rapport"])
         self.table(f"Analyses prévues au plan (version {locked['version']})",
-                   ["Réf.", "Méthode", "Variables", "Hypothèse", "Rôle", "Test", "Réalisée"], rows,
+                   ["N°", "Méthode", "Variables", "Hyp.", "Rôle", "Test", "Réalisée"], rows,
                    note=f"Seuil de signification prévu : {fixed(c['alpha'], 3).rstrip('0').rstrip(',')}.")
         details = []
         for i in c["analyses"]:
@@ -514,7 +514,7 @@ class Builder:
                              v["locked_at"][:16].replace("T", " ") if v["locked_at"] else "—",
                              v["change_reason"] or ("Version initiale" if v["version"] == 1 else "—"),
                              "; ".join(ch["detail"] for ch in v["changes"]) or "—"])
-            self.table("Versions du plan d'analyse", ["Version", "État", "Verrouillée le", "Motif", "Changements"],
+            self.table("Versions du plan d'analyse", ["V.", "État", "Verrouillée le", "Motif", "Changements"],
                        hist, numeric=[True, False, False, False, False])
 
     def plan_limits(self) -> list[list[Run]]:
@@ -596,16 +596,13 @@ class Builder:
             calc = calcs.get(item.get("power_calc"))
             if calc is None or calc["result"]["mode"] != "sample_size":
                 continue
-            worst = max(calc["result"]["rows"], key=lambda r: r["n_total"])
-            needed = worst["n_total"]
             for a in self.realised(item["id"]):
                 n = a["result"].get("n_used")
-                if n is not None and n < needed:
+                gap = power_gap(calc["result"], n) if n is not None else None
+                if gap:
                     items.append([Run(f"{self.label(a)} ({a['title']}) : ", bold=True),
-                                  Run(f"{n} observation(s) utilisée(s), moins que les {needed} nécessaires pour "
-                                      f"l'effet {worst['effect_text']} selon le calcul de puissance n° "
-                                      f"{self.power_number[calc['id']]} : puissance inférieure à celle visée pour cet "
-                                      "effet.")])
+                                  Run(f"{gap} Selon le calcul de puissance n° {self.power_number[calc['id']]}, la "
+                                      "puissance est inférieure à celle visée pour les effets insuffisamment couverts.")])
         return items
 
     def discussion(self) -> None:

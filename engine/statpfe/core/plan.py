@@ -396,3 +396,21 @@ def classify(analysis: dict[str, Any], plan: dict[str, Any]) -> dict[str, str]:
     if first and analysis["created_at"] < first:
         return {"status": "avant_plan", "label": "Réalisée avant le verrouillage du plan"}
     return {"status": "hors_plan", "label": "Non prévue au plan : ajoutée après consultation des données"}
+
+
+def power_gap(result: dict[str, Any], n_used: int) -> str | None:
+    """Compare l'effectif utilisé aux effectifs nécessaires d'un calcul de taille d'échantillon, effet par effet.
+
+    Renvoie None si l'effectif suffit pour tous les effets envisagés, sinon une phrase détaillée.
+    """
+    if result.get("mode") != "sample_size":
+        return None
+    short = [r for r in result["rows"] if n_used < r["n_total"]]
+    if not short:
+        return None
+    enough = [r for r in result["rows"] if n_used >= r["n_total"]]
+    text = (f"{n_used} observation(s) utilisée(s) : insuffisant pour "
+            + ", ".join(f"l'effet {r['effect_text']} ({r['n_total']} nécessaires)" for r in short))
+    if enough:
+        text += " ; suffisant pour " + ", ".join(f"l'effet {r['effect_text']} ({r['n_total']})" for r in enough)
+    return text + "."

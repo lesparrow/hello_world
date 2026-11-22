@@ -25,7 +25,8 @@ from scipy.stats import ncx2, nct, norm
 from scipy.stats import t as t_dist
 
 from statpfe.errors import ValidationError
-from statpfe.stats.common import _finite, fr, fr_pct
+from statpfe.stats.common import _finite, fr
+from statpfe.stats.common import fr_pct as _fr_pct
 
 N_MAX = 10_000_000
 MAX_EFFECTS = 6
@@ -161,6 +162,10 @@ def _number(raw: Any, label: str, lo: float, hi: float, *, open_lo: bool = False
         raise ValidationError(f"« {label} » doit être compris entre {lo_s} et {hi_s}"
                               f"{' (bornes exclues)' if open_lo and open_hi else ''}.")
     return x
+
+
+def fr_pct(x: float) -> str:
+    return _fr_pct(x).replace(" %", "\u00a0%")
 
 
 def _g(x: float, digits: int = 3) -> str:
@@ -540,9 +545,8 @@ def compute(raw: Any) -> dict[str, Any]:
 
 
 def fr_pct_1(x: float) -> str:
-    """Pourcentage à une décimale, sans jamais arrondir vers le haut une puissance juste sous le seuil."""
-    v = math.floor(x * 1000 + 1e-9) / 10
-    return f"{fr(v, 1)} %"
+    """Pourcentage à une décimale (même arrondi que les tableaux), espace insécable avant « % »."""
+    return f"{fr(x * 100, 1)}\u00a0%"
 
 
 def _pair(v: list[int | None]) -> str:

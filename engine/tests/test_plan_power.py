@@ -80,7 +80,7 @@ def test_chi2_df_from_table_and_low_n_warning():
 def test_assumptions_curve_and_disclaimer():
     res = ss("t_paired", [{"d": 0.4}], effect_source="Étude pilote (n = 12)", alpha=0.01, power=0.9)
     text = " ".join(res["assumptions"])
-    assert "α = 0,01" in text and "90 %" in text and "Étude pilote" in text and "dz" in text
+    assert "α = 0,01" in text and "90\u00a0%" in text and "Étude pilote" in text and "dz" in text
     curve = res["charts"][0]
     assert curve["type"] == "power_curve" and curve["data"]["target"] == 0.9
     pts = curve["data"]["series"][0]["points"]
@@ -318,7 +318,7 @@ def test_report_distinguishes_planned_and_unplanned(project):
     assert "Étude de Martin (2020)" in text and "pwr" in text
     assert "effectif justifié par le calcul de puissance n° 1" in text
     # 40 observations < 128 nécessaires pour d = 0,5
-    assert "moins que les 128 nécessaires" in text
+    assert "insuffisant pour l'effet d = 0,5 (128 nécessaires), l'effet d = 0,8 (52 nécessaires)" in text
     checks = project.reports.check(opts)["checks"]
     titles = [i["title"] for i in checks["items"]]
     assert "Analyse prévue A2 absente du rapport" in titles

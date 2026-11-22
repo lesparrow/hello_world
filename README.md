@@ -2,7 +2,7 @@
 
 Logiciel local d'analyse statistique guidée pour les étudiants en PFE, master et doctorat : de la question de recherche au rapport académique, avec des calculs fiables, une méthode expliquée et une traçabilité complète.
 
-**État actuel : Phase 6 (rapports).** On peut créer et rouvrir un projet d'étude, importer des données CSV ou Excel, corriger le dictionnaire des variables, préparer des versions de travail, puis lancer des analyses : descriptives, fréquences, tableaux croisés, tests t (Student, Welch, apparié), Mann-Whitney, Wilcoxon, corrélations de Pearson et Spearman, khi-deux et Fisher. Chaque méthode est validée contre R en CI, et chaque analyse enregistre la version et l'empreinte des données utilisées. Un assistant déterministe (sans IA) recommande une méthode et enregistre le choix final avec sa justification. Les rapports Word et PDF (PFE, mémoire, thèse, article, enquête) sont produits à partir des résultats enregistrés, après des contrôles de cohérence qui recalculent chaque analyse. La puissance et le plan d'analyse viendront ensuite.
+**État actuel : Phase 7 (puissance et plan d'analyse).** On peut créer et rouvrir un projet d'étude, importer des données CSV ou Excel, corriger le dictionnaire des variables, préparer des versions de travail, puis lancer des analyses : descriptives, fréquences, tableaux croisés, tests t (Student, Welch, apparié), Mann-Whitney, Wilcoxon, corrélations de Pearson et Spearman, khi-deux et Fisher. Chaque méthode est validée contre R en CI, et chaque analyse enregistre la version et l'empreinte des données utilisées. Un assistant déterministe (sans IA) recommande une méthode et enregistre le choix final avec sa justification. Les rapports Word et PDF (PFE, mémoire, thèse, article, enquête) sont produits à partir des résultats enregistrés, après des contrôles de cohérence qui recalculent chaque analyse. Le calcul de taille d'échantillon et de puissance (tests t, deux proportions, khi-deux, corrélation) reproduit le paquet R pwr, vérifié en CI. Un plan d'analyse se rédige avant l'analyse finale, se verrouille et garde l'historique de ses versions ; le rapport distingue les analyses prévues de celles ajoutées après avoir vu les données.
 
 - Architecture : [docs/PHASE-1-AUDIT-ARCHITECTURE.md](docs/PHASE-1-AUDIT-ARCHITECTURE.md)
 - Rapport de la Phase 2 : [docs/PHASE-2-SOCLE.md](docs/PHASE-2-SOCLE.md)
@@ -10,6 +10,7 @@ Logiciel local d'analyse statistique guidée pour les étudiants en PFE, master 
 - Rapport de la Phase 4 : [docs/PHASE-4-STATISTIQUES.md](docs/PHASE-4-STATISTIQUES.md)
 - Rapport de la Phase 5 : [docs/PHASE-5-ASSISTANT.md](docs/PHASE-5-ASSISTANT.md)
 - Rapport de la Phase 6 : [docs/PHASE-6-RAPPORTS.md](docs/PHASE-6-RAPPORTS.md)
+- Rapport de la Phase 7 : [docs/PHASE-7-PUISSANCE-PLAN.md](docs/PHASE-7-PUISSANCE-PLAN.md)
 
 ## Organisation
 

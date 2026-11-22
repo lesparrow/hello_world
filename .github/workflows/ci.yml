@@ -134,6 +134,7 @@ jobs:
           $docx = Join-Path $env:RUNNER_TEMP 'rapport.docx'
           $pdf = Join-Path $env:RUNNER_TEMP 'rapport.pdf'
           $lines += @(
+            (@{ jsonrpc = '2.0'; id = 8; method = 'power.save'; params = @{ request = @{ design = 't_two'; mode = 'sample_size'; effects = @(@{ d = 0.5 }) } } } | ConvertTo-Json -Compress -Depth 6),
             (@{ jsonrpc = '2.0'; id = 6; method = 'report.export'; params = @{ path = $docx; format = 'docx'; options = @{ analyses = @(1) } } } | ConvertTo-Json -Compress -Depth 5),
             (@{ jsonrpc = '2.0'; id = 7; method = 'report.export'; params = @{ path = $pdf; format = 'pdf'; options = @{ analyses = @(1) } } } | ConvertTo-Json -Compress -Depth 5)
           )
@@ -143,6 +144,8 @@ jobs:
           foreach ($f in @($docx, $pdf)) {
             if (-not (Test-Path $f) -or (Get-Item $f).Length -lt 20000) { throw "Rapport non produit : $f" }
           }
+          # Calcul de puissance (scipy, loi de Student non centrale) : 64 par groupe pour d = 0,5.
+          if (-not ($out -match '"n1": 64')) { throw "Le moteur autonome ne calcule pas la taille d'échantillon" }
           $head = [IO.File]::ReadAllBytes($pdf)[0..4]
           if ([Text.Encoding]::ASCII.GetString($head) -ne '%PDF-') { throw "Le rapport PDF est invalide" }
 

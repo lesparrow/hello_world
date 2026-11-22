@@ -437,7 +437,7 @@ function EffectsEditor({ info, form, max, set, setEffect }: {
 function ResultPanel({ result, computing }: { result: PowerResult; computing: boolean }) {
   const first = result.rows[0];
   const two = first.n2 !== null;
-  const pct = (x: number) => `${fixed(Math.floor(x * 1000 + 1e-9) / 10, 1)} %`;
+  const pct = (x: number) => `${fixed(x * 100, 1)}\u00a0%`;
   return (
     <Paper withBorder p="md" style={{ opacity: computing ? 0.6 : 1 }}>
       <Stack gap="md">

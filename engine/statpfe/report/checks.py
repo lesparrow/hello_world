@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from statpfe.core.plan import classify, describe_item
+from statpfe.core.plan import classify, describe_item, power_gap
 from statpfe.stats.catalog import METHODS
 
 LEVEL_ORDER = {"bloquant": 0, "important": 1, "methodologique": 2, "information": 3}
@@ -207,15 +207,12 @@ def _plan_checks(project, options: dict[str, Any], analyses: list[dict[str, Any]
         res = project.power.get(cid)["result"]
         if res["mode"] != "sample_size":
             continue
-        worst = max(res["rows"], key=lambda r: r["n_total"])
-        needed = worst["n_total"]
         for a in analyses:
             if ((a.get("choice") or {}).get("plan") or {}).get("item") == item["id"]:
                 n = a["result"].get("n_used")
-                if n is not None and n < needed:
+                gap = power_gap(res, n) if n is not None else None
+                if gap:
                     add("important", f"« {a['title']} » : effectif inférieur au calcul de puissance",
-                        f"{n} observation(s) utilisée(s) pour {needed} nécessaires pour l'effet {worst['effect_text']} "
-                        f"(analyse prévue {item['id']}).",
-                        a["id"])
+                        f"{gap} (analyse prévue {item['id']}).", a["id"])
     passed.append(f"Plan d'analyse verrouillé (version {locked['version']}) : les analyses prévues et les analyses "
                   "hors plan sont distinguées dans le rapport.")
