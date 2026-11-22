@@ -128,8 +128,8 @@ class SetupManager:
                 job.finish("termine")
             except _StepError as exc:
                 job.finish("erreur", str(exc))
-            except Exception:  # noqa: BLE001 - le fil ne doit jamais faire tomber le moteur
-                job.finish("erreur", "Erreur inattendue pendant l'installation.")
+            except Exception as exc:  # noqa: BLE001 - le fil ne doit jamais faire tomber le moteur
+                job.finish("erreur", f"Erreur inattendue pendant l'installation ({exc.__class__.__name__}).")
             finally:
                 _kill(job)
 
@@ -327,6 +327,9 @@ def _pull(job: SetupJob, s: ai_settings.AiSettings, model: str) -> None:
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
     try:
         resp = client._OPENER.open(req, timeout=60)  # noqa: SLF001 - même ouvreur sans mandataire
+    except urllib.error.HTTPError as exc:
+        detail = exc.read(300).decode("utf-8", "replace")
+        raise _StepError(f"Ollama a refusé le téléchargement (HTTP {exc.code}) : {detail}") from None
     except (urllib.error.URLError, OSError) as exc:
         raise _StepError("Ollama ne répond pas : vérifiez qu'il est installé et lancé.") from exc
     started = time.monotonic()

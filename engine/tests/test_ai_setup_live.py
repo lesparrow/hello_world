@@ -41,7 +41,7 @@ def test_real_ollama_pull():
     call(e, "ai.update_settings", changes={"enabled": True, "provider": "ollama",
                                            "base_url": os.environ["STATPFE_AI_LIVE_URL"]})
     snap = wait_setup(e, call(e, "ai.setup_ollama_pull", model=model, confirm=True)["id"], timeout=1200)
-    print("\n".join(snap["log"]))
+    print("\n".join(snap["log"]), "\nerreur :", snap["error"])
     assert snap["status"] == "termine" and snap["progress"] == 1.0, snap
     st = call(e, "ai.update_settings", changes={"model": model})
     assert st["state"] == "prete", st
