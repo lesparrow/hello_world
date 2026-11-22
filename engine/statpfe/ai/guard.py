@@ -37,6 +37,10 @@ WORDING = [
 ]
 
 
+NEGATABLE = {0, 1, 2}
+NEGATION = re.compile(r"\b(ne|n['’]|pas|ni|sans|aucun\w*|jamais)\b[^.;:!?]*$", re.I)
+
+
 def strip_thinking(text: str) -> str:
     return THINK.sub("", text).strip()
 
@@ -98,8 +102,12 @@ def check(text: str, context: str) -> dict[str, Any]:
     unverified = [{"text": n["text"], "start": n["start"], "end": n["end"]}
                   for n in found if not _matches(n["value"], n["decimals"], allowed)]
     warnings = []
-    for pattern, message in WORDING:
-        if pattern.search(text):
+    for i, (pattern, message) in enumerate(WORDING):
+        matches = list(pattern.finditer(text))
+        if i in NEGATABLE:
+            # « ne permet pas d'établir un lien de cause à effet » est justement la prudence attendue.
+            matches = [m for m in matches if not NEGATION.search(text[max(0, m.start() - 60):m.start()])]
+        if matches:
             warnings.append(message)
     empty = not text.strip()
     return {

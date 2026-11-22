@@ -585,9 +585,9 @@ export interface ReportExport {
 }
 
 // ---------------------------------------------------------------- IA locale (optionnelle)
-export type AiProvider = 'ollama' | 'openai';
+export type AiProvider = 'ollama' | 'openai' | 'claude_code';
 export type AiState = 'desactivee' | 'serveur_absent' | 'aucun_modele' | 'modele_absent' | 'modele_a_choisir'
-  | 'prete' | 'inconnu';
+  | 'prete' | 'inconnu' | 'consentement_requis' | 'claude_absent';
 
 export interface AiSettings {
   enabled: boolean;
@@ -597,6 +597,8 @@ export interface AiSettings {
   temperature: number;
   max_tokens: number;
   timeout: number;
+  claude_path: string;
+  cloud_consent_at: string | null;
 }
 
 export interface AiModel { name: string; size: number | null; parameters: string | null; quantization: string | null }
@@ -616,6 +618,7 @@ export interface AiStatus {
   resources: AiResources;
   server: { reachable: boolean; error: string | null } | null;
   models: AiModel[];
+  claude_executable?: string | null;
   state: AiState;
   message: string;
   ready: boolean;
@@ -678,7 +681,7 @@ export interface AiJob {
 
 export interface EngineMethods {
   'ai.status': { params: { probe?: boolean }; result: AiStatus };
-  'ai.update_settings': { params: { changes: Partial<AiSettings> }; result: AiStatus };
+  'ai.update_settings': { params: { changes: Partial<AiSettings> & { cloud_consent?: boolean } }; result: AiStatus };
   'ai.tasks': { params: Record<string, never>; result: AiTask[] };
   'ai.preview': { params: { analysis_id: number }; result: AiContext };
   'ai.generate': { params: { analysis_id: number; task: string; user_text?: string }; result: AiJob };

@@ -259,6 +259,6 @@ def _ai_checks(project, options: dict[str, Any], analyses: list[dict[str, Any]],
                 "Les libellés ou informations de l'analyse transmis à l'IA ont changé depuis la rédaction du texte "
                 "retenu : relisez-le.", a["id"])
     if not problems:
-        passed.append(f"{len(kept)} texte(s) rédigé(s) avec l'aide de l'IA locale, relu(s) et retenu(s) par l'auteur, "
+        passed.append(f"{len(kept)} texte(s) rédigé(s) avec l'aide de l'IA, relu(s) et retenu(s) par l'auteur, "
                       "sont signalés comme tels dans le rapport ; chacun de leurs nombres figure dans les résultats "
                       "calculés.")

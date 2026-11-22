@@ -20,7 +20,15 @@ from statpfe.errors import ValidationError
 PROVIDERS = {
     "ollama": {"label": "Ollama", "default_url": "http://127.0.0.1:11434"},
     "openai": {"label": "Serveur compatible OpenAI (llama.cpp, LM Studio…)", "default_url": "http://127.0.0.1:8080"},
+    "claude_code": {"label": "Claude Code (en ligne, Anthropic)", "default_url": ""},
 }
+LOCAL_PROVIDERS = {"ollama", "openai"}
+CLAUDE_MODELS = [
+    {"name": "sonnet", "label": "Sonnet (conseillé : rapide et précis)"},
+    {"name": "opus", "label": "Opus (le plus approfondi, plus lent)"},
+    {"name": "fable", "label": "Fable"},
+]
+CLAUDE_EXECUTABLES = {"claude", "claude.exe", "claude.cmd"}
 LOOPBACK_NAMES = {"localhost"}
 MAX_TOKENS_RANGE = (64, 2048)
 TIMEOUT_RANGE = (10, 900)
@@ -35,6 +43,8 @@ class AiSettings:
     temperature: float = 0.2
     max_tokens: int = 700
     timeout: int = 300
+    claude_path: str = ""
+    cloud_consent_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -74,11 +84,25 @@ def clean(changes: Any, base: AiSettings) -> AiSettings:
     if "provider" in changes:
         if changes["provider"] not in PROVIDERS:
             raise ValidationError("Type de serveur de modèles inconnu.")
-        if changes["provider"] != s.provider and "base_url" not in changes:
-            s.base_url = PROVIDERS[changes["provider"]]["default_url"]
+        if changes["provider"] != s.provider:
+            if changes["provider"] in LOCAL_PROVIDERS and "base_url" not in changes:
+                s.base_url = PROVIDERS[changes["provider"]]["default_url"]
+            if "model" not in changes:
+                s.model = "sonnet" if changes["provider"] == "claude_code" else ""
         s.provider = changes["provider"]
+    if s.provider not in LOCAL_PROVIDERS and s.base_url == "":
+        s.base_url = PROVIDERS["ollama"]["default_url"]
     if "base_url" in changes:
         s.base_url = loopback_url(changes["base_url"])
+    if "claude_path" in changes:
+        s.claude_path = claude_path(changes["claude_path"])
+    if "cloud_consent" in changes:
+        from statpfe.core.timeutil import now_iso
+
+        s.cloud_consent_at = now_iso() if changes["cloud_consent"] is True else None
+    elif "cloud_consent_at" in changes:  # relecture du fichier de réglages
+        v = changes["cloud_consent_at"]
+        s.cloud_consent_at = v if isinstance(v, str) and len(v) < 40 else None
     if "model" in changes:
         model = str(changes["model"] or "").strip()
         if len(model) > 200 or any(c in model for c in "\r\n\t"):
@@ -131,6 +155,20 @@ def loopback_url(value: Any) -> str:
         raise ValidationError("Indiquez seulement l'adresse et le port du serveur, sans chemin.")
     shown = f"[{host}]" if ":" in host else host
     return f"http://{shown}" + (f":{port}" if port else "")
+
+
+def claude_path(value: Any) -> str:
+    """Chemin facultatif de Claude Code : seul un exécutable nommé « claude » est accepté."""
+    if value in (None, ""):
+        return ""
+    if not isinstance(value, str) or len(value) > 1000:
+        raise ValidationError("Chemin de Claude Code invalide.")
+    path = Path(value.strip())
+    if not path.is_absolute() or path.name.lower() not in CLAUDE_EXECUTABLES:
+        raise ValidationError("Indiquez le chemin complet du programme « claude » (claude, claude.exe ou claude.cmd).")
+    if not path.is_file():
+        raise ValidationError("Ce fichier n'existe pas.")
+    return str(path)
 
 
 def connect_host(base_url: str) -> str:

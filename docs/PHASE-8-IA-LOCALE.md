@@ -1,8 +1,10 @@
-# Phase 8 : IA locale (optionnelle)
+# Phase 8 : IA optionnelle (locale, ou Claude Code avec autorisation)
 
 ## 1. Objectif de la phase
 
-Ajouter un module d'IA facultatif, une fois le logiciel complet sans lui (cahier des charges §3.3, §16 et §17). Il doit expliquer une méthode, un tableau ou une figure, reformuler, proposer un paragraphe prudent, aider à discuter, repérer les limites visibles et formuler une conclusion. Il ne doit jamais calculer, inventer un nombre, modifier les données ou une analyse, remplacer l'assistant déterministe, se présenter comme une validation, ni envoyer des données hors de l'ordinateur. Il faut aussi vérifier les ressources de la machine, gérer l'absence de modèle, permettre de tout désactiver, minimiser ce qui est transmis, exclure les colonnes identifiantes et signaler chaque texte comme une proposition à vérifier.
+Ajouter un module d'IA facultatif, une fois le logiciel complet sans lui (cahier des charges §3.3, §16 et §17). Il doit expliquer une méthode, un tableau ou une figure, reformuler, proposer un paragraphe prudent, aider à discuter, repérer les limites visibles et formuler une conclusion. Il ne doit jamais calculer, inventer un nombre, modifier les données ou une analyse, remplacer l'assistant déterministe, se présenter comme une validation, ni envoyer des données hors de l'ordinateur sans autorisation explicite. Il faut aussi vérifier les ressources de la machine, gérer l'absence de modèle, permettre de tout désactiver, minimiser ce qui est transmis, exclure les colonnes identifiantes et signaler chaque texte comme une proposition à vérifier.
+
+**Ajout demandé en cours de phase :** pouvoir aussi travailler avec **Claude Code** (Claude d'Anthropic, en ligne) pour l'interprétation des résultats et la rédaction, en plus de l'IA locale.
 
 ## 2. Ce qui a été observé dans le dépôt
 
@@ -16,6 +18,9 @@ Ajouter un module d'IA facultatif, une fois le logiciel complet sans lui (cahier
 | Décision | Justification |
 |---|---|
 | Le modèle tourne dans un serveur déjà répandu, installé par l'utilisateur : **Ollama** (conseillé), ou tout serveur **compatible OpenAI** (llama.cpp, LM Studio). | Ollama s'installe en un clic sous Windows et gère les modèles (`ollama pull qwen2.5:3b`). Embarquer un modèle de 2 à 5 Go dans l'installateur et un moteur d'inférence compilé dans PyInstaller alourdirait fortement l'application pour une fonction facultative. |
+| Troisième mode **Claude Code (en ligne, Anthropic)** : STATPFE lance le programme `claude` déjà installé et connecté par l'utilisateur (`claude -p`), avec `--safe-mode --tools "" --strict-mcp-config --no-session-persistence`, dans un dossier temporaire vide, la demande passée sur l'entrée standard. Modèles proposés : sonnet (conseillé), opus, fable. | Pas de clé d'API à saisir ni à stocker dans STATPFE : le compte Claude de l'utilisateur est utilisé. Sans aucun outil, Claude ne peut ni lire de fichier, ni lancer de commande, ni naviguer : il ne reçoit que le contexte minimisé et ne renvoie que du texte. |
+| Ce mode **envoie les résultats calculés hors de l'ordinateur**. Il ne fonctionne qu'après une **autorisation explicite** (interrupteur « J'autorise l'envoi des résultats calculés à Claude (Anthropic) », date enregistrée), retirée à tout moment. Sans elle, toute rédaction est refusée par le moteur, pas seulement masquée dans l'interface. | Règle du projet : rien ne sort de l'ordinateur sans autorisation explicite. Le contexte envoyé est le même contexte minimisé que pour l'IA locale (jamais de données brutes ni de variable identifiante), visible avant l'envoi. |
+| Dans le rapport, un texte Claude est signalé « Texte rédigé avec l'aide de Claude (service en ligne d'Anthropic, via Claude Code) » et l'annexe précise que des résultats calculés ont été envoyés avec l'autorisation explicite de l'auteur. | Transparence vis-à-vis du jury sur l'usage d'un service en ligne. |
 | **Seule la boucle locale** est acceptée (127.0.0.1, localhost, ::1), en http, sans chemin ni identifiants. `localhost` est contacté par 127.0.0.1 (pas de résolution DNS), les mandataires (proxy) du système sont ignorés et les redirections refusées. | Rien ne peut quitter l'ordinateur, même par une variable d'environnement ou une redirection. |
 | L'IA est **désactivée par défaut** ; les réglages sont propres à l'application (dossier de configuration), pas aux projets. Un fichier de réglages altéré fait revenir aux réglages sûrs (IA désactivée). | « L'application doit rester fonctionnelle sans IA. » |
 | **Contexte minimisé et visible** : méthode, noms et libellés des variables analysées, n, indicateurs, tableaux de synthèse (30 lignes au plus), descriptions des figures, diagnostics, lecture déterministe, hypothèse liée et lien au plan. Jamais de données brutes, de variable identifiante (refus explicite), de note libre, de titre d'étude ni de noms d'auteurs. Un bouton « Voir ce qui sera transmis » affiche le texte exact. | §16 : contenu contrôlé et minimisé. L'utilisateur peut vérifier lui-même. |
@@ -30,15 +35,15 @@ Ajouter un module d'IA facultatif, une fois le logiciel complet sans lui (cahier
 
 ## 4. Fichiers concernés
 
-- Moteur, nouveau module `engine/statpfe/ai/` : `settings.py` (réglages, adresse locale), `client.py` (HTTP local, Ollama et OpenAI, flux), `system.py` (ressources, conseil), `context.py` (contexte minimisé), `prompts.py` (consignes et 7 demandes), `guard.py` (contrôle des nombres et des formulations), `jobs.py` (rédaction en arrière-plan, annulation), `store.py` (propositions dans le projet), `service.py`.
+- Moteur, nouveau module `engine/statpfe/ai/` : `claude_code.py` (recherche du programme `claude`, appel sans outils, lecture du flux, annulation et délai), `settings.py` (réglages, adresse locale), `client.py` (HTTP local, Ollama et OpenAI, flux), `system.py` (ressources, conseil), `context.py` (contexte minimisé), `prompts.py` (consignes et 7 demandes), `guard.py` (contrôle des nombres et des formulations), `jobs.py` (rédaction en arrière-plan, annulation), `store.py` (propositions dans le projet), `service.py`.
 - Moteur, modifiés : `core/project.py` (format 6, migration), `stats/store.py` (suppression d'une analyse : ses propositions aussi), `rpc/server.py` (11 méthodes `ai.*`, annulation à la fermeture), `report/build.py`, `report/checks.py`, `report/options.py`, `report/render_docx.py`, `report/render_pdf.py`, `report/model.py` (style « ai »).
 - Interface : `screens/ai/AiSettingsPage.tsx` (réglages), `screens/analysis/AiAssistPanel.tsx` (aide sous chaque résultat), `ResultView.tsx`, `AnalysesPage.tsx`, `Workspace.tsx` (entrée « IA locale »), `ReportPage.tsx` (option), `engine/types.ts`, `lib/format.ts`.
-- Tests : `tests/test_ai.py` (41 tests), `tests/fake_model_server.py` (serveur factice pour les tests), `tests/test_ai_live.py` (vrai modèle, CI).
+- Tests : `tests/test_ai.py` (42 tests), `tests/fake_model_server.py` (serveur factice pour les tests), `tests/test_ai_live.py` (vrai modèle, CI), `tests/test_ai_claude.py` (7 tests avec un faux programme `claude`), `tests/test_ai_claude_live.py` (vrai Claude Code, lancé seulement avec `STATPFE_CLAUDE_LIVE=1`).
 - CI : nouveau job « IA locale avec un vrai modèle (Ollama) » ; le test du moteur autonome Windows vérifie aussi `ai.status`.
 
 ## 5. Ce qui a réellement été implémenté
 
-- Page **IA locale** : ce que fait l'IA et ce qu'elle ne fait jamais, interrupteur (désactivée par défaut), type de serveur, adresse (refus de toute adresse non locale), test de connexion, choix parmi les modèles installés, ressources de l'ordinateur et taille de modèle conseillée, réglages avancés (température, longueur, délai). Messages guidés selon l'état : serveur absent (installer Ollama et un modèle), aucun modèle, modèle absent, prête.
+- Page **IA (aide à la rédaction)** : choix entre Ollama, serveur compatible OpenAI et **Claude Code**. En mode Claude Code : encadré orange qui explique ce qui sera envoyé, interrupteur d'autorisation, chemin du programme `claude` (facultatif, sinon recherche automatique), choix du modèle, et aide si Claude Code n'est pas installé. Pour les modes locaux : ce que fait l'IA et ce qu'elle ne fait jamais, interrupteur (désactivée par défaut), type de serveur, adresse (refus de toute adresse non locale), test de connexion, choix parmi les modèles installés, ressources de l'ordinateur et taille de modèle conseillée, réglages avancés (température, longueur, délai). Messages guidés selon l'état : serveur absent (installer Ollama et un modèle), aucun modèle, modèle absent, prête.
 - Sous chaque résultat, panneau **Aide à la rédaction** : 7 demandes (expliquer la méthode ; expliquer les tableaux et figures ; paragraphe de résultats ; pistes de discussion ; limites visibles ; conclusion ; reformuler mon texte), aperçu exact du contexte, texte qui s'écrit en direct, annulation, puis proposition avec nombres non retrouvés surlignés, avertissements de formulation, modification libre avec nouveau contrôle à la volée, case de relecture obligatoire, « Retenir pour le rapport » (refusé tant qu'un nombre n'est pas retrouvé) ou « Écarter ». Historique des propositions de l'analyse. Quand l'IA est désactivée, le panneau le dit et tout le reste fonctionne.
 - Rapport Word et PDF : textes retenus encadrés et signalés, résumé par analyse dans l'annexe, paragraphe « Utilisation de l'intelligence artificielle », contrôles avant export, option d'exclusion.
 
@@ -46,7 +51,10 @@ Ajouter un module d'IA facultatif, une fois le logiciel complet sans lui (cahier
 
 | Test | Résultat |
 |---|---|
-| Moteur : 345 tests `pytest` (dont 41 nouveaux pour l'IA) ; 2 tests « vrai modèle » ignorés ici faute de modèle | 345 réussis (Linux, Python 3.13) |
+| Moteur : 356 tests `pytest` (dont 50 pour l'IA) ; 3 tests « vrai modèle » ignorés par défaut | 353 réussis, 3 ignorés (Linux, Python 3.13) |
+| Claude Code (faux programme) : autorisation obligatoire (refus du moteur sans elle), programme absent, options sans outils bien passées, flux de texte, erreur renvoyée par Claude, annulation, délai dépassé | Réussis |
+| **Vrai Claude Code** (version 2.1.330, modèle claude-sonnet-5-5) : paragraphe de résultats et limites d'un test t de Welch | Réussi : environ 7 s et 11 s, **aucun nombre non retrouvé**, texte prudent et correct. Ce test a fait apparaître de faux avertissements sur des phrases prudentes à la forme négative (« ne prouve pas ») : corrigé |
+| Parcours de bout en bout dans Chromium avec le **vrai Claude Code** : autorisation, état « prête », paragraphe rédigé en 8 s, 0 nombre non retrouvé, texte retenu, export Word et PDF | Réussi, aucune erreur dans la console. Captures `p8-10` à `p8-12`, exemple `exemple-rapport-claude-code.pdf` |
 | IA (serveur factice) : désactivée par défaut ; 9 adresses non locales refusées (réseau local, nom de domaine, https, identifiants, chemin, 0.0.0.0…) ; mandataire système ignoré ; réglages altérés → IA désactivée ; 6 états de connexion ; protocoles Ollama et OpenAI ; aucune donnée brute ni nom ni adresse électronique dans ce qui est envoyé ; refus si une variable devient identifiante ; 12 cas du contrôle des nombres ; avertissements ; raisonnement `<think>` retiré ; nombre inventé → texte non retenable ; relecture obligatoire ; enregistrement unique ; annulation ; une rédaction à la fois ; erreurs lisibles ; rapport (texte signalé, annexe, contrôle bloquant si le texte est altéré, option d'exclusion, export Word et PDF) ; suppression d'une analyse ; migration d'un projet au format 5 | Réussis |
 | Interface : typecheck, 8 tests `vitest`, build | Réussis |
 | Parcours de bout en bout dans Chromium (vraie interface, vrai moteur, **serveur de modèles factice** dont la réponse contient volontairement un nombre inventé et une formulation causale) : IA désactivée, adresse extérieure refusée, activation, choix du modèle, aperçu du contexte, rédaction en direct, nombre « 120 » surligné et blocage, correction, relecture, texte retenu, limites retenues, contrôles et export Word et PDF | Réussi, aucune erreur dans la console. Captures dans `captures-phase8/` |
@@ -63,6 +71,9 @@ Les captures montrent la réponse d'un serveur de test, pas celle d'un vrai mod�
 - La qualité du français dépend fortement du modèle ; les petits modèles (moins de 3 milliards de paramètres) rédigent souvent mal. Le conseil de taille reste indicatif.
 - Même avec une température basse et une graine fixée, deux rédactions peuvent différer (selon le serveur et le matériel) : c'est pourquoi chaque proposition est conservée telle quelle.
 - La rédaction ne fonctionne que pour une analyse enregistrée ; les calculs de puissance et le plan d'analyse ne sont pas encore pris en charge par l'IA.
+- **Mode Claude Code** : les résultats calculés (pas les données brutes) quittent l'ordinateur et sont traités par Anthropic selon les conditions du compte de l'utilisateur. Il faut un compte Claude et Claude Code installé et connecté ; l'usage compte dans l'abonnement ou la facturation de l'utilisateur. Une connexion Internet est nécessaire.
+- Les options de la ligne de commande de Claude Code peuvent changer d'une version à l'autre ; elles ont été vérifiées avec la version 2.1.330. Si une version future les refuse, STATPFE affiche l'erreur de Claude Code au lieu d'un texte.
+- Le mode Claude Code a été essayé sous Linux ; il n'a **pas encore été essayé sous Windows** (les tests avec un faux programme sont ignorés sous Windows). À vérifier en Phase 9.
 - Le serveur local lui-même (Ollama) n'est pas contrôlé par STATPFE : on vérifie seulement qu'il est sur l'ordinateur.
 
 ## 8. Vérifications manuelles proposées
@@ -70,7 +81,8 @@ Les captures montrent la réponse d'un serveur de test, pas celle d'un vrai mod�
 1. Sans rien installer, vérifier que l'application fonctionne normalement et que le panneau indique « désactivée ».
 2. Installer Ollama sur un PC Windows, faire `ollama pull qwen2.5:3b` (ou le modèle conseillé par la page), activer l'IA, tester la connexion et choisir le modèle.
 3. Sur une de vos analyses, cliquer sur « Voir ce qui sera transmis » et vérifier qu'aucune donnée personnelle n'apparaît.
-4. Demander un paragraphe de résultats, le comparer aux tableaux, corriger ce qui doit l'être, puis le retenir et exporter le rapport.
+4. Pour Claude Code : installer Claude Code, se connecter (`claude` dans un terminal), choisir « Claude Code » dans la page IA, lire l'encadré et donner l'autorisation, puis demander une interprétation.
+5. Demander un paragraphe de résultats, le comparer aux tableaux, corriger ce qui doit l'être, puis le retenir et exporter le rapport.
 
 ## 9. Documentation mise à jour
 
@@ -78,4 +90,4 @@ Les captures montrent la réponse d'un serveur de test, pas celle d'un vrai mod�
 
 ## 10. Phase suivante proposée
 
-**Phase 9 : distribution.** Préparer les distributions réellement testées (installateur Windows signé si possible, puis macOS et Linux selon les possibilités de test), procédure de mise à jour qui préserve les projets, guide d'installation (y compris celle, facultative, d'Ollama) et documentation des limites de chaque plateforme.
+**Phase 9 : distribution.** Préparer les distributions réellement testées (installateur Windows signé si possible, puis macOS et Linux selon les possibilités de test), procédure de mise à jour qui préserve les projets, guide d'installation (y compris celles, facultatives, d'Ollama et de Claude Code), essai du mode Claude Code sous Windows et documentation des limites de chaque plateforme.

@@ -14,7 +14,10 @@ STATES = {
     "aucun_modele": "Le serveur répond, mais aucun modèle n'y est installé.",
     "modele_absent": "Le modèle choisi n'est pas installé sur le serveur.",
     "modele_a_choisir": "Choisissez un des modèles installés.",
-    "prete": "L'IA locale est prête.",
+    "prete": "L'IA est prête.",
+    "consentement_requis": "Claude Code envoie les résultats calculés au service en ligne d'Anthropic : votre "
+                           "autorisation explicite est nécessaire.",
+    "claude_absent": "Claude Code est introuvable ou ne démarre pas sur cet ordinateur.",
 }
 
 
@@ -30,6 +33,13 @@ class AiService:
                                "resources": system.resources(), "server": None, "models": []}
         if not s.enabled:
             return {**out, "state": "desactivee", "message": STATES["desactivee"], "ready": False}
+        cloud = s.provider == "claude_code"
+        if cloud:
+            from statpfe.ai import claude_code
+
+            out["claude_executable"] = claude_code.executable(s)
+        if cloud and not s.cloud_consent_at:
+            return {**out, "state": "consentement_requis", "message": STATES["consentement_requis"], "ready": False}
         if not probe:
             return {**out, "state": "inconnu", "message": "", "ready": False}
         try:
@@ -37,7 +47,8 @@ class AiService:
             out["server"] = {"reachable": True, "error": None}
         except client.AiUnavailable as exc:
             out["server"] = {"reachable": False, "error": str(exc)}
-            return {**out, "state": "serveur_absent", "message": STATES["serveur_absent"], "ready": False}
+            state = "claude_absent" if cloud else "serveur_absent"
+            return {**out, "state": state, "message": STATES[state], "ready": False}
         out["models"] = models
         names = {m["name"] for m in models}
         if not models:
@@ -66,7 +77,9 @@ class AiService:
         if not s.enabled:
             raise ValidationError(STATES["desactivee"])
         if not s.model:
-            raise ValidationError("Choisissez d'abord un modèle dans les réglages de l'IA locale.")
+            raise ValidationError("Choisissez d'abord un modèle dans les réglages de l'IA.")
+        if s.provider == "claude_code" and not s.cloud_consent_at:
+            raise ValidationError(STATES["consentement_requis"])
         if task not in prompts.TASKS:
             raise ValidationError("Demande inconnue pour l'IA.")
         a = project.analyses.get(analysis_id)

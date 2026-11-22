@@ -218,7 +218,7 @@ export function Workspace({ project, onChange, onClosed }: Props) {
           disabled={project.analyses_count === 0}
           onClick={() => { void flush(); setSection('rapport'); }} />
         <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" pt="md" pb={6}>Options</Text>
-        <NavLink active={section === 'ia'} label="IA locale" description="Optionnelle, désactivée par défaut"
+        <NavLink active={section === 'ia'} label="IA" description="Locale ou Claude Code, désactivée par défaut"
           leftSection={<IconSparkles size={18} />} variant="light" style={{ borderRadius: 8 }}
           rightSection={project.ai_count ? <Badge size="xs" variant="light" color="gray">{project.ai_count}</Badge> : null}
           onClick={() => { void flush(); setSection('ia'); }} />

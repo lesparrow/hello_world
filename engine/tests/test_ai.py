@@ -174,6 +174,12 @@ def test_number_guard(text, bad):
     assert [u["text"] for u in guard.check(text, CTX)["unverified"]] == bad
 
 
+def test_negated_cautious_wording_is_not_flagged():
+    c = guard.check("Ces résultats ne permettent pas d'établir une relation de cause à effet ; l'absence d'écart "
+                    "détecté ne démontre pas la normalité.", CTX)
+    assert c["warnings"] == []
+
+
 def test_wording_warnings_and_thinking_removed():
     c = guard.check("Ce résultat prouve que le tutorat entraîne une hausse. Il n'y a aucun effet du sexe.", CTX)
     assert len(c["warnings"]) == 3 and not c["blocking"]
@@ -285,7 +291,7 @@ def test_report_identifies_ai_texts_and_checks_them(tmp_path, server):
     text = doc.text()
     assert "Texte rédigé avec l'aide d'une IA locale (identifier les limites visibles ; modèle modele-test:1b" in text
     assert "Les effectifs sont limités." in text and "Utilisation de l'intelligence artificielle." in text
-    assert "1 proposition(s) de l'IA locale, 1 retenue(s)" in text
+    assert "1 proposition(s) de l'IA, 1 retenue(s)" in text
     res = p.reports.check(o)["checks"]
     assert res["blocking"] == 0 and any("relu(s) et retenu(s)" in x for x in res["passed"])
     # Texte retenu modifié à la main dans le fichier : bloquant.

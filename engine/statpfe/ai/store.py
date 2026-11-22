@@ -67,7 +67,8 @@ class AiTextStore:
              prompts.PROMPT_VERSION, json.dumps(messages, ensure_ascii=False), context["text"], context["hash"],
              raw_text[:TEXT_MAX * 2], text, json.dumps(checks, ensure_ascii=False), now, duration))
         text_id = int(cur.lastrowid)
-        self._log("ia", f"Proposition de l'IA locale ({prompts.TASKS[task]['label'].lower()}) pour {analysis_label}, "
+        origin = "de Claude (en ligne, via Claude Code)" if settings["provider"] == "claude_code" else "de l'IA locale"
+        self._log("ia", f"Proposition {origin} ({prompts.TASKS[task]['label'].lower()}) pour {analysis_label}, "
                         f"modèle {model}", {"ai_text_id": text_id, "analysis_id": analysis_id})
         return text_id
 

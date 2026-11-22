@@ -79,7 +79,7 @@ export function AiAssistPanel({ analysisId, onProjectChange, onOpenSettings }: P
   const header = (
     <Group gap="xs" mb="xs">
       <IconSparkles size={18} />
-      <Text fw={650}>Aide à la rédaction (IA locale)</Text>
+      <Text fw={650}>Aide à l'interprétation et à la rédaction (IA)</Text>
       <Badge size="xs" variant="light" color="gray">optionnelle</Badge>
     </Group>
   );
@@ -92,7 +92,7 @@ export function AiAssistPanel({ analysisId, onProjectChange, onOpenSettings }: P
         <Group justify="space-between" wrap="nowrap">
           <Text size="sm" c="dimmed">
             {status.state === 'desactivee'
-              ? "L'IA locale est désactivée : la lecture ci-dessus et tout le reste de STATPFE fonctionnent sans elle."
+              ? "L'IA est désactivée : la lecture ci-dessus et tout le reste de STATPFE fonctionnent sans elle."
               : `${status.message} L'IA n'est pas utilisable pour l'instant.`}
           </Text>
           {onOpenSettings && (
@@ -114,8 +114,10 @@ export function AiAssistPanel({ analysisId, onProjectChange, onOpenSettings }: P
     <Paper withBorder p="md">
       {header}
       <Text size="xs" c="dimmed" mb="sm">
-        Modèle {status.settings.model} sur cet ordinateur. Il ne reçoit que les résultats calculés ci-dessus et ne
-        calcule rien. Chaque texte est une proposition à vérifier.
+        {status.settings.provider === 'claude_code'
+          ? `Claude (${status.settings.model}), service en ligne d'Anthropic via Claude Code, avec votre autorisation. `
+          : `Modèle ${status.settings.model} sur cet ordinateur. `}
+        Il ne reçoit que les résultats calculés ci-dessus et ne calcule rien. Chaque texte est une proposition à vérifier.
       </Text>
       <Group align="flex-end" gap="sm">
         <Select label="Demande" data={tasks.map((t) => ({ value: t.key, label: t.label }))} value={task}

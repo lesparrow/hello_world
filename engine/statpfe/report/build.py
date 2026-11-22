@@ -429,7 +429,9 @@ class Builder:
     def ai_text(self, t: dict[str, Any]) -> None:
         """Texte retenu par l'auteur, toujours signalé comme rédigé avec l'aide d'une IA."""
         self.ai_used.append(t)
-        self.add(Para([Run("Texte rédigé avec l'aide d'une IA locale", bold=True),
+        where = ("Texte rédigé avec l'aide de Claude (service en ligne d'Anthropic, via Claude Code)"
+                 if t["provider"] == "claude_code" else "Texte rédigé avec l'aide d'une IA locale")
+        self.add(Para([Run(where, bold=True),
                        Run(f" ({t['task_label'].lower()} ; modèle {t['model']} ; proposition du "
                            f"{_fr_date(t['created_at'])}), relu et retenu par l'auteur"
                            + (" puis modifié" if t["edited"] else "") + ". Il ne remplace pas le jugement de "
@@ -705,7 +707,7 @@ class Builder:
         kept = [t for t in texts if t["status"] == "retenu"] if self.o.get("ai_texts", True) else []
         if not texts:
             return "aucun"
-        return (f"{len(texts)} proposition(s) de l'IA locale, {len(kept)} retenue(s) dans ce rapport après relecture"
+        return (f"{len(texts)} proposition(s) de l'IA, {len(kept)} retenue(s) dans ce rapport après relecture"
                 + (f" (modèle(s) : {', '.join(sorted({t['model'] for t in kept}))})" if kept else ""))
 
     def ai_annex(self) -> None:
@@ -714,10 +716,17 @@ class Builder:
             self.add(Para.of("Aucun texte de ce rapport n'a été rédigé avec l'aide d'une intelligence artificielle. "
                              "Les lectures des résultats sont produites par des règles fixes du logiciel."))
             return
-        models = ", ".join(sorted({t["model"] for t in self.ai_used}))
+        local = sorted({t["model"] for t in self.ai_used if t["provider"] != "claude_code"})
+        cloud = sorted({t["model"] for t in self.ai_used if t["provider"] == "claude_code"})
+        where = []
+        if local:
+            where.append(f"un modèle de langage exécuté sur l'ordinateur de l'auteur ({', '.join(local)})")
+        if cloud:
+            where.append(f"Claude, service en ligne d'Anthropic utilisé via Claude Code avec l'autorisation explicite "
+                         f"de l'auteur ({', '.join(cloud)})")
         self.add(Para.of(
             f"{len(self.ai_used)} texte(s) de ce rapport, encadré(s) et signalé(s) comme tel(s), ont été rédigés avec "
-            f"l'aide d'un modèle de langage exécuté sur l'ordinateur de l'auteur ({models}), puis relus et retenus "
+            f"l'aide de {' et de '.join(where)}, puis relus et retenus "
             "par l'auteur. Le modèle n'a reçu que des résultats déjà calculés par STATPFE (jamais les données "
             "brutes) ; il n'a effectué aucun calcul. Un contrôle automatique a vérifié que chaque nombre de ces "
             "textes figure dans les résultats calculés. Ce contrôle ne garantit pas l'exactitude du propos : "

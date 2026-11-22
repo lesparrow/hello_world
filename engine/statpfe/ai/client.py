@@ -65,6 +65,16 @@ def _get_json(settings: AiSettings, path: str) -> Any:
 
 def list_models(settings: AiSettings) -> list[dict[str, Any]]:
     """Modèles installés sur le serveur local. Lève AiUnavailable si le serveur ne répond pas."""
+    if settings.provider == "claude_code":
+        from statpfe.ai import claude_code
+        from statpfe.ai.settings import CLAUDE_MODELS
+
+        try:
+            ver = claude_code.version(settings)
+        except claude_code.ClaudeCodeError as exc:
+            raise AiUnavailable(str(exc)) from None
+        return [{"name": m["name"], "size": None, "parameters": m["label"], "quantization": None, "version": ver}
+                for m in CLAUDE_MODELS]
     if settings.provider == "ollama":
         data = _get_json(settings, "/api/tags")
         out = []
@@ -84,6 +94,13 @@ def list_models(settings: AiSettings) -> list[dict[str, Any]]:
 def stream_chat(settings: AiSettings, messages: list[dict[str, str]], cancel: threading.Event,
                 on_text: Callable[[str], None]) -> dict[str, Any]:
     """Envoie la conversation et transmet le texte au fur et à mesure. Renvoie les métadonnées finales."""
+    if settings.provider == "claude_code":
+        from statpfe.ai import claude_code
+
+        try:
+            return claude_code.stream_chat(settings, messages, cancel, on_text)
+        except claude_code.ClaudeCodeError as exc:
+            raise AiUnavailable(str(exc)) from None
     if settings.provider == "ollama":
         body = {"model": settings.model, "messages": messages, "stream": True, "think": False,
                 "options": {"temperature": settings.temperature, "num_predict": settings.max_tokens,
