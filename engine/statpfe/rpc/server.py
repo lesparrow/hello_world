@@ -63,6 +63,13 @@ class Engine:
             "data.delete_version": self.data_delete_version,
             "data.add_step": self.data_add_step,
             "data.remove_step": self.data_remove_step,
+            "analysis.catalog": self.analysis_catalog,
+            "analysis.run": self.analysis_run,
+            "analysis.list": self.analysis_list,
+            "analysis.get": self.analysis_get,
+            "analysis.update": self.analysis_update,
+            "analysis.delete": self.analysis_delete,
+            "analysis.reproduce": self.analysis_reproduce,
         }
 
     # -------------------------------------------------------------- méthodes
@@ -173,6 +180,39 @@ class Engine:
         project = self._require_project()
         project.data.remove_step(params.get("version_id"), params.get("index"))
         return self._dataset_and_project(project, params)
+
+    # -------------------------------------------------------------- analyses
+    def analysis_catalog(self, _: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.stats.catalog import catalog
+
+        return catalog()
+
+    def analysis_run(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        analysis_id = project.analyses.run(params.get("dataset_id"), params.get("version_id"),
+                                           params.get("method"), params.get("params"), params.get("title"))
+        return {"analysis": project.analyses.get(analysis_id), "project": project.describe()}
+
+    def analysis_list(self, _: dict[str, Any]) -> list[dict[str, Any]]:
+        return self._require_project().analyses.list()
+
+    def analysis_get(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self._require_project().analyses.get(params.get("analysis_id"))
+
+    def analysis_update(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.analyses.update(params.get("analysis_id"), params.get("changes"))
+        return {"analysis": project.analyses.get(params.get("analysis_id")), "project": project.describe()}
+
+    def analysis_delete(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.analyses.delete(params.get("analysis_id"))
+        return project.describe()
+
+    def analysis_reproduce(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        report = project.analyses.reproduce(params.get("analysis_id"))
+        return {"report": report, "project": project.describe()}
 
     @staticmethod
     def _dataset_and_project(project: Project, params: dict[str, Any]) -> dict[str, Any]:

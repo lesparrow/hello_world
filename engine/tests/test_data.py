@@ -26,7 +26,7 @@ def var(ds, key):
 # --------------------------------------------------------------- lecture des sources
 @pytest.mark.parametrize("text,expected", [
     ("12,5", 12.5), ("12.5", 12.5), ("-3", -3.0), ("1 234,5", 1234.5), ("1 234", 1234.0),
-    ("1.234,5", 1234.5), ("2e3", 2000.0), (",5", 0.5), ("abc", None), ("12,5,3", None), ("", None),
+    ("1.234,5", 1234.5), ("1.234", 1.234), ("0.125", 0.125), ("1.234.567", 1234567.0), ("2e3", 2000.0), (",5", 0.5), ("abc", None), ("12,5,3", None), ("", None),
 ])
 def test_parse_number(text, expected):
     assert parse_number(text) == expected
@@ -331,7 +331,7 @@ def test_v1_project_is_migrated(tmp_path, study):
         zf.writestr("manifest.json", json.dumps(manifest))
         zf.write(db, "project.sqlite")
     p = Project.open(str(path))
-    assert p.dirty and p.describe()["format_version"] == 2
+    assert p.dirty and p.describe()["format_version"] == 3
     assert p.journal()[1].action == "migration"
     ds_id = p.data.import_file(str(write_csv(tmp_path)), None, None)
     assert p.data.get(ds_id)["original"]["rows"] == 11

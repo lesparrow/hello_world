@@ -30,6 +30,29 @@ jobs:
       - run: python -m pytest -q
         working-directory: engine
 
+  r-validation:
+    name: Validation des statistiques contre R
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Installer R (paquets de base uniquement)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q r-base-core
+          Rscript -e 'cat(R.version.string, "\n")'
+      - run: pip install -e "engine[dev]"
+      - name: Recalculer les valeurs de référence avec R
+        working-directory: engine
+        run: Rscript tests/reference/r_reference.R tests/reference/data "$RUNNER_TEMP/r_results.csv"
+      - name: Comparer le moteur aux valeurs de R recalculées
+        working-directory: engine
+        env:
+          STATPFE_R_RESULTS: ${{ runner.temp }}/r_results.csv
+        run: python -m pytest -q tests/test_reference_r.py
+
   frontend:
     name: Interface React
     runs-on: ubuntu-latest
@@ -50,7 +73,7 @@ jobs:
 
   windows-installer:
     name: Installateur Windows
-    needs: [engine, frontend]
+    needs: [engine, r-validation, frontend]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,6 +111,17 @@ jobs:
           $out = $req | & $exe.FullName
           Write-Output $out
           if (-not ($out -match '"rows": 2')) { throw "Le moteur autonome ne lit pas les fichiers CSV" }
+          # Analyse statistique réelle (scipy embarqué) : projet, import, test de Welch.
+          [IO.File]::WriteAllText($csv, "g;note`nA;12,5`nA;13`nA;11,5`nB;9`nB;10`nB;8,5`n", [Text.Encoding]::GetEncoding(1252))
+          $proj = Join-Path $env:RUNNER_TEMP 'essai.statpfe'
+          $lines = @(
+            (@{ jsonrpc = '2.0'; id = 3; method = 'project.create'; params = @{ path = $proj; study = @{ title = 'Essai' } } } | ConvertTo-Json -Compress -Depth 5),
+            (@{ jsonrpc = '2.0'; id = 4; method = 'data.import'; params = @{ path = $csv; name = 'E' } } | ConvertTo-Json -Compress -Depth 5),
+            (@{ jsonrpc = '2.0'; id = 5; method = 'analysis.run'; params = @{ dataset_id = 1; method = 'welch'; params = @{ outcome = 'note'; group = 'g' } } } | ConvertTo-Json -Compress -Depth 5)
+          )
+          $out = ($lines -join "`n") | & $exe.FullName
+          Write-Output $out
+          if (-not ($out -match '"key": "t", "label": "t", "value": 5\.07796')) { throw "Le moteur autonome ne calcule pas le test de Welch" }
 
       - name: Construire l'application et les installateurs
         working-directory: apps/desktop

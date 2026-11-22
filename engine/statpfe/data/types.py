@@ -41,7 +41,9 @@ TRUE_WORDS = {"oui", "vrai", "true", "yes", "o", "y"}
 FALSE_WORDS = {"non", "faux", "false", "no", "n"}
 
 _NUM_PLAIN = re.compile(r"^[+-]?(\d+([.,]\d*)?|[.,]\d+)([eE][+-]?\d+)?$")
-_NUM_EU_THOUSANDS = re.compile(r"^[+-]?\d{1,3}(\.\d{3})+(,\d+)?$")
+# Séparateur de milliers « . » seulement s'il est non ambigu : « 1.234,5 » ou « 1.234.567 ».
+# « 1.234 » seul reste un nombre décimal (1,234), convention la plus courante dans les exports.
+_NUM_EU_THOUSANDS = re.compile(r"^[+-]?\d{1,3}((\.\d{3}){2,}(,\d+)?|\.\d{3},\d+)$")
 _SPACES = re.compile(r"[\s  ]")
 DATE_FORMATS = ["%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d/%m/%y"]
 

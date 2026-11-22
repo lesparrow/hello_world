@@ -4,7 +4,7 @@ Un fichier `.statpfe` est une archive ZIP contenant :
 
 - `manifest.json` : identification du format et versions ;
 - `project.sqlite` : base de données de l'étude (informations, hypothèses, journal,
-  dictionnaires des variables, versions de données) ;
+  dictionnaires des variables, versions de données, analyses enregistrées) ;
 - `sources/<sha256>.<ext>` : copie exacte de chaque fichier de données importé.
 
 Pendant l'édition, la base est décompressée dans un dossier de travail temporaire.
@@ -31,11 +31,12 @@ from statpfe import __version__
 from statpfe.core.study import FIELD_LABELS, Study
 from statpfe.core.timeutil import now_iso
 from statpfe.data.store import SCHEMA_V2, DataStore
+from statpfe.stats.store import SCHEMA_V3, AnalysisStore
 from statpfe.errors import ProjectFileError, UnsavedChangesError, ValidationError
 
 EXTENSION = ".statpfe"
 FORMAT_NAME = "statpfe-project"
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3
 MANIFEST = "manifest.json"
 DATABASE = "project.sqlite"
 REQUIRED_MEMBERS = {MANIFEST, DATABASE}
@@ -114,6 +115,7 @@ class Project:
         self.dirty = False
         self._closed = False
         self.data = DataStore(conn, workdir, self._log)
+        self.analyses = AnalysisStore(conn, self.data, self._log)
 
     # ------------------------------------------------------------------ création
     @classmethod
@@ -128,6 +130,7 @@ class Project:
             conn = _connect(workdir / DATABASE)
             conn.executescript(SCHEMA)
             conn.executescript(SCHEMA_V2)
+            conn.executescript(SCHEMA_V3)
             created = now_iso()
             conn.executemany(
                 "INSERT INTO meta (key, value) VALUES (?, ?)",
@@ -205,6 +208,7 @@ class Project:
             "study": self.study.to_dict(),
             "journal": [e.to_dict() for e in self.journal()],
             "datasets": self.data.list(),
+            "analyses_count": self.analyses.count(),
         }
 
     # ------------------------------------------------------------------ modification
@@ -415,5 +419,7 @@ def _migrate(conn: sqlite3.Connection) -> bool:
         return False
     if version < 2:
         conn.executescript(SCHEMA_V2)
+    if version < 3:
+        conn.executescript(SCHEMA_V3)
     conn.execute("UPDATE meta SET value = ? WHERE key = 'format_version'", (str(FORMAT_VERSION),))
     return True
