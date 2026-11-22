@@ -24,20 +24,30 @@ class ReportService:
     def templates() -> dict[str, Any]:
         return templates()
 
+    def _power_ids(self) -> list[int]:
+        return [c["id"] for c in self.p.power.list()]
+
     def options(self) -> dict[str, Any]:
         existing = sorted(a["id"] for a in self.p.analyses.list())
         row = self.p._conn.execute("SELECT value FROM meta WHERE key = ?", (META_KEY,)).fetchone()
         if row is None:
-            return default_options(existing)
+            return default_options(existing, self._power_ids())
         try:
-            opts = clean_options(json.loads(row[0]))
+            opts = self._resolve(clean_options(json.loads(row[0])))
         except (ValidationError, ValueError):
-            return default_options(existing)
+            return default_options(existing, self._power_ids())
         opts["analyses"] = [i for i in opts["analyses"] if i in existing]
+        known = set(self._power_ids())
+        opts["power"] = [i for i in opts["power"] if i in known]
+        return opts
+
+    def _resolve(self, opts: dict[str, Any]) -> dict[str, Any]:
+        if opts["power"] is None:  # non précisé : tous les calculs enregistrés
+            opts["power"] = self._power_ids()
         return opts
 
     def save_options(self, raw: Any) -> dict[str, Any]:
-        opts = clean_options(raw)
+        opts = self._resolve(clean_options(raw))
         value = json.dumps(opts, ensure_ascii=False, sort_keys=True)
         if value == json.dumps(self.options(), ensure_ascii=False, sort_keys=True):
             return opts  # rien de changé (y compris les options par défaut jamais enregistrées)

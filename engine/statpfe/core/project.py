@@ -28,16 +28,18 @@ from pathlib import Path
 from typing import Any
 
 from statpfe import __version__
+from statpfe.core.plan import SCHEMA_V5_PLAN, PlanStore
 from statpfe.core.study import FIELD_LABELS, Study
 from statpfe.core.timeutil import now_iso
 from statpfe.data.store import SCHEMA_V2, DataStore
 from statpfe.report.service import ReportService
+from statpfe.stats.power_store import SCHEMA_V5_POWER, PowerStore
 from statpfe.stats.store import MIGRATE_V3_TO_V4, SCHEMA_V3, AnalysisStore
 from statpfe.errors import ProjectFileError, UnsavedChangesError, ValidationError
 
 EXTENSION = ".statpfe"
 FORMAT_NAME = "statpfe-project"
-FORMAT_VERSION = 4
+FORMAT_VERSION = 5
 MANIFEST = "manifest.json"
 DATABASE = "project.sqlite"
 REQUIRED_MEMBERS = {MANIFEST, DATABASE}
@@ -117,6 +119,10 @@ class Project:
         self._closed = False
         self.data = DataStore(conn, workdir, self._log)
         self.analyses = AnalysisStore(conn, self.data, self._log)
+        self.power = PowerStore(conn, self._log)
+        self.plan = PlanStore(conn, self._log, self._touch, self.power.exists)
+        self.power.locked_references = self.plan.power_references
+        self.analyses.plan = self.plan
         self.reports = ReportService(self)
 
     # ------------------------------------------------------------------ création
@@ -133,6 +139,7 @@ class Project:
             conn.executescript(SCHEMA)
             conn.executescript(SCHEMA_V2)
             conn.executescript(SCHEMA_V3)
+            conn.executescript(SCHEMA_V5_POWER + SCHEMA_V5_PLAN)
             created = now_iso()
             conn.executemany(
                 "INSERT INTO meta (key, value) VALUES (?, ?)",
@@ -211,7 +218,16 @@ class Project:
             "journal": [e.to_dict() for e in self.journal()],
             "datasets": self.data.list(),
             "analyses_count": self.analyses.count(),
+            "power_count": self.power.count(),
+            "plan_status": self._plan_status(),
         }
+
+    def _plan_status(self) -> dict[str, Any] | None:
+        row = self._conn.execute("SELECT version, status FROM plan_versions ORDER BY version DESC LIMIT 1").fetchone()
+        if row is None:
+            return None
+        locked = self._conn.execute("SELECT MAX(version) FROM plan_versions WHERE status = 'verrouille'").fetchone()[0]
+        return {"version": row[0], "status": row[1], "locked_version": locked}
 
     # ------------------------------------------------------------------ modification
     def update_study(self, changes: Any) -> list[str]:
@@ -276,6 +292,9 @@ class Project:
         if row is None:
             raise ProjectFileError(f"Le projet est incomplet (information « {key} » absente).")
         return row[0]
+
+    def _touch(self) -> None:
+        self.dirty = True
 
     def _log(self, action: str, summary: str, details: dict[str, Any] | None = None) -> None:
         self._conn.execute(
@@ -425,5 +444,7 @@ def _migrate(conn: sqlite3.Connection) -> bool:
         conn.executescript(SCHEMA_V3)  # crée directement la table au format 4
     elif version == 3:
         conn.executescript(MIGRATE_V3_TO_V4)
+    if version < 5:
+        conn.executescript(SCHEMA_V5_POWER + SCHEMA_V5_PLAN)
     conn.execute("UPDATE meta SET value = ? WHERE key = 'format_version'", (str(FORMAT_VERSION),))
     return True

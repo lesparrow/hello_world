@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from statpfe.core.plan import classify, describe_item
 from statpfe.stats.catalog import METHODS
 
 LEVEL_ORDER = {"bloquant": 0, "important": 1, "methodologique": 2, "information": 3}
@@ -94,6 +95,9 @@ def run_checks(project, options: dict[str, Any]) -> dict[str, Any]:
                 "Les analyses n'ont pas toutes été calculées avec les mêmes versions ; l'annexe de traçabilité les "
                 "précise.")
 
+    _power_checks(project, options, add, passed)
+    _plan_checks(project, options, analyses, add, passed)
+
     important = [i for i in items if i["level"] == "important"]
     if important and not sections["limits"]:
         add("important", "Section « Limites » désactivée",
@@ -121,3 +125,97 @@ def run_checks(project, options: dict[str, Any]) -> dict[str, Any]:
     passed.append("Le rapport est présenté comme un document de travail à réviser, non comme un travail validé.")
     items.sort(key=lambda i: LEVEL_ORDER[i["level"]])
     return {"items": items, "passed": passed, "blocking": sum(i["level"] == "bloquant" for i in items)}
+
+
+def _power_checks(project, options: dict[str, Any], add, passed: list[str]) -> None:
+    ids = options.get("power") or []
+    known = {c["id"] for c in project.power.list()}
+    if any(i not in known for i in ids):
+        add("bloquant", "Calcul de puissance introuvable",
+            "Un calcul de puissance choisi a été supprimé. Mettez à jour la sélection.")
+    ids = [i for i in ids if i in known]
+    if not options["sections"].get("power"):
+        return
+    ok = 0
+    for i in ids:
+        calc = project.power.get(i)
+        diffs = project.power.verify(i)
+        if diffs:
+            add("bloquant", f"Calcul de puissance « {calc['title']} » : résultat différent au recalcul",
+                "Le résultat enregistré ne correspond plus au calcul refait avec cette version de STATPFE. Refaites "
+                "et enregistrez de nouveau le calcul.")
+        else:
+            ok += 1
+        if not calc["request"].get("effect_source") and calc["result"]["mode"] != "effect":
+            add("methodologique", f"Calcul de puissance « {calc['title']} » : origine de l'effet non précisée",
+                "Le rapport ne pourra pas justifier l'effet attendu retenu.")
+    if ids and ok == len(ids):
+        passed.append(f"Calculs de puissance refaits ({ok}) : identiques aux résultats enregistrés.")
+    if not ids:
+        add("information", "Aucun calcul de puissance inclus",
+            "La section « Taille d'échantillon et puissance » contiendra un emplacement à compléter.")
+
+
+def _plan_checks(project, options: dict[str, Any], analyses: list[dict[str, Any]], add, passed: list[str]) -> None:
+    sections = options["sections"]
+    if not (sections.get("plan") or sections["limits"] or sections["methodology"]):
+        return
+    plan = project.plan.get()
+    plan["first_lock_at"] = project.plan.first_lock_at()
+    inferential = [a for a in analyses if METHODS.get(a["method"], {}).get("family") != "describe"]
+    locked = plan["locked"]
+    if locked is None:
+        if not inferential:
+            return
+        if plan["current"] is None:
+            add("methodologique", "Aucun plan d'analyse",
+                "Sans plan verrouillé, le rapport ne peut pas distinguer les analyses prévues des analyses ajoutées "
+                "après consultation des données (écran « Plan d'analyse »).")
+        else:
+            add("methodologique", "Plan d'analyse non verrouillé",
+                "Le plan est en brouillon : verrouillez-le pour que les analyses puissent y être rattachées.")
+        return
+    if plan["current"]["status"] == "brouillon":
+        add("information", f"Version {plan['current']['version']} du plan en brouillon",
+            f"Le rapport présente la version verrouillée {locked['version']}.")
+    in_report = {((a.get("choice") or {}).get("plan") or {}).get("item") for a in analyses}
+    for item in locked["content"]["analyses"]:
+        if item["id"] not in in_report:
+            add("methodologique", f"Analyse prévue {item['id']} absente du rapport",
+                f"{describe_item(item)} : réalisez-la et rattachez-la au plan, ou expliquez son absence. Elle sera "
+                "signalée dans les limites.")
+    statuses = [classify(a, plan)["status"] for a in inferential]
+    off = statuses.count("hors_plan") + statuses.count("avant_plan")
+    if off:
+        add("information", f"{off} analyse(s) inférentielle(s) hors du plan",
+            "Elles seront présentées comme non prévues, ajoutées après consultation des données.")
+    for a in analyses:
+        link = (a.get("choice") or {}).get("plan") or {}
+        if link.get("deviation"):
+            add("information", f"« {a['title']} » : écart au plan justifié",
+                "L'écart et sa raison figureront dans le rapport.", a["id"])
+    first_analysis = min((a["created_at"] for a in project.analyses.list()), default=None)
+    for v in plan["versions"]:
+        if v["status"] == "verrouille" and v["version"] > 1 and first_analysis and v["locked_at"] > first_analysis:
+            add("methodologique", f"Plan modifié après le début des analyses (version {v['version']})",
+                "La modification et son motif figureront dans l'historique du plan et dans les limites.")
+    calcs = {c["id"] for c in project.power.list()}
+    for item in locked["content"]["analyses"]:
+        cid = item.get("power_calc")
+        if cid not in calcs:
+            continue
+        res = project.power.get(cid)["result"]
+        if res["mode"] != "sample_size":
+            continue
+        worst = max(res["rows"], key=lambda r: r["n_total"])
+        needed = worst["n_total"]
+        for a in analyses:
+            if ((a.get("choice") or {}).get("plan") or {}).get("item") == item["id"]:
+                n = a["result"].get("n_used")
+                if n is not None and n < needed:
+                    add("important", f"« {a['title']} » : effectif inférieur au calcul de puissance",
+                        f"{n} observation(s) utilisée(s) pour {needed} nécessaires pour l'effet {worst['effect_text']} "
+                        f"(analyse prévue {item['id']}).",
+                        a["id"])
+    passed.append(f"Plan d'analyse verrouillé (version {locked['version']}) : les analyses prévues et les analyses "
+                  "hors plan sont distinguées dans le rapport.")

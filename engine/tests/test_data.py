@@ -331,7 +331,7 @@ def test_v1_project_is_migrated(tmp_path, study):
         zf.writestr("manifest.json", json.dumps(manifest))
         zf.write(db, "project.sqlite")
     p = Project.open(str(path))
-    assert p.dirty and p.describe()["format_version"] == 4
+    assert p.dirty and p.describe()["format_version"] == 5
     assert p.journal()[1].action == "migration"
     ds_id = p.data.import_file(str(write_csv(tmp_path)), None, None)
     assert p.data.get(ds_id)["original"]["rows"] == 11

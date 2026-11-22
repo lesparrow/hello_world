@@ -7,7 +7,7 @@ import { useHotkeys } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
   IconBook2, IconChartBar, IconChevronDown, IconCopy, IconDatabase, IconDeviceFloppy,
-  IconFileText, IconHistory, IconTransform, IconX,
+  IconBolt, IconClipboardList, IconFileText, IconHistory, IconTransform, IconX,
 } from '@tabler/icons-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { call, runningInTauri } from '../engine/client';
@@ -16,6 +16,8 @@ import { DataPage } from './data/DataPage';
 import { PreparationPage } from './data/PreparationPage';
 import { AnalysesPage } from './analysis/AnalysesPage';
 import { ReportPage } from './report/ReportPage';
+import { PlanPage } from './plan/PlanPage';
+import { PowerPage } from './power/PowerPage';
 import { Logo } from '../components/Logo';
 import { StudyPage } from './StudyPage';
 import { studyChanges } from '../lib/studyDiff';
@@ -29,7 +31,7 @@ interface Props {
   onClosed: () => void;
 }
 
-type Section = 'etude' | 'donnees' | 'preparation' | 'analyses' | 'rapport';
+type Section = 'etude' | 'plan' | 'puissance' | 'donnees' | 'preparation' | 'analyses' | 'rapport';
 
 type PendingClose = 'project' | 'window' | null;
 
@@ -186,6 +188,17 @@ export function Workspace({ project, onChange, onClosed }: Props) {
         <NavLink active={section === 'etude'} label="Étude" description="Problématique, objectifs, hypothèses"
           leftSection={<IconBook2 size={18} />} variant="light" style={{ borderRadius: 8 }}
           onClick={() => { void flush(); setSection('etude'); }} />
+        <NavLink active={section === 'plan'} label="Plan d'analyse" description="Prévu avant l'analyse, verrouillé"
+          leftSection={<IconClipboardList size={18} />} variant="light" style={{ borderRadius: 8 }}
+          rightSection={project.plan_status ? (
+            <Badge size="xs" variant="light" color={project.plan_status.status === 'verrouille' ? 'teal' : 'orange'}>
+              v{project.plan_status.version}
+            </Badge>) : null}
+          onClick={() => { void flush(); setSection('plan'); }} />
+        <NavLink active={section === 'puissance'} label="Puissance" description="Taille d'échantillon, puissance"
+          leftSection={<IconBolt size={18} />} variant="light" style={{ borderRadius: 8 }}
+          rightSection={project.power_count ? <Badge size="xs" variant="light">{project.power_count}</Badge> : null}
+          onClick={() => { void flush(); setSection('puissance'); }} />
         <NavLink active={section === 'donnees'} label="Données" description="Import, dictionnaire, qualité"
           leftSection={<IconDatabase size={18} />} variant="light" style={{ borderRadius: 8 }}
           rightSection={project.datasets.length ? <Badge size="xs" variant="light">{project.datasets.length}</Badge> : null}
@@ -212,6 +225,11 @@ export function Workspace({ project, onChange, onClosed }: Props) {
             <DataPage project={project} dataset={dataset} onSelectDataset={setDatasetId} onResult={applyDataResult}
               onImported={(id, p) => { onChange(p); setDatasetId(id); if (id === datasetId) call('data.get', { dataset_id: id }).then(setDataset); }} />
           )}
+          {section === 'plan' && (
+            <PlanPage project={project} onChange={onChange}
+              variableNames={dataset ? dataset.variables.map((v) => v.name) : []} />
+          )}
+          {section === 'puissance' && <PowerPage project={project} onChange={onChange} />}
           {section === 'analyses' && (
             <AnalysesPage project={project} onChange={onChange} onGoToData={() => setSection('donnees')} />
           )}

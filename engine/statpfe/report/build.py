@@ -18,6 +18,9 @@ from statpfe.report.fmt import NBSP, cell, fixed, stat
 from statpfe.report.model import (
     Bullets, Cover, Document, Figure, Heading, PageBreak, Para, Run, Table, Toc,
 )
+from statpfe.core.plan import ALTERNATIVES as PLAN_ALT
+from statpfe.core.plan import ROLES as PLAN_ROLES
+from statpfe.core.plan import classify, describe_item, item_variables
 from statpfe.report.options import COVER_FIELDS, TEMPLATES
 from statpfe.stats.catalog import METHODS
 
@@ -65,6 +68,13 @@ class Builder:
         self.analyses: list[dict[str, Any]] = ([a for a in chosen if is_descriptive(a)]
                                                + [a for a in chosen if not is_descriptive(a)])
         self.number = {a["id"]: i + 1 for i, a in enumerate(self.analyses)}
+        self.plan = project.plan.get()
+        self.plan["first_lock_at"] = project.plan.first_lock_at()
+        self.locked = self.plan["locked"]
+        known_power = {c["id"] for c in project.power.list()}
+        self.power_calcs = [project.power.get(i) for i in (options.get("power") or []) if i in known_power]
+        self.power_number = {c["id"]: k + 1 for k, c in enumerate(self.power_calcs)}
+        self.status = {a["id"]: classify(a, self.plan) for a in self.analyses}
         self.doc = Document(
             title=self.study.title,
             footer=f"STATPFE {__version__} · {french_date(self.today)} · Document de travail à réviser, non validé "
@@ -133,8 +143,12 @@ class Builder:
             self.introduction()
         if s["hypotheses"]:
             self.hypotheses()
+        if s.get("plan"):
+            self.plan_section()
         if s["population"]:
             self.population()
+        if s.get("power"):
+            self.power_section()
         if s["variables"]:
             self.variables()
         if s["preparation"]:
@@ -291,11 +305,16 @@ class Builder:
                 opts.append(f"hypothèse {ALTERNATIVE.get(pr.get('alternative', 'two-sided'), 'bilatérale')}")
             if "conf_level" in METHODS.get(a["method"], {}).get("params", []):
                 opts.append(f"IC à {fixed(float(pr.get('conf_level', 0.95)) * 100, 0)}{NBSP}%")
-            rows.append([str(self.number[a["id"]]), a["title"], a["method_label"],
-                         ", ".join(a["result"].get("variables", [])), "; ".join(opts) or "—",
-                         f"{a['dataset_name'] or '—'}, {a['version_name']}"])
-        self.table("Analyses réalisées", ["N°", "Analyse", "Méthode", "Variables", "Options", "Données"], rows,
-                   numeric=[True, False, False, False, False, False])
+            row = [str(self.number[a["id"]]), a["title"], a["method_label"],
+                   ", ".join(a["result"].get("variables", [])), "; ".join(opts) or "—",
+                   f"{a['dataset_name'] or '—'}, {a['version_name']}"]
+            if self.locked:
+                row.append(self.plan_short(a))
+            rows.append(row)
+        columns = ["N°", "Analyse", "Méthode", "Variables", "Options", "Données"] + (["Plan"] if self.locked else [])
+        self.table("Analyses réalisées", columns, rows, numeric=[True] + [False] * (len(columns) - 1),
+                   note="Plan : « prévue » = rattachée, au moment du calcul, à une analyse d'un plan déjà verrouillé ; "
+                        "« hors plan » = ajoutée après consultation des données." if self.locked else "")
         alts = {a["params"].get("alternative", "two-sided") for a in self.analyses
                 if "alternative" in METHODS.get(a["method"], {}).get("params", [])}
         levels = {float(a["params"].get("conf_level", 0.95)) for a in self.analyses
@@ -359,6 +378,13 @@ class Builder:
             context.append(f"Nature : {c['purpose_label'].lower()}.")
         if c.get("hypothesis") is not None and c.get("hypothesis_text"):
             context.append(f"Hypothèse mise à l'épreuve : H{c['hypothesis'] + 1}.")
+        if self.locked:
+            context.append(f"Plan d'analyse : {self.status[a['id']]['label'][0].lower()}"
+                           f"{self.status[a['id']]['label'][1:]}.")
+            link = c.get("plan") or {}
+            if link.get("deviation"):
+                context.append(f"Écart au plan ({'; '.join(link.get('deviations') or [])}), raison : "
+                               f"{link.get('reason') or '—'}.")
         self.add(Para.of(" ".join(context), "note"))
         if r.get("missing") and r["missing"].get("text"):
             self.add(Para.of(r["missing"]["text"], "note"))
@@ -396,6 +422,192 @@ class Builder:
             self.add(Bullets([[Run(f"{DIAG_LABEL.get(d['level'], d['level'])} : ", bold=True),
                                Run(d["title"] + (f" {d['detail']}" if d.get("detail") else ""))] for d in diags]))
 
+    # ------------------------------------------------------------------ plan d'analyse
+    def plan_short(self, a: dict[str, Any]) -> str:
+        st = self.status[a["id"]]
+        link = (a.get("choice") or {}).get("plan") or {}
+        return {"prevue": f"Prévue ({link.get('item')})", "ecart": f"Prévue ({link.get('item')}), écart justifié",
+                "avant_plan": "Avant le plan", "hors_plan": "Hors plan"}.get(st["status"], "—")
+
+    def realised(self, item_id: str) -> list[dict[str, Any]]:
+        return [a for a in self.analyses if ((a.get("choice") or {}).get("plan") or {}).get("item") == item_id]
+
+    def plan_section(self) -> None:
+        self.h1("Plan d'analyse")
+        locked = self.locked
+        if locked is None:
+            current = self.plan["current"]
+            text = ("Aucun plan d'analyse n'a été défini dans STATPFE." if current is None else
+                    f"Le plan d'analyse est en brouillon (version {current['version']}) et n'a pas été verrouillé : il "
+                    "ne permet pas de distinguer les analyses prévues des analyses exploratoires.")
+            self.add(Para.of(text), Para.of("[À compléter par l'auteur si un plan a été établi en dehors de STATPFE "
+                                            "(protocole, préenregistrement).]", "placeholder"))
+            return
+        c = locked["content"]
+        lock_date = locked["locked_at"][:10]
+        first_analysis = min((a["created_at"] for a in self.p.analyses.list()), default=None)
+        imports = [d["imported_at"] for d in self.p.data.list()]
+        first_lock = self.plan["first_lock_at"]
+        timing = []
+        if imports:
+            timing.append("avant l'import des données" if first_lock < min(imports) else "après l'import des données")
+        if first_analysis is not None:
+            timing.append("avant toute analyse" if first_lock < first_analysis else
+                          "après le début des analyses")
+        intro = (f"Le plan d'analyse a été verrouillé pour la première fois le {_fr_date(first_lock)}"
+                 + (f" ({' et '.join(timing)})" if timing else "") + ". ")
+        intro += (f"La version présentée ici est la version {locked['version']}, verrouillée le {_fr_date(lock_date)}."
+                  if locked["version"] > 1 or len(self.plan["versions"]) > 1 else "Il n'a pas été modifié depuis.")
+        self.add(Para.of(intro))
+        if self.plan["current"]["status"] == "brouillon":
+            self.add(Para.of(f"Une version {self.plan['current']['version']} est en préparation (brouillon non "
+                             "verrouillé) : elle n'est pas reprise dans ce rapport.", "note"))
+        self.h2("Objectifs et hypothèses")
+        self.add(*_paragraphs(c["objectives"], "[Objectifs non renseignés dans le plan.]"))
+        if c["hypotheses"]:
+            self.add(Para.of("Hypothèses du plan (numérotées P1, P2… pour les distinguer de celles de la fiche de "
+                             "l'étude) :", "note"))
+            self.add(Bullets([[Run(f"P{i + 1}. ", bold=True), Run(h)] for i, h in enumerate(c["hypotheses"])]))
+        self.h2("Variables")
+        self.add(Para([Run("Variables principales : ", bold=True),
+                       Run(", ".join(c["primary_variables"]) or "non précisées.")]),
+                 Para([Run("Variables secondaires : ", bold=True),
+                       Run(", ".join(c["secondary_variables"]) or "aucune.")]))
+        self.h2("Analyses prévues")
+        rows = []
+        for item in c["analyses"]:
+            done = self.realised(item["id"])
+            hyp = f"P{item['hypothesis'] + 1}" if item.get("hypothesis") is not None else "—"
+            rows.append([item["id"], METHODS[item["method"]]["label"], ", ".join(item_variables(item)) or "—", hyp,
+                         PLAN_ROLES[item["role"]], PLAN_ALT[item["alternative"]],
+                         ", ".join(self.label(a) for a in done) if done else "Non présente dans ce rapport"])
+        self.table(f"Analyses prévues au plan (version {locked['version']})",
+                   ["Réf.", "Méthode", "Variables", "Hypothèse", "Rôle", "Test", "Réalisée"], rows,
+                   note=f"Seuil de signification prévu : {fixed(c['alpha'], 3).rstrip('0').rstrip(',')}.")
+        details = []
+        for i in c["analyses"]:
+            parts = [i["description"].rstrip(". ")] if i["description"] else []
+            if i.get("power_calc") in self.power_number:
+                parts.append(f"effectif justifié par le calcul de puissance n° {self.power_number[i['power_calc']]}")
+            if parts:
+                details.append([Run(f"{i['id']} : ", bold=True), Run(" ; ".join(parts) + ".")])
+        if details:
+            self.add(Bullets(details))
+        self.h2("Règles fixées à l'avance")
+        for label, key, empty in (("Critères d'exclusion", "exclusion_criteria", "non précisés"),
+                                  ("Valeurs manquantes", "missing_values", "traitement non précisé"),
+                                  ("Tests multiples", "multiplicity", "aucune correction prévue"),
+                                  ("Analyses exploratoires envisagées", "exploratory", "aucune")):
+            self.add(Para([Run(f"{label} : ", bold=True), Run(c[key] or f"{empty}.")]))
+        if c.get("sample_size") or c.get("power_calc"):
+            txt = f"Taille d'échantillon prévue : {c['sample_size']}." if c.get("sample_size") else ""
+            if c.get("power_calc") in self.power_number:
+                txt += f" Justification : calcul de puissance n° {self.power_number[c['power_calc']]}."
+            elif c.get("power_calc"):
+                txt += " Justification : un calcul de puissance enregistré (non inclus dans ce rapport)."
+            self.add(Para.of(txt.strip()))
+        if len(self.plan["versions"]) > 1:
+            self.h2("Historique des versions")
+            hist = []
+            for v in self.plan["versions"]:
+                hist.append([str(v["version"]), "Verrouillée" if v["status"] == "verrouille" else "Brouillon",
+                             v["locked_at"][:16].replace("T", " ") if v["locked_at"] else "—",
+                             v["change_reason"] or ("Version initiale" if v["version"] == 1 else "—"),
+                             "; ".join(ch["detail"] for ch in v["changes"]) or "—"])
+            self.table("Versions du plan d'analyse", ["Version", "État", "Verrouillée le", "Motif", "Changements"],
+                       hist, numeric=[True, False, False, False, False])
+
+    def plan_limits(self) -> list[list[Run]]:
+        items: list[list[Run]] = []
+        if self.locked is None:
+            if self.analyses and any(not is_descriptive(a) for a in self.analyses):
+                items.append([Run("Plan d'analyse : ", bold=True),
+                              Run("aucun plan verrouillé avant les analyses ; les analyses prévues ne peuvent pas être "
+                                  "distinguées des analyses exploratoires.")])
+            return items
+        for a in self.analyses:
+            st = self.status[a["id"]]
+            if st["status"] == "hors_plan" and not is_descriptive(a):
+                items.append([Run(f"{self.label(a)} ({a['title']}) : ", bold=True),
+                              Run("non prévue au plan d'analyse, ajoutée après consultation des données ; à présenter "
+                                  "comme exploratoire.")])
+            elif st["status"] == "avant_plan" and not is_descriptive(a):
+                items.append([Run(f"{self.label(a)} ({a['title']}) : ", bold=True),
+                              Run("réalisée avant le verrouillage du plan d'analyse.")])
+            elif st["status"] == "ecart":
+                link = a["choice"]["plan"]
+                items.append([Run(f"{self.label(a)} ({a['title']}) : ", bold=True),
+                              Run(f"écart à l'analyse prévue {link['item']} ({'; '.join(link['deviations'])}) ; raison : "
+                                  f"{link.get('reason') or '—'}")])
+        for item in self.locked["content"]["analyses"]:
+            if not self.realised(item["id"]):
+                items.append([Run(f"{item['id']} : ", bold=True),
+                              Run(f"analyse prévue au plan non présente dans ce rapport ({describe_item(item)}).")])
+        first_analysis = min((a["created_at"] for a in self.p.analyses.list()), default=None)
+        for v in self.plan["versions"]:
+            if v["status"] == "verrouille" and v["version"] > 1 and first_analysis and v["locked_at"] > first_analysis:
+                items.append([Run(f"Plan d'analyse, version {v['version']} : ", bold=True),
+                              Run(f"modifié après le début des analyses ; motif : {v['change_reason'] or '—'}.")])
+        return items
+
+    # ------------------------------------------------------------------ puissance
+    def power_section(self) -> None:
+        self.h1("Taille d'échantillon et puissance")
+        if not self.power_calcs:
+            self.add(Para.of("[Aucun calcul de puissance n'est inclus dans ce rapport. Justifiez ici la taille de "
+                             "l'échantillon.]", "placeholder"))
+            return
+        self.add(Para.of("Les calculs suivants ont été réalisés avec STATPFE selon les formules de Cohen (1988), "
+                         "identiques à celles du paquet R pwr. Une puissance est une estimation qui dépend entièrement "
+                         "des hypothèses retenues, en particulier de l'effet attendu : elle ne garantit pas la validité "
+                         "de l'étude."))
+        for c in self.power_calcs:
+            r = c["result"]
+            k = self.power_number[c["id"]]
+            self.h2(f"Calcul de puissance n° {k} : {c['title']}")
+            src = (f"Source : calcul de puissance n° {k} du rapport, enregistré le {c['created_at'][:10]} "
+                   f"(STATPFE {c['environment'].get('statpfe', '?')}, SciPy {c['environment'].get('scipy', '?')}).")
+            self.add(Para([Run("Hypothèses du calcul. ", bold=True)]))
+            self.add(Bullets([[Run(x)] for x in r["assumptions"]]))
+            for t in r["tables"]:
+                kinds = t.get("kinds") or []
+                rows = [[cell(v, kinds[j] if j < len(kinds) else None) for j, v in enumerate(row)] for row in t["rows"]]
+                self.table(t["title"], list(t["columns"]), rows, note=t.get("note", ""), source=src,
+                           numeric=[(kinds[j] if j < len(kinds) else "num") in ("int", "num", "pct") and j > 0
+                                    for j in range(len(t["columns"]))])
+            if self.o["figures"]:
+                for ch in r.get("charts") or []:
+                    self.figures += 1
+                    png = charts.render(ch) if self.draw else b""
+                    self.add(Figure(self.figures, ch["title"], png, charts.describe(ch), src))
+            self.add(Para([Run("Lecture. ", bold=True), Run(" ".join(r["interpretation"]))]))
+            for d in r.get("diagnostics") or []:
+                if d["level"] != "information":
+                    self.add(Para([Run(f"{DIAG_LABEL.get(d['level'], d['level'])} : ", bold=True),
+                                   Run(f"{d['title']}. {d.get('detail', '')}".strip())], "note"))
+            self.add(Para.of(r["disclaimer"] + " Équivalent R : " + r["r_equivalent"] + ".", "note"))
+
+    def power_limits(self) -> list[list[Run]]:
+        items: list[list[Run]] = []
+        if not self.locked:
+            return items
+        calcs = {c["id"]: c for c in self.power_calcs}
+        for item in self.locked["content"]["analyses"]:
+            calc = calcs.get(item.get("power_calc"))
+            if calc is None or calc["result"]["mode"] != "sample_size":
+                continue
+            worst = max(calc["result"]["rows"], key=lambda r: r["n_total"])
+            needed = worst["n_total"]
+            for a in self.realised(item["id"]):
+                n = a["result"].get("n_used")
+                if n is not None and n < needed:
+                    items.append([Run(f"{self.label(a)} ({a['title']}) : ", bold=True),
+                                  Run(f"{n} observation(s) utilisée(s), moins que les {needed} nécessaires pour "
+                                      f"l'effet {worst['effect_text']} selon le calcul de puissance n° "
+                                      f"{self.power_number[calc['id']]} : puissance inférieure à celle visée pour cet "
+                                      "effet.")])
+        return items
+
     def discussion(self) -> None:
         self.h1("Discussion")
         guide = ("[À rédiger par l'auteur : confrontez chaque résultat aux hypothèses"
@@ -430,6 +642,8 @@ class Builder:
                     items.append([Run(f"{self.label(a)} ({a['title']}) : ", bold=True),
                                   Run(f"{DIAG_LABEL[d['level']].lower()}, {d['title']}"
                                       + (f" {d['detail']}" if d.get("detail") else ""))])
+        items.extend(self.plan_limits())
+        items.extend(self.power_limits())
         for i, h in enumerate(self.study.hypotheses):
             if not self.linked(i):
                 items.append([Run(f"H{i + 1} : ", bold=True),
@@ -457,6 +671,7 @@ class Builder:
                 ["Date du calcul", a["created_at"][:19].replace("T", " ")],
                 ["Environnement", " · ".join(f"{k} {v}" for k, v in a["environment"].items())],
                 ["Choix de la méthode", mode],
+                ["Plan d'analyse", self.status[a["id"]]["label"]],
                 ["État des données", a["status_label"]],
             ]
             self.add(Table(None, f"{self.label(a)} : {a['title']}", ["Élément", "Valeur"], rows, key_value=True))
@@ -466,6 +681,15 @@ class Builder:
         entries = list(reversed(self.p.journal(limit=2000)))
         self.table("Journal du projet (ordre chronologique)", ["Date", "Action", "Résumé"],
                    [[e.at[:16].replace("T", " "), e.action, e.summary] for e in entries])
+
+
+def _fr_date(iso: str | None) -> str:
+    if not iso:
+        return "?"
+    try:
+        return french_date(date.fromisoformat(iso[:10]))
+    except ValueError:
+        return iso[:10]
 
 
 def build(project, options: dict[str, Any], today: date | None = None, draw: bool = True) -> Document:

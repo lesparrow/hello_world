@@ -65,6 +65,7 @@ class AnalysisStore:
         self._conn = conn
         self._data = data
         self._log = log
+        self.plan = None  # PlanStore, attaché par le projet
 
     # ------------------------------------------------------------------ exécution
     def advise(self, dataset_id: Any, version_id: Any, request: Any) -> dict[str, Any]:
@@ -78,7 +79,7 @@ class AnalysisStore:
         version_name = self._version_name(ds["id"], version_id)
         df, variables, _ = self._materialize(ds["id"], version_id)
         result = catalog.run(method, df, variables, params)
-        recorded_choice = self._choice(choice, method, df, variables)
+        recorded_choice = self._choice(choice, method, df, variables, result["variables"])
         clean_params = json.loads(json.dumps(params or {}, ensure_ascii=False))
         name = _clean_title(title) if title else result["title"]
         cur = self._conn.execute(
@@ -100,7 +101,7 @@ class AnalysisStore:
     def _hypotheses(self) -> list[str]:
         return [r[0] for r in self._conn.execute("SELECT text FROM hypotheses ORDER BY position")]
 
-    def _choice(self, choice: Any, method: str, df, variables) -> dict[str, Any]:
+    def _choice(self, choice: Any, method: str, df, variables, names: list[str] | None = None) -> dict[str, Any]:
         """Choix de la méthode, recalculé et validé par le moteur (l'interface ne fait que le transmettre)."""
         if choice is None:
             choice = {"mode": "direct"}
@@ -122,6 +123,10 @@ class AnalysisStore:
             "reason": reason, "purpose": purpose, "purpose_label": advisor.PURPOSES.get(purpose) if purpose else None,
             "hypothesis": hyp, "hypothesis_text": hypotheses[hyp] if hyp is not None else None,
         }
+        if choice.get("plan_item") is not None:
+            if self.plan is None:
+                raise ValidationError("Plan d'analyse indisponible.")
+            out["plan"] = self.plan.link(choice["plan_item"], method, names or [], choice.get("plan_reason"))
         if choice["mode"] == "assistant":
             request = choice.get("request")
             if not isinstance(request, dict):

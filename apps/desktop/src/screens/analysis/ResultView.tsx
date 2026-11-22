@@ -215,6 +215,12 @@ function ChoiceView({ analysis }: { analysis: Analysis }) {
       <Line label="Nature de l'analyse" value={c.purpose_label ?? 'Non précisée'} />
       <Line label="Hypothèse liée" value={c.hypothesis_text != null && c.hypothesis != null
         ? `H${c.hypothesis + 1} : ${c.hypothesis_text}` : 'Aucune'} />
+      <Line label="Plan d'analyse" value={c.plan
+        ? `Prévue au plan : ${c.plan.planned} (version ${c.plan.version})`
+        : 'Non rattachée au plan (présentée dans le rapport comme non prévue ou antérieure au plan)'} />
+      {c.plan?.deviation && (
+        <Line label="Écart au plan" value={`${c.plan.deviations.join(' ; ')}. Raison : ${c.plan.reason || '—'}`} />
+      )}
     </Stack>
   );
 }
@@ -238,7 +244,7 @@ function StatCard({ stat }: { stat: SummaryStat }) {
   );
 }
 
-function ResultTableView({ table }: { table: ResultTable }) {
+export function ResultTableView({ table }: { table: ResultTable }) {
   return (
     <div>
       <Text fw={600} mb="xs">{table.title}</Text>
@@ -270,7 +276,7 @@ function ResultTableView({ table }: { table: ResultTable }) {
   );
 }
 
-function Line({ label, value }: { label: string; value: React.ReactNode }) {
+export function Line({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <Group gap="sm" align="flex-start" wrap="nowrap">
       <Text size="sm" c="dimmed" w={230} style={{ flexShrink: 0 }}>{label}</Text>

@@ -72,6 +72,19 @@ class Engine:
             "analysis.reproduce": self.analysis_reproduce,
             "analysis.levels": self.analysis_levels,
             "analysis.advise": self.analysis_advise,
+            "power.catalog": self.power_catalog,
+            "power.compute": self.power_compute,
+            "power.save": self.power_save,
+            "power.list": self.power_list,
+            "power.get": self.power_get,
+            "power.rename": self.power_rename,
+            "power.delete": self.power_delete,
+            "power.from_analysis": self.power_from_analysis,
+            "plan.get": self.plan_get,
+            "plan.save": self.plan_save,
+            "plan.lock": self.plan_lock,
+            "plan.discard": self.plan_discard,
+            "plan.version": self.plan_version,
             "report.templates": self.report_templates,
             "report.options": self.report_options,
             "report.check": self.report_check,
@@ -228,6 +241,67 @@ class Engine:
         project = self._require_project()
         report = project.analyses.reproduce(params.get("analysis_id"))
         return {"report": report, "project": project.describe()}
+
+    # -------------------------------------------------------------- puissance
+    def power_catalog(self, _: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.stats.power import catalog
+
+        return catalog()
+
+    def power_compute(self, params: dict[str, Any]) -> dict[str, Any]:
+        # Le calcul seul ne demande pas de projet ouvert (aperçu avant enregistrement).
+        from statpfe.stats.power import compute
+
+        return compute(params.get("request"))
+
+    def power_save(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        calc_id = project.power.save(params.get("request"), params.get("title"))
+        return {"calc": project.power.get(calc_id), "project": project.describe()}
+
+    def power_list(self, _: dict[str, Any]) -> list[dict[str, Any]]:
+        return self._require_project().power.list()
+
+    def power_get(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self._require_project().power.get(params.get("power_id"))
+
+    def power_rename(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.power.rename(params.get("power_id"), params.get("title"))
+        return {"calc": project.power.get(params.get("power_id")), "project": project.describe()}
+
+    def power_delete(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.power.delete(params.get("power_id"))
+        return project.describe()
+
+    def power_from_analysis(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.stats.power import from_analysis
+
+        project = self._require_project()
+        return from_analysis(project.analyses.get(params.get("analysis_id")))
+
+    # -------------------------------------------------------------- plan d'analyse
+    def plan_get(self, _: dict[str, Any]) -> dict[str, Any]:
+        return self._require_project().plan.get()
+
+    def plan_save(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.plan.save(params.get("content"))
+        return {"plan": project.plan.get(), "project": project.describe()}
+
+    def plan_lock(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.plan.lock(params.get("reason"))
+        return {"plan": project.plan.get(), "project": project.describe()}
+
+    def plan_discard(self, _: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        project.plan.discard_draft()
+        return {"plan": project.plan.get(), "project": project.describe()}
+
+    def plan_version(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self._require_project().plan.version(params.get("version"))
 
     # -------------------------------------------------------------- rapports
     def report_templates(self, _: dict[str, Any]) -> dict[str, Any]:

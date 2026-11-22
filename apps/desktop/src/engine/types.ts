@@ -29,6 +29,8 @@ export interface ProjectState {
   journal: JournalEntry[];
   datasets: DatasetSummary[];
   analyses_count: number;
+  power_count: number;
+  plan_status: { version: number; status: PlanVersionStatus; locked_version: number | null } | null;
 }
 
 export interface DatasetSummary {
@@ -240,7 +242,15 @@ export type Chart =
   | { type: 'boxplot'; title: string; data: { series: BoxSeries[]; unit: string } }
   | { type: 'bar'; title: string; data: { bars: { label: string; count: number; percent: number }[]; n: number } }
   | { type: 'stacked'; title: string; data: { rows: string[]; columns: string[]; percent: number[][]; counts: number[][] } }
-  | { type: 'scatter'; title: string; data: { x_label: string; y_label: string; points: [number, number][]; n: number; truncated: boolean } };
+  | { type: 'scatter'; title: string; data: { x_label: string; y_label: string; points: [number, number][]; n: number; truncated: boolean } }
+  | { type: 'power_curve'; title: string; data: PowerCurveData };
+
+export interface PowerCurveData {
+  x_label: string;
+  series: { label: string; points: [number, number | null][] }[];
+  target: number | null;
+  marker: number | null;
+}
 
 export interface AnalysisResult {
   method: string;
@@ -322,6 +332,8 @@ export interface ChoiceInput {
   reason?: string;
   purpose?: AnalysisPurpose | null;
   hypothesis?: number | null;
+  plan_item?: string | null;
+  plan_reason?: string;
 }
 
 /** Choix enregistré avec l'analyse. */
@@ -342,6 +354,171 @@ export interface MethodChoice {
   recommendation_reasons?: string[];
   followed?: boolean;
   missing_information?: string[];
+  plan?: PlanLink;
+}
+
+export interface PlanLink {
+  item: string;
+  version: number;
+  locked_at: string;
+  planned: string;
+  planned_method: string;
+  planned_variables: string[];
+  deviation: boolean;
+  deviations: string[];
+  reason: string;
+}
+
+// ------------------------------------------------------------------ puissance
+export type PowerDesign = 't_two' | 't_paired' | 't_one' | 'prop_two' | 'chi2' | 'correlation';
+export type PowerMode = 'sample_size' | 'power' | 'effect';
+export type PowerSides = 'two-sided' | 'one-sided';
+
+export interface PowerDesignInfo {
+  key: PowerDesign;
+  label: string;
+  effect: 'd' | 'h' | 'w' | 'r';
+  effect_label: string;
+  groups: 1 | 2;
+  sided: boolean;
+  benchmarks: number[];
+  unit: string;
+  n_min: number;
+  methods: string[];
+  assumptions: string[];
+  r_equivalent: string;
+}
+
+export interface PowerCatalog {
+  designs: PowerDesignInfo[];
+  modes: { key: PowerMode; label: string }[];
+  alternatives: { key: PowerSides; label: string }[];
+  max_effects: number;
+  alpha_range: [number, number];
+  power_range: [number, number];
+}
+
+export type PowerEffect = { d?: number; diff?: number; sd?: number; p1?: number; p2?: number; h?: number; w?: number; r?: number };
+
+export interface PowerRequest {
+  design: PowerDesign;
+  mode: PowerMode;
+  alpha?: number;
+  power?: number;
+  alternative?: PowerSides;
+  effects?: PowerEffect[];
+  ratio?: number;
+  attrition?: number;
+  n?: number;
+  n1?: number;
+  n2?: number;
+  df?: number;
+  rows?: number;
+  cols?: number;
+  p_ref?: number;
+  effect_source?: string;
+  source_analysis?: number | null;
+}
+
+export interface PowerRow {
+  effect: number;
+  effect_text?: string;
+  n1: number;
+  n2: number | null;
+  n_total: number;
+  power: number;
+  recruit_total?: number;
+}
+
+export interface PowerResult {
+  request: PowerRequest;
+  design: PowerDesign;
+  design_label: string;
+  mode: PowerMode;
+  mode_label: string;
+  title: string;
+  summary: SummaryStat[];
+  tables: ResultTable[];
+  charts: Chart[];
+  diagnostics: { level: DiagLevel; title: string; detail: string }[];
+  interpretation: string[];
+  assumptions: string[];
+  rows: PowerRow[];
+  method_note: string;
+  r_equivalent: string;
+  disclaimer: string;
+}
+
+export interface PowerCalcSummary {
+  id: number;
+  created_at: string;
+  title: string;
+  design: PowerDesign;
+  design_label: string;
+  mode: PowerMode;
+  mode_label: string;
+  headline: string;
+  locked_in_plan: number[];
+}
+
+export interface PowerCalc {
+  id: number;
+  created_at: string;
+  title: string;
+  request: PowerRequest;
+  result: PowerResult;
+  environment: Record<string, string>;
+  locked_in_plan: number[];
+}
+
+// ------------------------------------------------------------------ plan d'analyse
+export type PlanVersionStatus = 'brouillon' | 'verrouille';
+
+export interface PlanItem {
+  id?: string | null;
+  method: string;
+  variables: Record<string, string[]>;
+  hypothesis: number | null;
+  role: 'principale' | 'secondaire';
+  alternative: 'two-sided' | 'less' | 'greater';
+  description: string;
+  power_calc: number | null;
+}
+
+export interface PlanContent {
+  objectives: string;
+  hypotheses: string[];
+  primary_variables: string[];
+  secondary_variables: string[];
+  analyses: PlanItem[];
+  exclusion_criteria: string;
+  missing_values: string;
+  exploratory: string;
+  multiplicity: string;
+  alpha: number;
+  sample_size: number | null;
+  power_calc: number | null;
+}
+
+export interface PlanChange { field: string; label: string; kind: 'ajoute' | 'retire' | 'modifie'; detail: string }
+
+export interface PlanVersion {
+  version: number;
+  status: PlanVersionStatus;
+  created_at: string;
+  updated_at: string;
+  locked_at: string | null;
+  change_reason: string;
+  changes: PlanChange[];
+  content?: PlanContent;
+}
+
+export interface PlanState {
+  current: (PlanVersion & { content: PlanContent }) | null;
+  locked: (PlanVersion & { content: PlanContent }) | null;
+  versions: PlanVersion[];
+  empty: PlanContent;
+  pending_changes: PlanChange[];
 }
 
 export interface Analysis extends AnalysisSummary {
@@ -380,6 +557,7 @@ export interface ReportOptions {
   cover: Record<string, string>;
   sections: Record<string, boolean>;
   analyses: number[];
+  power: number[];
   figures: boolean;
 }
 
@@ -449,6 +627,22 @@ export interface EngineMethods {
     };
     result: { analysis: Analysis; project: ProjectState };
   };
+  'power.catalog': { params: Record<string, never>; result: PowerCatalog };
+  'power.compute': { params: { request: PowerRequest }; result: PowerResult };
+  'power.save': { params: { request: PowerRequest; title?: string }; result: { calc: PowerCalc; project: ProjectState } };
+  'power.list': { params: Record<string, never>; result: PowerCalcSummary[] };
+  'power.get': { params: { power_id: number }; result: PowerCalc };
+  'power.rename': { params: { power_id: number; title: string }; result: { calc: PowerCalc; project: ProjectState } };
+  'power.delete': { params: { power_id: number }; result: ProjectState };
+  'power.from_analysis': {
+    params: { analysis_id: number };
+    result: { request: PowerRequest; analysis_id: number; analysis_title: string; design_label: string };
+  };
+  'plan.get': { params: Record<string, never>; result: PlanState };
+  'plan.save': { params: { content: PlanContent }; result: { plan: PlanState; project: ProjectState } };
+  'plan.lock': { params: { reason: string }; result: { plan: PlanState; project: ProjectState } };
+  'plan.discard': { params: Record<string, never>; result: { plan: PlanState; project: ProjectState } };
+  'plan.version': { params: { version: number }; result: PlanVersion & { content: PlanContent } };
   'report.templates': { params: Record<string, never>; result: ReportTemplates };
   'report.options': { params: Record<string, never>; result: ReportOptions };
   'report.check': {

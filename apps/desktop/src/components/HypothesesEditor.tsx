@@ -5,9 +5,10 @@ interface Props {
   value: string[];
   onChange: (v: string[]) => void;
   onBlur?: () => void;
+  prefix?: string;
 }
 
-export function HypothesesEditor({ value, onChange, onBlur }: Props) {
+export function HypothesesEditor({ value, onChange, onBlur, prefix = 'H' }: Props) {
   const items = value.length ? value : [''];
   const update = (i: number, text: string) => onChange(items.map((h, j) => (j === i ? text : h)));
   const remove = (i: number) => onChange(items.filter((_, j) => j !== i));
@@ -16,7 +17,7 @@ export function HypothesesEditor({ value, onChange, onBlur }: Props) {
     <Stack gap="xs">
       {items.map((h, i) => (
         <Group key={i} align="flex-start" wrap="nowrap" gap="xs">
-          <Text fw={600} c="brand.6" w={30} pt={7} size="sm">H{i + 1}</Text>
+          <Text fw={600} c="brand.6" w={30} pt={7} size="sm">{prefix}{i + 1}</Text>
           <Textarea
             style={{ flex: 1 }}
             minRows={1}

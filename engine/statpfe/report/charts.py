@@ -105,6 +105,25 @@ def render(chart: dict[str, Any]) -> bytes:
             ax.set_ylabel(d["y_label"])
             _fr_axis(ax)
             _fr_axis(ax, "x")
+        elif kind == "power_curve":
+            styles = ["-", "--", ":", "-.", (0, (5, 1, 1, 1)), (0, (1, 3))]
+            for i, ser in enumerate(d["series"]):
+                pts = [p for p in ser["points"] if p[1] is not None]
+                ax.plot([p[0] for p in pts], [p[1] * 100 for p in pts], color=INK, linewidth=1.2,
+                        linestyle=styles[i % len(styles)], label=ser["label"])
+            if d.get("target") is not None:
+                ax.axhline(d["target"] * 100, color="#8c8c8c", linewidth=0.8, linestyle="--")
+                ax.annotate(f"puissance visée {fixed(d['target'] * 100, 0)} %", (1, d["target"] * 100),
+                            xycoords=("axes fraction", "data"), ha="right", va="bottom", fontsize=7.5,
+                            color="#4d4d4d")
+            if d.get("marker") is not None:
+                ax.axvline(d["marker"], color="#8c8c8c", linewidth=0.8, linestyle=":")
+            ax.set_ylim(0, 100)
+            ax.set_xlabel(d["x_label"])
+            ax.set_ylabel("Puissance (%)")
+            _fr_axis(ax, "x")
+            if len(d["series"]) > 1:
+                ax.legend(frameon=False, fontsize=8, loc="lower right")
         else:
             raise ValueError(f"type de graphique inconnu : {kind}")
         fig.tight_layout()
@@ -137,4 +156,17 @@ def describe(chart: dict[str, Any]) -> str:
     if kind == "scatter":
         extra = " (échantillon des points affiché)" if d.get("truncated") else ""
         return f"Nuage de points de « {d['y_label']} » en fonction de « {d['x_label']} », n = {d['n']}{extra}."
+    if kind == "power_curve":
+        target = (f" La ligne horizontale marque la puissance visée ({fixed(d['target'] * 100, 0)} %)."
+                  if d.get("target") is not None else "")
+        parts = []
+        for ser in d["series"]:
+            pts = [p for p in ser["points"] if p[1] is not None]
+            if pts:
+                parts.append(f"{ser['label']} : de {fixed(pts[0][1] * 100, 0)} % à {fixed(pts[-1][1] * 100, 0)} %")
+        xs = d["series"][0]["points"]
+
+        def xf(v: float) -> str:
+            return fixed(v, 0 if float(v).is_integer() else 2)
+        return (f"Courbe de la puissance (en %) selon « {d['x_label']} », de {xf(xs[0][0])} à {xf(xs[-1][0])}. " + " ; ".join(parts) + "." + target)
     return ""

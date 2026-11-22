@@ -9,8 +9,8 @@ import {
 } from '@tabler/icons-react';
 import { call, errorMessage } from '../../engine/client';
 import type {
-  AnalysisSummary, Catalog, CheckLevel, OutlineItem, ProjectState, ReportCheck, ReportExport, ReportFormat,
-  ReportOptions, ReportTemplates,
+  AnalysisSummary, Catalog, CheckLevel, OutlineItem, PowerCalcSummary, ProjectState, ReportCheck, ReportExport,
+  ReportFormat, ReportOptions, ReportTemplates,
 } from '../../engine/types';
 import { pickReportDestination } from '../../lib/files';
 import { suggestFileName } from '../../lib/format';
@@ -33,6 +33,7 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
   const [templates, setTemplates] = useState<ReportTemplates | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [analyses, setAnalyses] = useState<AnalysisSummary[]>([]);
+  const [calcs, setCalcs] = useState<PowerCalcSummary[]>([]);
   const [options, setOptions] = useState<ReportOptions | null>(null);
   const [checks, setChecks] = useState<ReportCheck | null>(null);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
@@ -46,8 +47,8 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
 
   useEffect(() => {
     Promise.all([call('report.templates', {}), call('report.options', {}), call('analysis.list', {}),
-      call('analysis.catalog', {})])
-      .then(([t, o, a, c]) => { setTemplates(t); setOptions(o); setAnalyses(a); setCatalog(c); })
+      call('analysis.catalog', {}), call('power.list', {})])
+      .then(([t, o, a, c, pw]) => { setTemplates(t); setOptions(o); setAnalyses(a); setCatalog(c); setCalcs(pw); })
       .catch((err) => setError(errorMessage(err)));
   }, []);
 
@@ -173,7 +174,7 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
                     onChange={(e) => update({ sections: { ...options.sections, [s.key]: e.currentTarget.checked } })} />
                 ))}
               </SimpleGrid>
-              <Switch mt="md" label="Inclure les figures (histogrammes, boîtes à moustaches, barres, nuages de points)"
+              <Switch mt="md" label="Inclure les figures (histogrammes, boîtes à moustaches, barres, nuages de points, courbes de puissance)"
                 checked={options.figures} onChange={(e) => update({ figures: e.currentTarget.checked })} />
             </Paper>
 
@@ -231,6 +232,22 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
                 </Stack>
               )}
             </Paper>
+            {options.sections.power && calcs.length > 0 && (
+              <Paper withBorder p="md">
+                <Text fw={650} mb="xs">Calculs de puissance inclus ({options.power.length} sur {calcs.length})</Text>
+                <Stack gap={4}>
+                  {calcs.map((c) => (
+                    <Checkbox key={c.id} checked={options.power.includes(c.id)}
+                      onChange={(e) => update({ power: e.currentTarget.checked ? [...options.power, c.id]
+                        : options.power.filter((x) => x !== c.id) })}
+                      label={<>
+                        <Text size="sm" span>{c.title}</Text>
+                        <Text size="xs" c="dimmed" span> · {c.mode_label}</Text>
+                      </>} />
+                  ))}
+                </Stack>
+              </Paper>
+            )}
           </Stack>
         </Grid.Col>
 

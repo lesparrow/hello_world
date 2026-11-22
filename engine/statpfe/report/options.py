@@ -11,7 +11,9 @@ SECTIONS: dict[str, str] = {
     "toc": "Sommaire",
     "introduction": "Présentation de l'étude (problématique, objectifs)",
     "hypotheses": "Hypothèses",
+    "plan": "Plan d'analyse (prévu avant l'analyse, historique des versions)",
     "population": "Population et échantillonnage",
+    "power": "Taille d'échantillon et puissance",
     "variables": "Description des variables",
     "preparation": "Préparation des données",
     "methodology": "Méthodologie statistique",
@@ -33,7 +35,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
     "memoire": {"label": "Mémoire de master", "document": "Mémoire de master", "sections": _NO_ANNEX_JOURNAL},
     "these": {"label": "Thèse de doctorat", "document": "Thèse de doctorat", "sections": _ALL},
     "article": {"label": "Article scientifique", "document": "Article",
-                "sections": _ALL - {"cover", "toc", "annex_journal", "population", "preparation"}},
+                "sections": _ALL - {"cover", "toc", "annex_journal", "population", "preparation"}},  # plan, puissance gardés
     "enquete": {"label": "Rapport d'enquête", "document": "Rapport d'enquête",
                 "sections": _NO_ANNEX_JOURNAL - {"hypotheses", "discussion"}},
 }
@@ -49,6 +51,7 @@ COVER_FIELDS: dict[str, str] = {
 COVER_MAX = 300
 FORMATS = {"docx": "Word (.docx)", "pdf": "PDF"}
 MAX_ANALYSES = 200
+MAX_POWER = 50
 
 
 def templates() -> dict[str, Any]:
@@ -61,12 +64,13 @@ def templates() -> dict[str, Any]:
     }
 
 
-def default_options(analysis_ids: list[int]) -> dict[str, Any]:
+def default_options(analysis_ids: list[int], power_ids: list[int] | None = None) -> dict[str, Any]:
     return {
         "template": "pfe",
         "cover": {k: "" for k in COVER_FIELDS},
         "sections": {k: k in TEMPLATES["pfe"]["sections"] for k in SECTIONS},
         "analyses": analysis_ids,
+        "power": power_ids or [],
         "figures": True,
     }
 
@@ -95,14 +99,21 @@ def clean_options(raw: Any) -> dict[str, Any]:
         if not isinstance(sections_in, dict) or set(sections_in) - set(SECTIONS) \
                 or not all(isinstance(v, bool) for v in sections_in.values()):
             raise ValidationError("Sections du rapport invalides.")
-        sections = {k: bool(sections_in.get(k, False)) for k in SECTIONS}
+        # Section absente (options enregistrées par une version plus ancienne) : valeur du modèle.
+        sections = {k: bool(sections_in.get(k, k in TEMPLATES[template]["sections"])) for k in SECTIONS}
     analyses = raw.get("analyses", [])
     if not isinstance(analyses, list) or len(analyses) > MAX_ANALYSES \
             or not all(isinstance(a, int) and not isinstance(a, bool) for a in analyses):
         raise ValidationError("Liste des analyses invalide.")
     if len(set(analyses)) != len(analyses):
         raise ValidationError("Une analyse figure deux fois dans le rapport.")
+    power = raw.get("power")
+    if power is not None:
+        if not isinstance(power, list) or len(power) > MAX_POWER \
+                or not all(isinstance(a, int) and not isinstance(a, bool) for a in power) or len(set(power)) != len(power):
+            raise ValidationError("Liste des calculs de puissance invalide.")
     figures = raw.get("figures", True)
     if not isinstance(figures, bool):
         raise ValidationError("Option « figures » invalide.")
-    return {"template": template, "cover": cover, "sections": sections, "analyses": analyses, "figures": figures}
+    return {"template": template, "cover": cover, "sections": sections, "analyses": analyses, "power": power,
+            "figures": figures}

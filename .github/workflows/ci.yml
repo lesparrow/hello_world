@@ -38,10 +38,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Installer R (paquets de base uniquement)
+      - name: Installer R (paquets de base et pwr)
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q r-base-core
+          sudo apt-get install -y -q r-base-core r-cran-pwr
           Rscript -e 'cat(R.version.string, "\n")'
       - run: pip install -e "engine[dev]"
       - name: Recalculer les valeurs de référence avec R
@@ -52,6 +52,14 @@ jobs:
         env:
           STATPFE_R_RESULTS: ${{ runner.temp }}/r_results.csv
         run: python -m pytest -q tests/test_reference_r.py
+      - name: Recalculer les valeurs de puissance avec R (pwr, power.t.test)
+        working-directory: engine
+        run: Rscript tests/reference/r_power.R "$RUNNER_TEMP/r_power.csv"
+      - name: Comparer les calculs de puissance aux valeurs de R
+        working-directory: engine
+        env:
+          STATPFE_R_POWER: ${{ runner.temp }}/r_power.csv
+        run: python -m pytest -q tests/test_power_r.py
 
   frontend:
     name: Interface React

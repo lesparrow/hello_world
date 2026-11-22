@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Badge, Button, Divider, Grid, Group, List, Modal, MultiSelect, Paper, SegmentedControl, Select, SimpleGrid,
-  Stack, Switch, Text, TextInput, ThemeIcon, UnstyledButton,
+  Stack, Switch, Text, Textarea, TextInput, ThemeIcon, UnstyledButton,
 } from '@mantine/core';
 import {
   IconArrowLeft, IconArrowsLeftRight, IconBulb, IconChartDots, IconChevronRight, IconInfoCircle, IconListNumbers,
@@ -9,7 +9,8 @@ import {
 } from '@tabler/icons-react';
 import { call, errorMessage } from '../../engine/client';
 import type {
-  Analysis, AnalysisParams, AnalysisPurpose, Catalog, ChoiceInput, Dataset, MethodInfo, MethodVariable, ProjectState,
+  Analysis, AnalysisParams, AnalysisPurpose, Catalog, ChoiceInput, Dataset, MethodInfo, MethodVariable, PlanItem,
+  ProjectState,
   Variable,
 } from '../../engine/types';
 import { AdvisorStep, EMPTY_GUIDE, type GuideState, type GuidedChoice } from './AdvisorStep';
@@ -57,7 +58,13 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
   const [guided, setGuided] = useState<GuidedChoice | null>(null);
   const [purpose, setPurpose] = useState<AnalysisPurpose | null>(null);
   const [hypothesis, setHypothesis] = useState<number | null>(null);
+  const [planItems, setPlanItems] = useState<PlanItem[]>([]);
+  const [planVersion, setPlanVersion] = useState<number | null>(null);
+  const [planItem, setPlanItem] = useState<string | null>(null);
+  const [planTouched, setPlanTouched] = useState(false);
+  const [planReason, setPlanReason] = useState('');
   const hypotheses = project.study.hypotheses;
+  const lockedPlan = project.plan_status?.locked_version ?? null;
 
   // Ouverture : reprise d'un brouillon (duplication) ou nouvelle analyse.
   useEffect(() => {
@@ -69,6 +76,9 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
     setGuided(null);
     setPurpose(null);
     setHypothesis(null);
+    setPlanItem(null);
+    setPlanTouched(false);
+    setPlanReason('');
     if (initial) {
       setMethod(catalog.methods.find((m) => m.key === initial.method) ?? null);
       setDatasetId(initial.dataset_id);
@@ -114,6 +124,35 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
     return () => { cancelled = true; };
   }, [usesLevels, groupKey, datasetId, versionId]);
 
+  // Analyses prévues du plan verrouillé, pour rattacher l'analyse à sa référence (A1, A2…).
+  useEffect(() => {
+    if (!opened || lockedPlan === null) { setPlanItems([]); setPlanVersion(null); return; }
+    let cancelled = false;
+    call('plan.get', {})
+      .then((p) => { if (!cancelled) { setPlanItems(p.locked?.content.analyses ?? []); setPlanVersion(p.locked?.version ?? null); } })
+      .catch(() => !cancelled && setPlanItems([]));
+    return () => { cancelled = true; };
+  }, [opened, lockedPlan]);
+
+  const chosenNames = useMemo(() => {
+    if (!method) return [] as string[];
+    const byKey = new Map(variables.map((v) => [v.key, v.name]));
+    return method.variables.flatMap((mv) => {
+      const v = params[mv.name];
+      const keys = Array.isArray(v) ? v as string[] : typeof v === 'string' ? [v] : [];
+      return keys.map((k) => byKey.get(k) ?? k);
+    });
+  }, [method, params, variables]);
+  const norm = (xs: string[]) => [...xs].map((x) => x.trim().toLocaleLowerCase('fr')).sort().join('|');
+  const matching = planItems.find((it) => it.method === method?.key
+    && norm(Object.values(it.variables).flat()) === norm(chosenNames));
+  useEffect(() => {
+    if (!planTouched) setPlanItem(matching?.id ?? null);
+  }, [matching, planTouched]);
+  const selectedItem = planItems.find((it) => it.id === planItem) ?? null;
+  const deviates = selectedItem !== null && (selectedItem.method !== method?.key
+    || norm(Object.values(selectedItem.variables).flat()) !== norm(chosenNames));
+
   const families = useMemo(() => Object.entries(catalog.families), [catalog]);
 
   const setParam = (name: string, value: unknown) => {
@@ -134,7 +173,8 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
     if (!method || datasetId === null) return;
     setBusy(true);
     setError(null);
-    const choice: ChoiceInput = guided ? guided.choice : { mode: 'direct', purpose, hypothesis };
+    const base: ChoiceInput = guided ? guided.choice : { mode: 'direct', purpose, hypothesis };
+    const choice: ChoiceInput = planItem ? { ...base, plan_item: planItem, plan_reason: deviates ? planReason : '' } : base;
     try {
       const r = await call('analysis.run', {
         dataset_id: datasetId, version_id: versionId, method: method.key, params, choice,
@@ -334,6 +374,26 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
                 </>
               )}
 
+              {planItems.length > 0 && (
+                <>
+                  <Divider label={`Plan d'analyse (version ${planVersion} verrouillée)`} labelPosition="left" />
+                  <Select label="Analyse prévue au plan" allowDeselect={false}
+                    value={planItem ?? 'none'}
+                    data={[{ value: 'none', label: 'Aucune : analyse non prévue au plan' },
+                      ...planItems.map((it) => ({ value: it.id!, label: `${it.id} · ${catalog.methods.find((m) => m.key === it.method)?.label ?? it.method} : ${Object.values(it.variables).flat().join(', ')}` }))]}
+                    description={planItem
+                      ? (deviates ? 'Méthode ou variables différentes de celles prévues : indiquez la raison de l\'écart.'
+                        : 'Correspond à l\'analyse prévue : elle sera présentée comme prévue dans le rapport.')
+                      : 'Elle sera présentée dans le rapport comme ajoutée après consultation des données.'}
+                    onChange={(v) => { setPlanTouched(true); setPlanItem(!v || v === 'none' ? null : v); }} />
+                  {deviates && (
+                    <Textarea label="Raison de l'écart au plan" autosize minRows={2} maxLength={2000} required
+                      value={planReason} onChange={(e) => setPlanReason(e.currentTarget.value)}
+                      placeholder="Ex. : distribution très asymétrique, test de Mann-Whitney retenu à la place du test t" />
+                  )}
+                </>
+              )}
+
               <TextInput label="Titre de l'analyse (facultatif)" placeholder={method.label} maxLength={200}
                 value={title} onChange={(e) => setTitle(e.currentTarget.value)} />
 
@@ -344,7 +404,7 @@ export function NewAnalysisModal({ opened, onClose, project, catalog, initial, o
                   onClick={backToMethods} disabled={Boolean(initial)}>
                   {guided ? "Retour à l'assistant" : 'Autre méthode'}
                 </Button>
-                <Button onClick={submit} loading={busy} disabled={Boolean(missingVariable) || datasetId === null}>
+                <Button onClick={submit} loading={busy} disabled={Boolean(missingVariable) || datasetId === null || (deviates && !planReason.trim())}>
                   Calculer
                 </Button>
               </Group>

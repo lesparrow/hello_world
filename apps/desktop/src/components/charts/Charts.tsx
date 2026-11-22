@@ -1,5 +1,5 @@
 import { Paper, Text } from '@mantine/core';
-import type { BoxSeries, Chart } from '../../engine/types';
+import type { BoxSeries, Chart, PowerCurveData } from '../../engine/types';
 import { fixed, niceTicks, tickLabel } from '../../lib/stats';
 
 // Graphiques en SVG : ils ne dessinent que des valeurs calculées par le moteur
@@ -27,6 +27,7 @@ export function ChartView({ chart }: { chart: Chart }) {
       {chart.type === 'bar' && <Bars bars={chart.data.bars} title={chart.title} />}
       {chart.type === 'stacked' && <Stacked {...chart.data} title={chart.title} />}
       {chart.type === 'scatter' && <Scatter {...chart.data} title={chart.title} />}
+      {chart.type === 'power_curve' && <PowerCurve data={chart.data} title={chart.title} />}
     </Paper>
   );
 }
@@ -229,6 +230,56 @@ function Scatter({ points, x_label, y_label, n, truncated, title }: {
       </Frame>
       {truncated && <Text size="xs" c="dimmed">Affichage des {points.length} premiers points sur {n}.</Text>}
     </>
+  );
+}
+
+const DASHES = ['', '6 3', '2 3', '8 3 2 3', '10 2', '1 4'];
+
+function PowerCurve({ data, title }: { data: PowerCurveData; title: string }) {
+  const xs = data.series.flatMap((s) => s.points.map((p) => p[0]));
+  const lo = Math.min(...xs);
+  const hi = Math.max(...xs);
+  const xt = niceTicks(lo, hi, 6);
+  const x = linear(Math.min(lo, xt[0] ?? lo), Math.max(hi, xt[xt.length - 1] ?? hi), M.left, W - M.right);
+  const y = linear(0, 100, H - M.bottom, M.top);
+  return (
+    <Frame title={title}>
+      <YAxis ticks={[0, 20, 40, 60, 80, 100]} y={y} label="Puissance (%)" />
+      {data.target !== null && (
+        <g>
+          <line x1={M.left} x2={W - M.right} y1={y(data.target * 100)} y2={y(data.target * 100)} stroke={AXIS}
+            strokeDasharray="4 3" />
+          <text x={W - M.right} y={y(data.target * 100) - 4} textAnchor="end" fontSize={10} fill={AXIS}>
+            puissance visée {fixed(data.target * 100, 0)} %
+          </text>
+        </g>
+      )}
+      {data.marker !== null && (
+        <line x1={x(data.marker)} x2={x(data.marker)} y1={M.top} y2={H - M.bottom} stroke={AXIS} strokeDasharray="2 3" />
+      )}
+      {data.series.map((s, i) => {
+        const pts = s.points.filter((p): p is [number, number] => p[1] !== null);
+        const d = pts.map((p, j) => `${j ? 'L' : 'M'} ${x(p[0]).toFixed(1)} ${y(p[1] * 100).toFixed(1)}`).join(' ');
+        return (
+          <path key={i} d={d} fill="none" stroke={PALETTE[i % PALETTE.length]} strokeWidth={2}
+            strokeDasharray={DASHES[i % DASHES.length]}>
+            <title>{s.label}</title>
+          </path>
+        );
+      })}
+      <XTicks ticks={xt} x={x} label={data.x_label} />
+      {data.series.length > 1 && (
+        <g transform={`translate(${M.left + 8} ${M.top + 4})`}>
+          {data.series.map((s, i) => (
+            <g key={i} transform={`translate(0 ${i * 15})`}>
+              <line x1={0} x2={22} y1={0} y2={0} stroke={PALETTE[i % PALETTE.length]} strokeWidth={2}
+                strokeDasharray={DASHES[i % DASHES.length]} />
+              <text x={28} dy="0.32em" fontSize={11} fill="#495057">{s.label}</text>
+            </g>
+          ))}
+        </g>
+      )}
+    </Frame>
   );
 }
 
