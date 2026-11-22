@@ -325,7 +325,8 @@ def _write_archive(conn: sqlite3.Connection, path: Path, project_id: str) -> Non
         with zipfile.ZipFile(tmp_archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(MANIFEST, json.dumps(manifest, ensure_ascii=False, indent=2))
             zf.write(snapshot, DATABASE)
-        with open(tmp_archive, "rb") as fh:
+        # Ouverture en écriture : sous Windows, fsync échoue sur un fichier ouvert en lecture seule.
+        with open(tmp_archive, "r+b") as fh:
             os.fsync(fh.fileno())
         if path.exists():
             shutil.copy2(path, path.with_name(path.name + ".bak"))
