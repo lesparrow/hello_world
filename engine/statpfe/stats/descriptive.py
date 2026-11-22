@@ -145,7 +145,7 @@ def descriptives(ctx: Context) -> Result:
             row.insert(2 if group else 1, int(gdf[var.key].isna().sum()))
             rows.append(row)
             name = f"{var.name} · {glabel}" if group else var.name
-            values = {k: num(v) if isinstance(v, (int, float)) else v for k, v in s.items()}
+            values = {k: v if isinstance(v, int) else num(v) if isinstance(v, float) else v for k, v in s.items()}
             sw = shapiro(x)
             if sw:
                 values["shapiro_w"], values["shapiro_p"] = sw

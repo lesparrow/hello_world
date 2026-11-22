@@ -104,6 +104,24 @@ class AnalysisStore:
                 "identical_results": not differences, "differences": differences[:50],
                 "same_environment": same_env, "environment": environment(), "checked_at": now_iso()}
 
+    def levels(self, dataset_id: Any, version_id: Any, key: Any) -> list[dict[str, Any]]:
+        """Modalités présentes d'une variable (ordre du dictionnaire), pour choisir les groupes à comparer."""
+        from statpfe.stats.common import MAX_GROUP_LEVELS, as_labels, level_label, ordered_levels
+
+        ds = self._data._dataset_row(dataset_id)
+        df, variables, _ = self._materialize(ds["id"], version_id)
+        var = next((v for v in variables if v.key == key), None)
+        if var is None:
+            raise ValidationError("Variable inconnue.")
+        if var.potential_identifier or var.role == "identifiant":
+            raise ValidationError("Les modalités d'une variable identifiante ne sont pas affichées.")
+        labels = as_labels(df[var.key])
+        counts = labels.value_counts()
+        present = ordered_levels(var, sorted(set(labels.dropna())))
+        if len(present) > MAX_GROUP_LEVELS:
+            raise ValidationError(f"« {var.name} » a plus de {MAX_GROUP_LEVELS} valeurs différentes.")
+        return [{"value": v, "label": level_label(var, v), "count": int(counts.get(v, 0))} for v in present]
+
     # ------------------------------------------------------------------ lecture
     def list(self) -> list[dict[str, Any]]:
         rows = self._conn.execute(

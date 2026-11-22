@@ -14,6 +14,7 @@ import { call, runningInTauri } from '../engine/client';
 import type { Dataset, ProjectState, Study } from '../engine/types';
 import { DataPage } from './data/DataPage';
 import { PreparationPage } from './data/PreparationPage';
+import { AnalysesPage } from './analysis/AnalysesPage';
 import { Logo } from '../components/Logo';
 import { StudyPage } from './StudyPage';
 import { studyChanges } from '../lib/studyDiff';
@@ -30,11 +31,10 @@ interface Props {
 // Étapes du parcours. Celles qui ne sont pas encore développées sont affichées
 // comme telles et ne sont pas cliquables.
 const UPCOMING = [
-  { label: 'Analyses', icon: IconChartBar, phase: 'Phase 4' },
   { label: 'Rapport', icon: IconFileText, phase: 'Phase 6' },
 ];
 
-type Section = 'etude' | 'donnees' | 'preparation';
+type Section = 'etude' | 'donnees' | 'preparation' | 'analyses';
 
 type PendingClose = 'project' | 'window' | null;
 
@@ -199,6 +199,11 @@ export function Workspace({ project, onChange, onClosed }: Props) {
           leftSection={<IconTransform size={18} />} variant="light" style={{ borderRadius: 8 }}
           disabled={project.datasets.length === 0}
           onClick={() => { void flush(); setSection('preparation'); }} />
+        <NavLink active={section === 'analyses'} label="Analyses" description="Descriptives, tests, corrélations"
+          leftSection={<IconChartBar size={18} />} variant="light" style={{ borderRadius: 8 }}
+          disabled={project.datasets.length === 0}
+          rightSection={project.analyses_count ? <Badge size="xs" variant="light">{project.analyses_count}</Badge> : null}
+          onClick={() => { void flush(); setSection('analyses'); }} />
         {UPCOMING.map((s) => (
           <NavLink key={s.label} disabled label={s.label} leftSection={<s.icon size={18} />}
             rightSection={<Badge size="xs" variant="outline" color="gray">{s.phase}</Badge>}
@@ -215,6 +220,9 @@ export function Workspace({ project, onChange, onClosed }: Props) {
           {section === 'donnees' && (
             <DataPage project={project} dataset={dataset} onSelectDataset={setDatasetId} onResult={applyDataResult}
               onImported={(id, p) => { onChange(p); setDatasetId(id); if (id === datasetId) call('data.get', { dataset_id: id }).then(setDataset); }} />
+          )}
+          {section === 'analyses' && (
+            <AnalysesPage project={project} onChange={onChange} onGoToData={() => setSection('donnees')} />
           )}
           {section === 'preparation' && (
             <PreparationPage dataset={dataset} onResult={applyDataResult} onGoToData={() => setSection('donnees')} />

@@ -70,6 +70,7 @@ class Engine:
             "analysis.update": self.analysis_update,
             "analysis.delete": self.analysis_delete,
             "analysis.reproduce": self.analysis_reproduce,
+            "analysis.levels": self.analysis_levels,
         }
 
     # -------------------------------------------------------------- méthodes
@@ -192,6 +193,10 @@ class Engine:
         analysis_id = project.analyses.run(params.get("dataset_id"), params.get("version_id"),
                                            params.get("method"), params.get("params"), params.get("title"))
         return {"analysis": project.analyses.get(analysis_id), "project": project.describe()}
+
+    def analysis_levels(self, params: dict[str, Any]) -> list[dict[str, Any]]:
+        return self._require_project().analyses.levels(params.get("dataset_id"), params.get("version_id"),
+                                                       params.get("key"))
 
     def analysis_list(self, _: dict[str, Any]) -> list[dict[str, Any]]:
         return self._require_project().analyses.list()

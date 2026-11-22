@@ -28,6 +28,7 @@ export interface ProjectState {
   study: Study;
   journal: JournalEntry[];
   datasets: DatasetSummary[];
+  analyses_count: number;
 }
 
 export interface DatasetSummary {
@@ -167,6 +168,132 @@ export interface EngineInfo {
   platform: string;
 }
 
+
+// ---------------------------------------------------------------- analyses
+export type Alternative = 'two-sided' | 'less' | 'greater';
+export type VariableKind = 'quantitative' | 'qualitative' | 'any';
+
+export interface MethodVariable {
+  name: string;
+  label: string;
+  kind: VariableKind;
+  multiple: boolean;
+  optional: boolean;
+}
+
+export interface MethodInfo {
+  key: string;
+  label: string;
+  family: string;
+  objective: string;
+  variables: MethodVariable[];
+  conditions: string[];
+  params: string[];
+  results: string[];
+  warnings: string[];
+  r_equivalent: string;
+}
+
+export interface Catalog {
+  families: Record<string, string>;
+  methods: MethodInfo[];
+  param_labels: Record<string, string>;
+}
+
+export type AnalysisParams = Record<string, unknown>;
+export type CellKind = 'text' | 'int' | 'num' | 'pct';
+export type StatKind = 'value' | 'p' | 'df' | 'ci' | 'effect' | 'estimate';
+export type DiagLevel = 'bloquant' | 'important' | 'methodologique' | 'information';
+
+export interface SummaryStat {
+  key: string;
+  label: string;
+  value: number | string | null;
+  kind: StatKind;
+  digits: number;
+}
+
+export interface ResultTable {
+  title: string;
+  columns: string[];
+  rows: (string | number | boolean | null)[][];
+  note: string;
+  kinds: CellKind[];
+}
+
+export interface BoxSeries {
+  label: string;
+  variable: string;
+  q1: number;
+  median: number;
+  q3: number;
+  mean: number;
+  whisker_low: number;
+  whisker_high: number;
+  outliers: number[];
+  outlier_count: number;
+  n: number;
+}
+
+export type Chart =
+  | { type: 'histogram'; title: string; data: { variable: string; unit: string; edges: number[]; counts: number[]; n: number } }
+  | { type: 'boxplot'; title: string; data: { series: BoxSeries[]; unit: string } }
+  | { type: 'bar'; title: string; data: { bars: { label: string; count: number; percent: number }[]; n: number } }
+  | { type: 'stacked'; title: string; data: { rows: string[]; columns: string[]; percent: number[][]; counts: number[][] } }
+  | { type: 'scatter'; title: string; data: { x_label: string; y_label: string; points: [number, number][]; n: number; truncated: boolean } };
+
+export interface AnalysisResult {
+  method: string;
+  method_label: string;
+  title: string;
+  variables: string[];
+  n_used: number | null;
+  missing: { strategy: string; total: number; used: number | null; excluded: number | null; text: string } | null;
+  summary: SummaryStat[];
+  tables: ResultTable[];
+  charts: Chart[];
+  diagnostics: { level: DiagLevel; title: string; detail: string }[];
+  interpretation: string[];
+  values: Record<string, unknown>;
+}
+
+export type AnalysisStatus = 'a_jour' | 'donnees_modifiees' | 'version_supprimee' | 'jeu_supprime' | 'version_a_corriger';
+
+export interface AnalysisSummary {
+  id: number;
+  title: string;
+  method: string;
+  method_label: string;
+  dataset_id: number;
+  dataset_name: string | null;
+  version_id: number | null;
+  version_name: string;
+  data_fingerprint: string;
+  created_at: string;
+  status: AnalysisStatus;
+  status_label: string;
+}
+
+export interface Analysis extends AnalysisSummary {
+  note: string;
+  current_fingerprint: string | null;
+  params: AnalysisParams;
+  result: AnalysisResult;
+  environment: Record<string, string>;
+}
+
+export interface ReproductionReport {
+  status: AnalysisStatus;
+  status_label: string;
+  identical_data: boolean;
+  identical_results: boolean;
+  differences: { path: string; stored: unknown; recomputed: unknown }[];
+  same_environment?: boolean;
+  environment?: Record<string, string>;
+  error?: string;
+  checked_at: string;
+}
+
 export interface EngineMethods {
   'engine.info': { params: Record<string, never>; result: EngineInfo };
   'app.recent_projects': { params: Record<string, never>; result: RecentProject[] };
@@ -205,6 +332,23 @@ export interface EngineMethods {
   'data.delete_version': { params: { dataset_id: number; version_id: number }; result: DatasetAndProject };
   'data.add_step': { params: { dataset_id: number; version_id: number; step: Step }; result: DatasetAndProject };
   'data.remove_step': { params: { dataset_id: number; version_id: number; index: number }; result: DatasetAndProject };
+  'analysis.catalog': { params: Record<string, never>; result: Catalog };
+  'analysis.run': {
+    params: { dataset_id: number; version_id: number | null; method: string; params: AnalysisParams; title?: string };
+    result: { analysis: Analysis; project: ProjectState };
+  };
+  'analysis.levels': {
+    params: { dataset_id: number; version_id: number | null; key: string };
+    result: { value: string; label: string; count: number }[];
+  };
+  'analysis.list': { params: Record<string, never>; result: AnalysisSummary[] };
+  'analysis.get': { params: { analysis_id: number }; result: Analysis };
+  'analysis.update': {
+    params: { analysis_id: number; changes: { title?: string; note?: string } };
+    result: { analysis: Analysis; project: ProjectState };
+  };
+  'analysis.delete': { params: { analysis_id: number }; result: ProjectState };
+  'analysis.reproduce': { params: { analysis_id: number }; result: { report: ReproductionReport; project: ProjectState } };
 }
 
 export type MethodName = keyof EngineMethods;

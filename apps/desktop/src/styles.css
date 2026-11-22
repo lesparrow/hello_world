@@ -22,3 +22,11 @@ input, textarea { user-select: text; }
   border-color: var(--mantine-color-brand-4);
   box-shadow: var(--mantine-shadow-md);
 }
+
+.method-card {
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+.method-card:hover {
+  border-color: var(--mantine-color-brand-5);
+  background-color: var(--mantine-color-brand-0);
+}

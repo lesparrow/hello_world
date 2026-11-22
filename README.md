@@ -2,11 +2,12 @@
 
 Logiciel local d'analyse statistique guidée pour les étudiants en PFE, master et doctorat : de la question de recherche au rapport académique, avec des calculs fiables, une méthode expliquée et une traçabilité complète.
 
-**État actuel : Phase 3 (données).** On peut créer et rouvrir un projet d'étude, importer des données CSV ou Excel, corriger le dictionnaire des variables, consulter un diagnostic de qualité et préparer des versions de travail avec des transformations réversibles. Les analyses statistiques ne sont pas encore disponibles (Phase 4).
+**État actuel : Phase 4 (statistiques fondamentales).** On peut créer et rouvrir un projet d'étude, importer des données CSV ou Excel, corriger le dictionnaire des variables, préparer des versions de travail, puis lancer des analyses : descriptives, fréquences, tableaux croisés, tests t (Student, Welch, apparié), Mann-Whitney, Wilcoxon, corrélations de Pearson et Spearman, khi-deux et Fisher. Chaque méthode est validée contre R en CI, et chaque analyse enregistre la version et l'empreinte des données utilisées. L'assistant méthodologique et les rapports viendront ensuite.
 
 - Architecture : [docs/PHASE-1-AUDIT-ARCHITECTURE.md](docs/PHASE-1-AUDIT-ARCHITECTURE.md)
 - Rapport de la Phase 2 : [docs/PHASE-2-SOCLE.md](docs/PHASE-2-SOCLE.md)
 - Rapport de la Phase 3 : [docs/PHASE-3-DONNEES.md](docs/PHASE-3-DONNEES.md)
+- Rapport de la Phase 4 : [docs/PHASE-4-STATISTIQUES.md](docs/PHASE-4-STATISTIQUES.md)
 
 ## Organisation
 
@@ -26,6 +27,9 @@ Prérequis : Python 3.11 ou plus, Node 22, Rust stable. Sous Linux, les biblioth
 cd engine
 pip install -e ".[dev]"
 python -m pytest
+
+# Valeurs de référence calculées par R (R de base, sans paquet)
+Rscript tests/reference/r_reference.R
 
 # Interface
 cd apps/desktop

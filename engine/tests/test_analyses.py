@@ -261,6 +261,8 @@ def test_descriptives_with_group_and_missing():
     assert r["values"]["y|a"]["n"] == 2 and r["values"]["y|b"]["n"] == 2
     assert any("sans valeur pour" in d["title"] for d in r["diagnostics"])
     assert r["charts"][0]["type"] == "boxplot" and len(r["charts"][0]["data"]["series"]) == 2
+    r = run("descriptives", df, v, {"variables": ["y"]})
+    assert isinstance(r["values"]["y|"]["n"], int) and "(n = 5)" in r["interpretation"][0]
 
 
 def test_descriptives_degenerate_cases_are_serializable():
@@ -344,6 +346,19 @@ def test_analysis_on_version_and_deleted_version(project):
     assert rep["status"] == "version_supprimee" and not rep["identical_results"]
     # Le résultat enregistré reste consultable
     assert p.analyses.get(aid)["result"]["n_used"] == 10
+
+
+def test_levels_for_group_choice(project):
+    p, ds, _ = project
+    assert [(x["value"], x["count"]) for x in p.analyses.levels(ds, None, "Sexe")] == [("F", 6), ("M", 5)]
+    assert [x["value"] for x in p.analyses.levels(ds, None, "Tutorat")] == ["non", "oui"]
+    with pytest.raises(ValidationError):
+        p.analyses.levels(ds, None, "Nom")
+    with pytest.raises(ValidationError):
+        p.analyses.levels(ds, None, "absente")
+    # Les valeurs proposées sont acceptées telles quelles par les tests
+    aid = p.analyses.run(ds, None, "welch", {"outcome": "Note", "group": "Tutorat", "levels": ["oui", "non"]})
+    assert "oui" in p.analyses.get(aid)["result"]["interpretation"][0]
 
 
 def test_identifier_columns_cannot_be_analysed(project):
