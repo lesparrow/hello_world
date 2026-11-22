@@ -1,0 +1,8 @@
+node_modules/
+apps/desktop/dist/
+engine/build/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+*.statpfe
+*.statpfe.bak

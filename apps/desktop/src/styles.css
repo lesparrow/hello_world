@@ -1,0 +1,24 @@
+:root {
+  --statpfe-surface: light-dark(#f6f8fc, #15171c);
+}
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--statpfe-surface);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+input, textarea { user-select: text; }
+.hero-gradient {
+  background:
+    radial-gradient(1200px 400px at 10% -10%, light-dark(rgba(73,113,205,.18), rgba(73,113,205,.25)), transparent 60%),
+    radial-gradient(900px 300px at 100% 0%, light-dark(rgba(18,184,134,.12), rgba(18,184,134,.18)), transparent 60%);
+}
+.action-card {
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+.action-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--mantine-color-brand-4);
+  box-shadow: var(--mantine-shadow-md);
+}

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "statpfe-engine"
+version = "0.1.0"
+description = "Moteur de calcul et de gestion de projets de STATPFE Desktop"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+statpfe-engine = "statpfe.rpc.server:main"
+
+[tool.setuptools.packages.find]
+include = ["statpfe*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
