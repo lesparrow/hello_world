@@ -27,10 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "nsis",
-      "msi"
-    ],
+    "targets": "all",
     "publisher": "STATPFE",
     "shortDescription": "Analyse statistique guidée pour PFE, mémoires et thèses",
     "category": "Education",
@@ -55,6 +52,23 @@
       "wix": {
         "language": "fr-FR"
       }
+    },
+    "longDescription": "Logiciel local d'analyse statistique guidée pour les projets de fin d'études, mémoires et thèses : import des données, analyses vérifiées, assistant de choix de méthode, rapports Word et PDF. Vos données restent sur votre ordinateur.",
+    "copyright": "STATPFE",
+    "linux": {
+      "deb": {
+        "section": "education"
+      },
+      "rpm": {
+        "release": "1"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "11.0"
     }
   }
 }

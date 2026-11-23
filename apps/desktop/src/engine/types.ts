@@ -169,6 +169,14 @@ export interface EngineInfo {
   project_format_version: number;
   python: string;
   platform: string;
+  frozen: boolean;
+  config_dir: string;
+  dependencies: Record<string, string | null>;
+}
+
+export interface SelfCheck {
+  ok: boolean;
+  checks: { key: string; label: string; version: string | null; ok: boolean; detail: string; ms: number }[];
 }
 
 
@@ -731,6 +739,7 @@ export interface EngineMethods {
   'ai.setup_cancel': { params: { job_id: number }; result: AiSetupJob };
   'ai.open_link': { params: { url: string }; result: { opened: boolean } };
   'engine.info': { params: Record<string, never>; result: EngineInfo };
+  'engine.selfcheck': { params: Record<string, never>; result: SelfCheck };
   'app.recent_projects': { params: Record<string, never>; result: RecentProject[] };
   'app.forget_recent': { params: { path: string }; result: null };
   'project.create': {

@@ -16,7 +16,7 @@ import sys
 from typing import Any, Callable, TextIO
 
 from statpfe import __version__
-from statpfe.core import recent
+from statpfe.core import diagnostics, recent
 from statpfe.core.project import FORMAT_VERSION, Project
 from statpfe.errors import (
     NoProjectOpenError,
@@ -45,6 +45,7 @@ class Engine:
         self.ai = AiService()
         self.methods: dict[str, Callable[[dict[str, Any]], Any]] = {
             "engine.info": self.info,
+            "engine.selfcheck": lambda _p: diagnostics.selfcheck(),
             "app.recent_projects": self.recent_projects,
             "app.forget_recent": self.forget_recent,
             "project.create": self.create,
@@ -121,6 +122,9 @@ class Engine:
             "project_format_version": FORMAT_VERSION,
             "python": platform.python_version(),
             "platform": platform.platform(terse=True),
+            "frozen": bool(getattr(sys, "frozen", False)),
+            "config_dir": str(recent.config_dir()),
+            "dependencies": diagnostics.versions(),
         }
 
     def recent_projects(self, _: dict[str, Any]) -> list[dict[str, Any]]:

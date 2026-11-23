@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
-  ActionIcon, Badge, Box, Card, Container, Group, Paper, SimpleGrid, Stack, Text, ThemeIcon,
+  ActionIcon, Anchor, Badge, Box, Card, Container, Group, Paper, SimpleGrid, Stack, Text, ThemeIcon,
   Title, Tooltip, UnstyledButton,
 } from '@mantine/core';
 import {
@@ -10,6 +10,7 @@ import { call } from '../engine/client';
 import type { EngineInfo, ProjectState, RecentProject } from '../engine/types';
 import { Logo } from '../components/Logo';
 import { NewProjectModal } from './NewProjectModal';
+import { DiagnosticModal } from '../components/DiagnosticModal';
 import { pickProjectToOpen } from '../lib/files';
 import { fileName, formatDateTime } from '../lib/format';
 import { notifyError } from '../App';
@@ -22,6 +23,7 @@ interface Props {
 export function Home({ engine, onOpened }: Props) {
   const [recent, setRecent] = useState<RecentProject[]>([]);
   const [creating, setCreating] = useState(false);
+  const [diag, setDiag] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -149,11 +151,13 @@ export function Home({ engine, onOpened }: Props) {
             <IconLock size={15} />
             <Text size="xs">
               Vos données restent sur votre ordinateur. Moteur {engine.version} · format de projet v
-              {engine.project_format_version}
+              {engine.project_format_version} ·{' '}
+              <Anchor size="xs" onClick={() => setDiag(true)}>À propos et diagnostic</Anchor>
             </Text>
           </Group>
         </Stack>
       </Container>
+      <DiagnosticModal opened={diag} onClose={() => setDiag(false)} />
       <NewProjectModal opened={creating} onClose={() => setCreating(false)} onCreated={onOpened} />
     </Box>
   );

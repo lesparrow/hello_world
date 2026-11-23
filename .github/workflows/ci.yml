@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -211,29 +211,80 @@ jobs:
           $head = [IO.File]::ReadAllBytes($pdf)[0..4]
           if ([Text.Encoding]::ASCII.GetString($head) -ne '%PDF-') { throw "Le rapport PDF est invalide" }
 
-      - name: Construire l'application et les installateurs
+      - name: Construire l'application et les installateurs (0.1.0, puis 0.1.1 pour le test de mise à jour)
         working-directory: apps/desktop
         run: |
           npm ci
           npx tauri build
+          New-Item -ItemType Directory -Force $env:RUNNER_TEMP/maj | Out-Null
+          npx tauri build --bundles nsis --config ../../packaging/test-mise-a-jour.json
+          Move-Item src-tauri/target/release/bundle/nsis/STATPFE_0.1.1_*-setup.exe $env:RUNNER_TEMP/maj/
 
-      - name: Installer silencieusement et vérifier
+      - name: Installer, lancer, mettre à jour et désinstaller
         shell: pwsh
+        env:
+          STATPFE_CONFIG_DIR: ${{ runner.temp }}\statpfe-config
         run: |
-          $setup = Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          $setup = Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/STATPFE_0.1.0_*-setup.exe | Select-Object -First 1
           Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait
           $dir = Join-Path $env:LOCALAPPDATA 'STATPFE'
           Get-ChildItem $dir
           foreach ($f in @('statpfe.exe', 'statpfe-engine.exe')) {
             if (-not (Test-Path (Join-Path $dir $f))) { throw "$f absent après installation" }
           }
-          $out = '{"jsonrpc":"2.0","id":1,"method":"engine.info"}' | & (Join-Path $dir 'statpfe-engine.exe')
-          if (-not ($out -match '"name": "statpfe-engine"')) { throw "Le moteur installé ne répond pas" }
-          $uninstall = Join-Path $dir 'uninstall.exe'
-          Start-Process -FilePath $uninstall -ArgumentList '/S' -Wait
+          $engine = Join-Path $dir 'statpfe-engine.exe'
+          $out = '{"jsonrpc":"2.0","id":1,"method":"engine.selfcheck"}' | & $engine
+          Write-Output $out
+          if (-not ($out -match '"ok": true, "checks"')) { throw "Une dépendance incluse ne fonctionne pas" }
+          # Parcours réel avec le moteur installé : projet, données, analyse, rapports.
+          $work = Join-Path $env:RUNNER_TEMP 'travail'
+          python packaging/engine_functional.py $engine $work create
+          if ($LASTEXITCODE -ne 0) { throw "Parcours du moteur installé en échec" }
+
+          # Lancement réel de l'application : la fenêtre s'ouvre et démarre le moteur.
+          $app = Start-Process -FilePath (Join-Path $dir 'statpfe.exe') -PassThru
+          $started = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 1
+            if (Get-Process -Name 'statpfe-engine' -ErrorAction SilentlyContinue) { $started = $true; break }
+            if ($app.HasExited) { throw "L'application s'est arrêtée au démarrage (code $($app.ExitCode))" }
+          }
+          if (-not $started) { throw "L'application n'a pas démarré le moteur" }
+          Write-Output "Application lancée, moteur démarré après $i s"
+          Start-Sleep -Seconds 8
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force (Join-Path $env:RUNNER_TEMP 'captures') | Out-Null
+          $bmp.Save((Join-Path $env:RUNNER_TEMP 'captures/windows-application.png'))
+          Stop-Process -Id $app.Id
+          for ($i = 0; $i -lt 20 -and (Get-Process -Name 'statpfe-engine' -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Seconds 1 }
+          if (Get-Process -Name 'statpfe-engine' -ErrorAction SilentlyContinue) { throw "Le moteur est resté actif après la fermeture" }
+
+          # Mise à jour 0.1.0 -> 0.1.1 par-dessus l'installation : le projet et les réglages restent.
+          $upd = Get-ChildItem $env:RUNNER_TEMP/maj/STATPFE_0.1.1_*-setup.exe | Select-Object -First 1
+          Start-Process -FilePath $upd.FullName -ArgumentList '/S' -Wait
+          $ver = (Get-Item (Join-Path $dir 'statpfe.exe')).VersionInfo.ProductVersion
+          Write-Output "Version installée après mise à jour : $ver"
+          if (-not $ver.StartsWith('0.1.1')) { throw "La mise à jour n'a pas remplacé l'application ($ver)" }
+          python packaging/engine_functional.py $engine $work reopen
+          if ($LASTEXITCODE -ne 0) { throw "Projet perdu ou illisible après la mise à jour" }
+
+          # Désinstallation : l'application part, les projets et réglages de l'utilisateur restent.
+          Start-Process -FilePath (Join-Path $dir 'uninstall.exe') -ArgumentList '/S' -Wait
           Start-Sleep -Seconds 5
           if (Test-Path (Join-Path $dir 'statpfe.exe')) { throw "La désinstallation a laissé l'application" }
-          Write-Output "Installation et désinstallation vérifiées."
+          if (-not (Test-Path (Join-Path $work 'etude.statpfe'))) { throw "La désinstallation a supprimé un projet" }
+          if (-not (Test-Path (Join-Path $env:STATPFE_CONFIG_DIR 'recent-projects.json'))) { throw "Réglages supprimés" }
+          Write-Output "Installation, lancement, mise à jour et désinstallation vérifiés ; projets conservés."
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capture-windows
+          path: ${{ runner.temp }}/captures
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
@@ -242,3 +293,158 @@ jobs:
             apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
             apps/desktop/src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: error
+
+  linux-packages:
+    name: Paquets Linux (.deb, .rpm, AppImage)
+    needs: [engine, frontend]
+    # Ubuntu 22.04 : glibc plus ancienne, donc paquets compatibles avec plus de distributions.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Dépendances système de construction et d'essai
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb imagemagick
+      - name: Construire le moteur autonome (PyInstaller)
+        working-directory: engine
+        run: |
+          pip install pyinstaller
+          pip install -e .
+          python packaging/build_sidecar.py
+      - name: Construire les paquets (0.1.0, puis .deb 0.1.1 pour le test de mise à jour)
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npx tauri build --bundles deb,rpm,appimage
+          mkdir -p "$RUNNER_TEMP/maj"
+          npx tauri build --bundles deb --config ../../packaging/test-mise-a-jour.json
+          mv src-tauri/target/release/bundle/deb/STATPFE_0.1.1_amd64.deb "$RUNNER_TEMP/maj/"
+      - name: "Paquet .deb : installer, lancer, mettre à jour, désinstaller"
+        env:
+          STATPFE_CONFIG_DIR: ${{ runner.temp }}/statpfe-config
+        run: |
+          B=apps/desktop/src-tauri/target/release/bundle
+          mkdir -p "$RUNNER_TEMP/captures"
+          sudo apt-get install -y "./$B/deb/STATPFE_0.1.0_amd64.deb"
+          python packaging/engine_functional.py /usr/bin/statpfe-engine "$RUNNER_TEMP/travail" create
+          packaging/linux-smoke.sh statpfe /usr/bin/statpfe-engine "$RUNNER_TEMP/captures/linux-deb.png"
+          sudo apt-get install -y "$RUNNER_TEMP/maj/STATPFE_0.1.1_amd64.deb"
+          test "$(dpkg-query -W -f='${Version}' statpfe)" = "0.1.1"
+          python packaging/engine_functional.py /usr/bin/statpfe-engine "$RUNNER_TEMP/travail" reopen
+          sudo apt-get remove -y statpfe
+          test ! -e /usr/bin/statpfe && test ! -e /usr/bin/statpfe-engine
+          test -f "$RUNNER_TEMP/travail/etude.statpfe" && test -f "$STATPFE_CONFIG_DIR/recent-projects.json"
+          echo "Paquet .deb : installation, lancement, mise à jour et désinstallation vérifiés ; projets conservés."
+      - name: "AppImage : lancer sans installation"
+        run: |
+          B=apps/desktop/src-tauri/target/release/bundle/appimage
+          chmod +x $B/*.AppImage
+          cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE"/$B/*.AppImage --appimage-extract >/dev/null && cd -
+          APPIMAGE_EXTRACT_AND_RUN=1 packaging/linux-smoke.sh "$(ls $B/*.AppImage)" "$RUNNER_TEMP/squashfs-root/usr/bin/statpfe-engine" "$RUNNER_TEMP/captures/linux-appimage.png"
+      - name: "Paquet .rpm : installer et utiliser sous Fedora (conteneur)"
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" -w /src fedora:41 bash -c '
+            set -e
+            dnf install -y -q python3 ./apps/desktop/src-tauri/target/release/bundle/rpm/STATPFE-0.1.0-1.x86_64.rpm
+            test -x /usr/bin/statpfe && test -x /usr/bin/statpfe-engine
+            printf "%s\n" "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"engine.selfcheck\"}" | /usr/bin/statpfe-engine | grep -q "\"ok\": true, \"checks\""
+            python3 packaging/engine_functional.py /usr/bin/statpfe-engine /tmp/travail create
+            dnf remove -y -q statpfe
+            test ! -e /usr/bin/statpfe
+            echo "Paquet .rpm : installation, moteur, parcours et désinstallation vérifiés sous Fedora 41."'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: statpfe-linux-paquets
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
+            apps/desktop/src-tauri/target/release/bundle/rpm/*.rpm
+            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: captures-linux
+          path: ${{ runner.temp }}/captures
+          if-no-files-found: ignore
+
+  macos-package:
+    name: Paquet macOS (.dmg, Apple Silicon)
+    needs: [engine, frontend]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - name: Construire le moteur autonome (PyInstaller)
+        working-directory: engine
+        run: |
+          pip install pyinstaller
+          pip install -e .
+          python packaging/build_sidecar.py
+      - name: Construire l'application et le .dmg
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npx tauri build --bundles app,dmg
+      - name: Installer depuis le .dmg, lancer, désinstaller
+        env:
+          STATPFE_CONFIG_DIR: ${{ runner.temp }}/statpfe-config
+        run: |
+          DMG=$(ls apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg)
+          MNT=$(mktemp -d)
+          hdiutil attach "$DMG" -mountpoint "$MNT" -nobrowse
+          mkdir -p "$HOME/Applications"
+          cp -R "$MNT/STATPFE.app" "$HOME/Applications/"
+          hdiutil detach "$MNT"
+          APPDIR="$HOME/Applications/STATPFE.app"
+          ENGINE="$APPDIR/Contents/MacOS/statpfe-engine"
+          codesign --verify --verbose "$APPDIR" || true
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"engine.selfcheck"}' | "$ENGINE" | tee /dev/stderr | grep -q '"ok": true, "checks"'
+          python packaging/engine_functional.py "$ENGINE" "$RUNNER_TEMP/travail" create
+          python packaging/engine_functional.py "$ENGINE" "$RUNNER_TEMP/travail" reopen
+          open "$APPDIR"
+          for i in $(seq 1 60); do pgrep -x statpfe-engine >/dev/null && break; sleep 1; done
+          pgrep -x statpfe-engine >/dev/null || { echo "L'application n'a pas démarré le moteur"; exit 1; }
+          echo "Application lancée, moteur démarré après $i s"
+          sleep 8
+          mkdir -p "$RUNNER_TEMP/captures"
+          screencapture -x "$RUNNER_TEMP/captures/macos-application.png" || echo "capture d'écran indisponible"
+          osascript -e 'quit app "STATPFE"' || pkill -x statpfe
+          for i in $(seq 1 20); do pgrep -x statpfe-engine >/dev/null || break; sleep 1; done
+          pgrep -x statpfe-engine >/dev/null && { echo "Le moteur est resté actif après la fermeture"; exit 1; }
+          rm -rf "$APPDIR"
+          test -f "$RUNNER_TEMP/travail/etude.statpfe"
+          echo "macOS : installation depuis le .dmg, lancement, fermeture et désinstallation vérifiés."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: statpfe-macos-dmg
+          path: apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capture-macos
+          path: ${{ runner.temp }}/captures
+          if-no-files-found: ignore
