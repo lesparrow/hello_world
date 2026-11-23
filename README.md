@@ -2,7 +2,7 @@
 
 Logiciel local d'analyse statistique guidée pour les étudiants en PFE, master et doctorat : de la question de recherche au rapport académique, avec des calculs fiables, une méthode expliquée et une traçabilité complète.
 
-**État actuel : Phase 8 (IA optionnelle : locale ou Claude Code).** On peut créer et rouvrir un projet d'étude, importer des données CSV ou Excel, corriger le dictionnaire des variables, préparer des versions de travail, puis lancer des analyses : descriptives, fréquences, tableaux croisés, tests t (Student, Welch, apparié), Mann-Whitney, Wilcoxon, corrélations de Pearson et Spearman, khi-deux et Fisher. Chaque méthode est validée contre R en CI, et chaque analyse enregistre la version et l'empreinte des données utilisées. Un assistant déterministe (sans IA) recommande une méthode et enregistre le choix final avec sa justification. Les rapports Word et PDF (PFE, mémoire, thèse, article, enquête) sont produits à partir des résultats enregistrés, après des contrôles de cohérence qui recalculent chaque analyse. Le calcul de taille d'échantillon et de puissance (tests t, deux proportions, khi-deux, corrélation) reproduit le paquet R pwr, vérifié en CI. Un plan d'analyse se rédige avant l'analyse finale, se verrouille et garde l'historique de ses versions ; le rapport distingue les analyses prévues de celles ajoutées après avoir vu les données. Une IA optionnelle, désactivée par défaut (locale avec Ollama ou un serveur compatible OpenAI, ou Claude Code en ligne après autorisation explicite), aide à expliquer et à rédiger à partir des résultats déjà calculés ; chaque nombre qu'elle écrit est vérifié, et seuls les textes relus et retenus entrent dans le rapport, signalés comme tels.
+**État actuel : Phase 9 (distribution Windows, Linux et macOS).** Installation : [docs/INSTALLATION.md](docs/INSTALLATION.md). Jeu de données de test : [docs/exemples/](docs/exemples/GUIDE-DE-TEST.md). On peut créer et rouvrir un projet d'étude, importer des données CSV ou Excel, corriger le dictionnaire des variables, préparer des versions de travail, puis lancer des analyses : descriptives, fréquences, tableaux croisés, tests t (Student, Welch, apparié), Mann-Whitney, Wilcoxon, corrélations de Pearson et Spearman, khi-deux et Fisher. Chaque méthode est validée contre R en CI, et chaque analyse enregistre la version et l'empreinte des données utilisées. Un assistant déterministe (sans IA) recommande une méthode et enregistre le choix final avec sa justification. Les rapports Word et PDF (PFE, mémoire, thèse, article, enquête) sont produits à partir des résultats enregistrés, après des contrôles de cohérence qui recalculent chaque analyse. Le calcul de taille d'échantillon et de puissance (tests t, deux proportions, khi-deux, corrélation) reproduit le paquet R pwr, vérifié en CI. Un plan d'analyse se rédige avant l'analyse finale, se verrouille et garde l'historique de ses versions ; le rapport distingue les analyses prévues de celles ajoutées après avoir vu les données. Une IA optionnelle, désactivée par défaut (locale avec Ollama ou un serveur compatible OpenAI, ou Claude Code en ligne après autorisation explicite), aide à expliquer et à rédiger à partir des résultats déjà calculés ; chaque nombre qu'elle écrit est vérifié, et seuls les textes relus et retenus entrent dans le rapport, signalés comme tels.
 
 - Architecture : [docs/PHASE-1-AUDIT-ARCHITECTURE.md](docs/PHASE-1-AUDIT-ARCHITECTURE.md)
 - Rapport de la Phase 2 : [docs/PHASE-2-SOCLE.md](docs/PHASE-2-SOCLE.md)
@@ -12,6 +12,7 @@ Logiciel local d'analyse statistique guidée pour les étudiants en PFE, master 
 - Rapport de la Phase 6 : [docs/PHASE-6-RAPPORTS.md](docs/PHASE-6-RAPPORTS.md)
 - Rapport de la Phase 7 : [docs/PHASE-7-PUISSANCE-PLAN.md](docs/PHASE-7-PUISSANCE-PLAN.md)
 - Rapport de la Phase 8 : [docs/PHASE-8-IA-LOCALE.md](docs/PHASE-8-IA-LOCALE.md)
+- Rapport de la Phase 9 : [docs/PHASE-9-DISTRIBUTION.md](docs/PHASE-9-DISTRIBUTION.md)
 
 ## Organisation
 
@@ -63,9 +64,9 @@ export STATPFE_DEV_TOKEN=un-secret-local
 
 La passerelle de développement n'écoute que sur 127.0.0.1, exige le jeton, et n'est jamais incluse dans l'application distribuée.
 
-### Construire l'installateur Windows
+### Construire les installateurs
 
-Il est produit automatiquement par la CI (job « Installateur Windows ») et téléchargeable dans les artefacts de l'exécution GitHub Actions. En local sous Windows :
+Ils sont produits automatiquement par la CI (jobs « Installateur Windows », « Paquets Linux », « Paquet macOS ») et téléchargeables dans les artefacts de l'exécution GitHub Actions. En local, sur le système visé :
 
 ```bash
 cd engine && pip install pyinstaller && python packaging/build_sidecar.py
