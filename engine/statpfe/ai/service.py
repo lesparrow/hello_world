@@ -143,6 +143,10 @@ class AiService:
         snap = job.snapshot()
         snap["text"] = _visible(snap["text"]) if snap["status"] == "en_cours" else guard.strip_thinking(snap["text"])
         snap["proposal"] = None
+        if snap["status"] == "erreur" and "repeat" in (snap.get("error") or "").lower():
+            snap["error"] = ("Le modèle s'est mis à répéter la même chose et a été arrêté (fréquent avec les très petits "
+                             "modèles) : rien n'a été enregistré. Relancez la demande, ou choisissez un modèle plus "
+                             "grand dans les réglages de l'IA.")
         if snap["status"] == "termine" and project is not None and project.project_id == snap["meta"]["project_id"]:
             if not job.stored:
                 ctx = job.copilot  # type: ignore[attr-defined]

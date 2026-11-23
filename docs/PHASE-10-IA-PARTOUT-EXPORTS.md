@@ -101,6 +101,10 @@ graphiques en images et des tableaux en Excel.
   et PDF les gardent). XeLaTeX n'est pas encore proposé.
 - L'ANOVA reste indisponible : l'IA ne peut pas la proposer.
 - Rien n'a été testé avec un vrai grand modèle local dans cette session ; le CI essaie seulement qwen2.5:0.5b.
+  **Observé dans le CI** avec ce modèle : l'étude et le dictionnaire aboutissent à une proposition enregistrée,
+  mais pour le plan le modèle s'est mis à répéter « null » jusqu'à ce qu'Ollama l'arrête. STATPFE affiche
+  désormais une erreur claire (« le modèle s'est mis à répéter… choisissez un modèle plus grand ») et
+  n'enregistre rien ; c'est la preuve qu'un modèle de 0,5 milliard de paramètres ne suffit pas pour le plan.
 
 ## 8. Vérifications manuelles proposées
 

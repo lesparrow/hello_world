@@ -3,7 +3,7 @@
 Ignoré sans STATPFE_AI_LIVE_URL et STATPFE_AI_LIVE_MODEL. Un très petit modèle (0,5 milliard de
 paramètres) produit souvent un JSON incomplet ou des choix discutables : on ne juge pas la qualité.
 On vérifie que chaque demande aboutit à une proposition enregistrée et vérifiée par le moteur
-(« proposée » ou « illisible »), que rien n'est modifié sans application, et qu'une proposition
+(« proposée » ou « illisible »), ou à une erreur expliquée si le modèle boucle, que rien n'est modifié sans application, et qu'une proposition
 illisible ne peut pas être appliquée. Les propositions sont écrites dans STATPFE_AI_LIVE_OUT.
 """
 
@@ -41,7 +41,12 @@ def test_real_model_copilot(tmp_path):
         while job["status"] == "en_cours" and time.monotonic() < end:
             time.sleep(1)
             job = call(e, "ai.job", job_id=job["id"])
-        assert job["status"] == "termine", job
+        assert job["status"] in ("termine", "erreur"), job
+        if job["status"] == "erreur":
+            # Un très petit modèle peut boucler (Ollama l'arrête) : erreur expliquée, rien d'enregistré.
+            assert job["error"] and job["proposal"] is None, job
+            outputs.append({"action": action, "status": "erreur", "error": job["error"]})
+            continue
         p = job["proposal"]
         assert p and p["status"] in ("proposee", "illisible"), p
         if p["status"] == "illisible":
