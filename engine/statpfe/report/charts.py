@@ -2,7 +2,8 @@
 
 Les figures ne recalculent rien : elles reprennent les données de graphique du
 résultat enregistré (comme l'interface). Elles sont en niveaux de gris (hachures
-pour distinguer les séries) afin de rester lisibles à l'impression.
+pour distinguer les séries) avec le thème « sobre », ou en couleurs lisibles par les
+personnes daltoniennes avec les autres thèmes (voir theme.py).
 """
 
 from __future__ import annotations
@@ -10,12 +11,13 @@ from __future__ import annotations
 import io
 from typing import Any
 
+from statpfe.errors import ValidationError
+from statpfe.report import theme as themes
 from statpfe.report.fmt import fixed
 
 DPI = 220
 INK = "#222222"
-GREYS = ["#4d4d4d", "#bdbdbd", "#8c8c8c", "#e0e0e0", "#666666", "#a6a6a6", "#d9d9d9", "#333333"]
-HATCHES = ["", "//", "..", "xx", "\\\\", "--", "++", "oo"]
+IMAGE_FORMATS = {"png": "PNG (image, 300 dpi)", "svg": "SVG (vectoriel)"}
 
 
 def _plt():
@@ -46,15 +48,19 @@ def _fr_axis(ax, which: str = "y") -> None:
     axis.set_major_formatter(FuncFormatter(f))
 
 
-def render(chart: dict[str, Any]) -> bytes:
+def render(chart: dict[str, Any], theme: str | None = "sobre", fmt: str = "png", dpi: int = DPI) -> bytes:
+    if fmt not in IMAGE_FORMATS:
+        raise ValidationError("Format d'image inconnu.")
+    th = themes.get(theme)
     plt = _plt()
+    line = th.primary if th.color else INK
     kind, d = chart["type"], chart["data"]
     fig, ax = plt.subplots(figsize=(6.3, 3.4))
     try:
         if kind == "histogram":
             edges, counts = d["edges"], d["counts"]
             widths = [b - a for a, b in zip(edges[:-1], edges[1:])]
-            ax.bar(edges[:-1], counts, width=widths, align="edge", color="#bdbdbd", edgecolor=INK, linewidth=0.6)
+            ax.bar(edges[:-1], counts, width=widths, align="edge", color=th.fill, edgecolor=line, linewidth=0.6)
             ax.set_xlabel(d["variable"] + (f" ({d['unit']})" if d.get("unit") else ""))
             ax.set_ylabel("Effectif")
             _fr_axis(ax, "x")
@@ -64,18 +70,22 @@ def render(chart: dict[str, Any]) -> bytes:
                       "whishi": s["whisker_high"], "mean": s["mean"], "fliers": s["outliers"],
                       "label": f"{s['label']}\n(n = {s['n']})"} for s in series]
             ax.bxp(stats, showmeans=True, patch_artist=True, widths=0.5,
-                   boxprops={"facecolor": "#e0e0e0", "edgecolor": INK, "linewidth": 0.8},
-                   medianprops={"color": INK, "linewidth": 1.6},
-                   meanprops={"marker": "D", "markerfacecolor": "white", "markeredgecolor": INK, "markersize": 5},
-                   flierprops={"marker": "o", "markerfacecolor": "none", "markeredgecolor": INK, "markersize": 4},
-                   whiskerprops={"color": INK}, capprops={"color": INK})
+                   boxprops={"facecolor": th.light, "edgecolor": line, "linewidth": 0.8},
+                   medianprops={"color": line, "linewidth": 1.6},
+                   meanprops={"marker": "D", "markerfacecolor": "white", "markeredgecolor": line, "markersize": 5},
+                   flierprops={"marker": "o", "markerfacecolor": "none", "markeredgecolor": line, "markersize": 4},
+                   whiskerprops={"color": line}, capprops={"color": line})
+            if th.color:
+                for patch, color in zip(ax.patches, th.series):
+                    patch.set_facecolor(color)
+                    patch.set_alpha(0.55)
             if d.get("unit"):
                 ax.set_ylabel(d["unit"])
             _fr_axis(ax)
         elif kind == "bar":
             bars = d["bars"]
             labels = [b["label"] for b in bars]
-            ax.bar(range(len(bars)), [b["count"] for b in bars], color="#bdbdbd", edgecolor=INK, linewidth=0.6)
+            ax.bar(range(len(bars)), [b["count"] for b in bars], color=th.fill, edgecolor=line, linewidth=0.6)
             ax.set_xticks(range(len(bars)), labels, rotation=30 if max(map(len, labels), default=0) > 8 else 0,
                           ha="right" if max(map(len, labels), default=0) > 8 else "center")
             ax.set_ylabel("Effectif")
@@ -88,8 +98,9 @@ def render(chart: dict[str, Any]) -> bytes:
             left = [0.0] * len(rows)
             for j, c in enumerate(cols):
                 vals = [pct[i][j] * 100 for i in range(len(rows))]
-                ax.barh(range(len(rows)), vals, left=left, color=GREYS[j % len(GREYS)], edgecolor=INK,
-                        linewidth=0.6, hatch=HATCHES[j % len(HATCHES)], label=c)
+                ax.barh(range(len(rows)), vals, left=left, color=th.series[j % len(th.series)],
+                        edgecolor=INK if not th.color else "white", linewidth=0.6,
+                        hatch=th.hatches[j % len(th.hatches)], label=c)
                 left = [a + b for a, b in zip(left, vals)]
             ax.set_yticks(range(len(rows)), rows)
             ax.invert_yaxis()
@@ -99,8 +110,8 @@ def render(chart: dict[str, Any]) -> bytes:
                       fontsize=8)
         elif kind == "scatter":
             pts = d["points"]
-            ax.scatter([p[0] for p in pts], [p[1] for p in pts], s=12, facecolors="none", edgecolors=INK,
-                       linewidths=0.7)
+            ax.scatter([p[0] for p in pts], [p[1] for p in pts], s=12, facecolors=th.light if th.color else "none",
+                       edgecolors=th.fill if th.color else INK, linewidths=0.7)
             ax.set_xlabel(d["x_label"])
             ax.set_ylabel(d["y_label"])
             _fr_axis(ax)
@@ -109,8 +120,8 @@ def render(chart: dict[str, Any]) -> bytes:
             styles = ["-", "--", ":", "-.", (0, (5, 1, 1, 1)), (0, (1, 3))]
             for i, ser in enumerate(d["series"]):
                 pts = [p for p in ser["points"] if p[1] is not None]
-                ax.plot([p[0] for p in pts], [p[1] * 100 for p in pts], color=INK, linewidth=1.2,
-                        linestyle=styles[i % len(styles)], label=ser["label"])
+                ax.plot([p[0] for p in pts], [p[1] * 100 for p in pts], color=th.series[i % len(th.series)] if th.color else INK,
+                        linewidth=1.4 if th.color else 1.2, linestyle=styles[i % len(styles)], label=ser["label"])
             if d.get("target") is not None:
                 ax.axhline(d["target"] * 100, color="#8c8c8c", linewidth=0.8, linestyle="--")
                 ax.annotate(f"puissance visée {fixed(d['target'] * 100, 0)} %", (1, d["target"] * 100),
@@ -126,9 +137,11 @@ def render(chart: dict[str, Any]) -> bytes:
                 ax.legend(frameon=False, fontsize=8, loc="lower right")
         else:
             raise ValueError(f"type de graphique inconnu : {kind}")
+        if th.color:
+            ax.title.set_color(th.primary)
         fig.tight_layout()
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=DPI)
+        fig.savefig(buf, format=fmt, dpi=dpi, metadata=None if fmt == "png" else {"Date": None})
         return buf.getvalue()
     finally:
         plt.close(fig)

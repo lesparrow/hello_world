@@ -23,6 +23,7 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 
+from statpfe.report import theme as themes
 from statpfe.report.model import Bullets, Cover, Document, Figure, Heading, PageBreak, Para, Run, Table, Toc
 
 FONT = "DejaVuSans"
@@ -46,8 +47,9 @@ def _register_fonts() -> None:
     _registered = True
 
 
-def _styles() -> dict[str, ParagraphStyle]:
+def _styles(th: themes.Theme) -> dict[str, ParagraphStyle]:
     body = ParagraphStyle("body", fontName=FONT, fontSize=10, leading=14, spaceAfter=6)
+    accent = colors.HexColor(th.primary) if th.color else colors.black
     return {
         "body": body,
         "note": ParagraphStyle("note", parent=body, fontSize=8.8, leading=12, textColor=GREY, spaceAfter=3),
@@ -58,19 +60,19 @@ def _styles() -> dict[str, ParagraphStyle]:
         "lead": body,
         "warning": body,
         "h1": ParagraphStyle("h1", parent=body, fontName=f"{FONT}-Bold", fontSize=15, leading=19, spaceBefore=14,
-                             spaceAfter=8, keepWithNext=True),
+                             spaceAfter=8, keepWithNext=True, textColor=accent),
         "h2": ParagraphStyle("h2", parent=body, fontName=f"{FONT}-Bold", fontSize=12, leading=16, spaceBefore=10,
-                             spaceAfter=6, keepWithNext=True),
+                             spaceAfter=6, keepWithNext=True, textColor=accent),
         "caption": ParagraphStyle("caption", parent=body, fontName=f"{FONT}-Bold", fontSize=9.5, leading=12.5,
-                                  spaceBefore=4, spaceAfter=4, keepWithNext=True),
+                                  spaceBefore=4, spaceAfter=4, keepWithNext=True, textColor=accent),
         "cell": ParagraphStyle("cell", parent=body, fontSize=8.6, leading=11, spaceAfter=0),
         "cell_r": ParagraphStyle("cell_r", parent=body, fontSize=8.6, leading=11, spaceAfter=0, alignment=2),
         "cell_h": ParagraphStyle("cell_h", parent=body, fontName=f"{FONT}-Bold", fontSize=8.6, leading=11,
-                                 spaceAfter=0),
+                                 spaceAfter=0, textColor=colors.HexColor(th.header_text)),
         "cover_doc": ParagraphStyle("cover_doc", parent=body, fontSize=12, textColor=GREY, alignment=TA_CENTER,
                                     spaceAfter=18),
         "cover_title": ParagraphStyle("cover_title", parent=body, fontName=f"{FONT}-Bold", fontSize=22, leading=28,
-                                      alignment=TA_CENTER, spaceAfter=28),
+                                      alignment=TA_CENTER, spaceAfter=28, textColor=accent),
         "cover_field": ParagraphStyle("cover_field", parent=body, fontSize=11, leading=16, alignment=TA_CENTER),
         "cover_note": ParagraphStyle("cover_note", parent=body, fontSize=8.8, textColor=GREY, alignment=TA_CENTER),
         "toc1": ParagraphStyle("toc1", parent=body, fontSize=10, leftIndent=0, spaceAfter=2),
@@ -128,7 +130,8 @@ def _col_widths(t: Table, total: float) -> list[float]:
 
 def render(document: Document, path: Path, author: str = "") -> None:
     _register_fonts()
-    st = _styles()
+    th = themes.get(document.theme)
+    st = _styles(th)
     buf = io.BytesIO()
     doc = _Doc(buf, document.footer, title=document.title, author=author or "Auteur",
                subject="Rapport statistique préparé avec STATPFE", creator="STATPFE",
@@ -170,7 +173,13 @@ def render(document: Document, path: Path, author: str = "") -> None:
                      ("VALIGN", (0, 0), (-1, -1), "TOP"),
                      ("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5)]
             if not b.key_value:
-                style.append(("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E7E7E7")))
+                style.append(("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(th.header_fill)))
+                if th.color:
+                    style.append(("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor(th.light)]))
+            elif th.color:
+                style.append(("BACKGROUND", (0, 0), (0, -1), colors.HexColor(th.light)))
+            if th.color:
+                style[0] = ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#B7C3CF"))
             tbl.setStyle(TableStyle(style))
             after = []
             if b.note:

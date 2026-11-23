@@ -4,9 +4,12 @@ import {
   Textarea, ThemeIcon, Title, Tooltip,
 } from '@mantine/core';
 import {
-  IconAlertCircle, IconAlertTriangle, IconBan, IconCheck, IconCopy, IconDots, IconInfoCircle,
-  IconRefresh, IconTrash,
+  IconAlertCircle, IconAlertTriangle, IconBan, IconCheck, IconCopy, IconDots, IconFileSpreadsheet, IconInfoCircle,
+  IconPhoto, IconRefresh, IconTrash,
 } from '@tabler/icons-react';
+import { call, errorMessage } from '../../engine/client';
+import { pickExportDestination } from '../../lib/files';
+import { suggestFileName } from '../../lib/format';
 import type { Analysis, DiagLevel, ProjectState, ReproductionReport, ResultTable, SummaryStat } from '../../engine/types';
 import { AiAssistPanel } from './AiAssistPanel';
 import { ChartView } from '../../components/charts/Charts';
@@ -40,6 +43,31 @@ export function ResultView({ analysis, onReproduce, onDuplicate, onDelete, onSav
   const [note, setNote] = useState(analysis.note);
   const [report, setReport] = useState<ReproductionReport | null>(null);
   const [checking, setChecking] = useState(false);
+  const [exportMsg, setExportMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const base = suggestFileName(analysis.title).replace(/\.statpfe$/, '');
+  const exportTables = async () => {
+    const path = await pickExportDestination(`${base}-tableaux.xlsx`, 'xlsx', 'Exporter les tableaux');
+    if (!path) return;
+    try {
+      const res = await call('export.tables', { path, analyses: [analysis.id], power: [] });
+      setExportMsg({ ok: true, text: `Tableaux enregistrés : ${res.export.file_name}` });
+      onProjectChange?.(res.project);
+    } catch (err) {
+      setExportMsg({ ok: false, text: errorMessage(err) });
+    }
+  };
+  const exportChart = async (index: number, ext: 'png' | 'svg', theme: string) => {
+    const path = await pickExportDestination(`${base}-graphique-${index + 1}.${ext}`, ext, "Exporter l'image");
+    if (!path) return;
+    try {
+      const res = await call('export.chart', { path, source: 'analysis', id: analysis.id, index, theme });
+      setExportMsg({ ok: true, text: `Image enregistrée : ${res.export.file_name}` });
+      onProjectChange?.(res.project);
+    } catch (err) {
+      setExportMsg({ ok: false, text: errorMessage(err) });
+    }
+  };
 
   const stats = r.summary;
   const ci = pairCi(stats);
@@ -75,6 +103,9 @@ export function ResultView({ analysis, onReproduce, onDuplicate, onDelete, onSav
               <Button variant="default" px="xs" aria-label="Autres actions"><IconDots size={18} /></Button>
             </Menu.Target>
             <Menu.Dropdown>
+              <Menu.Item leftSection={<IconFileSpreadsheet size={16} />} onClick={() => void exportTables()}>
+                Exporter les tableaux en Excel
+              </Menu.Item>
               <Menu.Item leftSection={<IconCopy size={16} />} onClick={onDuplicate}>
                 Dupliquer (nouvelle analyse avec ces réglages)
               </Menu.Item>
@@ -142,8 +173,30 @@ export function ResultView({ analysis, onReproduce, onDuplicate, onDelete, onSav
 
       {r.charts.length > 0 && (
         <SimpleGrid cols={{ base: 1, lg: r.charts.length > 1 ? 2 : 1 }}>
-          {r.charts.map((c, i) => <ChartView key={i} chart={c} />)}
+          {r.charts.map((c, i) => (
+            <Box key={i} pos="relative">
+              <ChartView chart={c} />
+              <Menu position="bottom-end" withinPortal>
+                <Menu.Target>
+                  <Tooltip label="Exporter ce graphique en image">
+                    <Button size="compact-xs" variant="default" pos="absolute" top={8} right={8}
+                      leftSection={<IconPhoto size={14} />}>Image</Button>
+                  </Tooltip>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item onClick={() => void exportChart(i, 'png', 'bleu')}>PNG en couleurs (300 dpi)</Menu.Item>
+                  <Menu.Item onClick={() => void exportChart(i, 'svg', 'bleu')}>SVG en couleurs (vectoriel, pour LaTeX)</Menu.Item>
+                  <Menu.Item onClick={() => void exportChart(i, 'png', 'sobre')}>PNG noir et blanc</Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            </Box>
+          ))}
         </SimpleGrid>
+      )}
+      {exportMsg && (
+        <Alert color={exportMsg.ok ? 'teal' : 'red'} variant="light" withCloseButton onClose={() => setExportMsg(null)}>
+          <Text size="sm" style={{ overflowWrap: 'anywhere' }}>{exportMsg.text}</Text>
+        </Alert>
       )}
 
       {r.tables.map((t, i) => <ResultTableView key={i} table={t} />)}

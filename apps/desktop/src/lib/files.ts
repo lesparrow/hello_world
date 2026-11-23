@@ -43,14 +43,42 @@ export async function pickDataFile(): Promise<string | null> {
   return browserPrompt ? browserPrompt({ title: 'Chemin du fichier de données à importer' }) : null;
 }
 
-/** Emplacement d'un rapport exporté (Word ou PDF). */
-export async function pickReportDestination(suggestedName: string, format: 'docx' | 'pdf'): Promise<string | null> {
-  const filters = [format === 'docx' ? { name: 'Document Word', extensions: ['docx'] } : { name: 'PDF', extensions: ['pdf'] }];
+const EXPORT_FILTERS: Record<string, { name: string; extensions: string[] }> = {
+  docx: { name: 'Document Word', extensions: ['docx'] },
+  pdf: { name: 'PDF', extensions: ['pdf'] },
+  zip: { name: 'Archive LaTeX (Overleaf)', extensions: ['zip'] },
+  xlsx: { name: 'Classeur Excel', extensions: ['xlsx'] },
+  png: { name: 'Image PNG', extensions: ['png'] },
+  svg: { name: 'Image SVG (vectorielle)', extensions: ['svg'] },
+};
+
+/** Extension du fichier produit pour un format de rapport. */
+export function reportExtension(format: 'docx' | 'pdf' | 'latex'): string {
+  return format === 'latex' ? 'zip' : format;
+}
+
+/** Emplacement d'un fichier exporté (rapport, tableaux, image), avec l'extension imposée. */
+export async function pickExportDestination(suggestedName: string, extension: string, title = 'Exporter'): Promise<string | null> {
+  const filters = [EXPORT_FILTERS[extension] ?? { name: extension.toUpperCase(), extensions: [extension] }];
   const picked = runningInTauri()
-    ? await save({ filters, defaultPath: suggestedName, title: 'Exporter le rapport' })
+    ? await save({ filters, defaultPath: suggestedName, title })
     : browserPrompt
-      ? await browserPrompt({ title: 'Chemin complet du rapport à exporter', defaultPath: `/tmp/${suggestedName}` })
+      ? await browserPrompt({ title: `${title} : chemin complet`, defaultPath: `/tmp/${suggestedName}` })
       : null;
   if (!picked) return null;
-  return picked.toLowerCase().endsWith(`.${format}`) ? picked : `${picked}.${format}`;
+  return picked.toLowerCase().endsWith(`.${extension}`) ? picked : `${picked}.${extension}`;
+}
+
+/** Emplacement d'un rapport exporté (Word, PDF ou archive LaTeX). */
+export async function pickReportDestination(suggestedName: string, format: 'docx' | 'pdf' | 'latex'): Promise<string | null> {
+  return pickExportDestination(suggestedName, reportExtension(format), 'Exporter le rapport');
+}
+
+/** Dossier où enregistrer plusieurs fichiers (graphiques). */
+export async function pickExportDirectory(title = 'Choisir le dossier des graphiques'): Promise<string | null> {
+  if (runningInTauri()) {
+    const picked = await open({ directory: true, multiple: false, title });
+    return typeof picked === 'string' ? picked : null;
+  }
+  return browserPrompt ? browserPrompt({ title: `${title} : chemin complet`, defaultPath: '/tmp' }) : null;
 }

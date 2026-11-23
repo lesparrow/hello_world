@@ -95,6 +95,7 @@ class Document:
     title: str
     footer: str
     blocks: list[Block] = field(default_factory=list)
+    theme: str = "sobre"  # clé de report.theme.THEMES
 
     def outline(self) -> list[dict]:
         out = []

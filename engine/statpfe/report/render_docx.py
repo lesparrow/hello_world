@@ -17,6 +17,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
+from statpfe.report import theme as themes
 from statpfe.report.model import Bullets, Cover, Document, Figure, Heading, PageBreak, Para, Table, Toc
 
 BODY_FONT = "Calibri"
@@ -62,7 +63,11 @@ def _repeat_header(row) -> None:
     tr_pr.append(el)
 
 
-def _setup(doc, title: str, author: str) -> None:
+def _rgb(hex_color: str) -> RGBColor:
+    return RGBColor.from_string(hex_color.lstrip("#").upper())
+
+
+def _setup(doc, title: str, author: str, th: themes.Theme) -> None:
     st = doc.styles["Normal"]
     st.font.name = BODY_FONT
     st.font.size = Pt(11)
@@ -82,11 +87,11 @@ def _setup(doc, title: str, author: str) -> None:
         h = doc.styles[name]
         h.font.name = BODY_FONT
         h.font.size = Pt(size)
-        h.font.color.rgb = BLACK
+        h.font.color.rgb = _rgb(th.primary) if th.color else BLACK
         h.font.bold = True
     cap = doc.styles["Caption"]
     cap.font.size = Pt(10)
-    cap.font.color.rgb = BLACK
+    cap.font.color.rgb = _rgb(th.primary) if th.color else BLACK
     cap.font.bold = True
     cap.font.italic = False
     for s in doc.sections:
@@ -137,7 +142,7 @@ def _caption(doc, kind: str, number: int, caption: str):
     return p
 
 
-def _table(doc, t: Table) -> None:
+def _table(doc, t: Table, th: themes.Theme) -> None:
     if t.number:
         _caption(doc, "Tableau", t.number, t.caption)
     else:
@@ -157,15 +162,21 @@ def _table(doc, t: Table) -> None:
         run = cell.paragraphs[0].add_run(c)
         run.bold = True
         run.font.size = Pt(9.5)
-        _shade(cell, "E7E7E7")
-    for row in t.rows:
+        run.font.color.rgb = _rgb(th.header_text)
+        _shade(cell, th.header_fill.lstrip("#").upper())
+    for i, row in enumerate(t.rows):
         cells = table.add_row().cells
+        if th.color and i % 2 == 1 and not t.key_value:
+            for c in cells:
+                _shade(c, th.light.lstrip("#").upper())
         for j, v in enumerate(row):
             par = cells[j].paragraphs[0]
             run = par.add_run(v)
             run.font.size = Pt(9.5)
             if t.key_value and j == 0:
                 run.bold = True
+                if th.color:
+                    _shade(cells[j], th.light.lstrip("#").upper())
             if j < len(t.numeric) and t.numeric[j]:
                 par.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     if t.key_value:
@@ -190,7 +201,7 @@ def _runs(par, runs) -> None:
         run.italic = r.italic
 
 
-def _cover(doc, c: Cover) -> None:
+def _cover(doc, c: Cover, th: themes.Theme) -> None:
     for _ in range(3):
         doc.add_paragraph()
     p = doc.add_paragraph()
@@ -200,7 +211,9 @@ def _cover(doc, c: Cover) -> None:
     r.font.color.rgb = GREY
     p = doc.add_paragraph(style="Title")
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.add_run(c.title)
+    title = p.add_run(c.title)
+    if th.color:
+        title.font.color.rgb = _rgb(th.primary)
     doc.add_paragraph()
     for label, value in c.fields:
         p = doc.add_paragraph()
@@ -223,12 +236,13 @@ def _cover(doc, c: Cover) -> None:
 
 
 def render(document: Document, path: Path, author: str = "") -> None:
+    th = themes.get(document.theme)
     doc = new_document()
-    _setup(doc, document.title, author)
+    _setup(doc, document.title, author, th)
     _footer(doc, document.footer)
     for b in document.blocks:
         if isinstance(b, Cover):
-            _cover(doc, b)
+            _cover(doc, b, th)
         elif isinstance(b, PageBreak):
             doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
         elif isinstance(b, Toc):
@@ -268,7 +282,7 @@ def render(document: Document, path: Path, author: str = "") -> None:
             for item in b.items:
                 _runs(doc.add_paragraph(style="List Bullet"), item)
         elif isinstance(b, Table):
-            _table(doc, b)
+            _table(doc, b, th)
         elif isinstance(b, Figure):
             p = doc.add_paragraph()
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER

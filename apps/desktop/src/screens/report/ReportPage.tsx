@@ -4,15 +4,15 @@ import {
   Select, SimpleGrid, Stack, Switch, Text, TextInput, ThemeIcon, Title, Tooltip,
 } from '@mantine/core';
 import {
-  IconAlertTriangle, IconArrowDown, IconArrowUp, IconChartBar, IconCircleCheck, IconFileExport, IconInfoCircle,
-  IconTable, IconX,
+  IconAlertTriangle, IconArrowDown, IconArrowUp, IconChartBar, IconCircleCheck, IconFileExport, IconFileSpreadsheet,
+  IconInfoCircle, IconPhoto, IconTable, IconX,
 } from '@tabler/icons-react';
 import { call, errorMessage } from '../../engine/client';
 import type {
-  AnalysisSummary, Catalog, CheckLevel, OutlineItem, PowerCalcSummary, ProjectState, ReportCheck, ReportExport,
-  ReportFormat, ReportOptions, ReportTemplates,
+  AnalysisSummary, Catalog, ChartsExport, CheckLevel, ImageFormat, OutlineItem, PowerCalcSummary, ProjectState,
+  ReportCheck, ReportExport, ReportFormat, ReportOptions, ReportTemplates, TablesExport,
 } from '../../engine/types';
-import { pickReportDestination } from '../../lib/files';
+import { pickExportDestination, pickExportDirectory, pickReportDestination, reportExtension } from '../../lib/files';
 import { suggestFileName } from '../../lib/format';
 import { STATUS_COLOR } from '../analysis/ResultView';
 
@@ -42,6 +42,10 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
   const [exporting, setExporting] = useState(false);
   const [exported, setExported] = useState<ReportExport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageFormat, setImageFormat] = useState<ImageFormat>('png');
+  const [extraBusy, setExtraBusy] = useState<'tables' | 'charts' | null>(null);
+  const [extraDone, setExtraDone] = useState<string | null>(null);
+  const [extraError, setExtraError] = useState<string | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -108,7 +112,7 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
 
   const exportReport = async () => {
     const base = suggestFileName(project.study.title).replace(/\.statpfe$/, '');
-    const path = await pickReportDestination(`${base}-rapport.${format}`, format);
+    const path = await pickReportDestination(`${base}-rapport.${reportExtension(format)}`, format);
     if (!path) return;
     setExporting(true);
     setError(null);
@@ -121,6 +125,44 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
       setError(errorMessage(err));
     } finally {
       setExporting(false);
+    }
+  };
+
+  const exportTables = async () => {
+    const base = suggestFileName(project.study.title).replace(/\.statpfe$/, '');
+    const path = await pickExportDestination(`${base}-tableaux.xlsx`, 'xlsx', 'Exporter les tableaux');
+    if (!path) return;
+    setExtraBusy('tables');
+    setExtraError(null);
+    setExtraDone(null);
+    try {
+      const r = await call('export.tables', { path, analyses: options.analyses, power: options.power });
+      const e: TablesExport = r.export;
+      setExtraDone(`${e.file_name} : ${e.tables} tableau(x) sur ${e.sheets} onglet(s), valeurs en vrais nombres.`);
+      onChange(r.project);
+    } catch (err) {
+      setExtraError(errorMessage(err));
+    } finally {
+      setExtraBusy(null);
+    }
+  };
+
+  const exportCharts = async () => {
+    const directory = await pickExportDirectory();
+    if (!directory) return;
+    setExtraBusy('charts');
+    setExtraError(null);
+    setExtraDone(null);
+    try {
+      const r = await call('export.charts', { directory, format: imageFormat, theme: options.theme,
+        analyses: options.analyses, power: options.power });
+      const e: ChartsExport = r.export;
+      setExtraDone(`${e.count} graphique(s) enregistré(s) en ${imageFormat.toUpperCase()} dans ${e.directory}.`);
+      onChange(r.project);
+    } catch (err) {
+      setExtraError(errorMessage(err));
+    } finally {
+      setExtraBusy(null);
     }
   };
 
@@ -174,6 +216,21 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
                     onChange={(e) => update({ sections: { ...options.sections, [s.key]: e.currentTarget.checked } })} />
                 ))}
               </SimpleGrid>
+              <Text size="sm" fw={500} mt="md" mb={4}>Couleurs du rapport et des graphiques</Text>
+              <SegmentedControl fullWidth value={options.theme ?? templates.default_theme}
+                onChange={(v) => update({ theme: v })}
+                data={templates.themes.map((t) => ({
+                  value: t.key,
+                  label: (
+                    <Group gap={6} justify="center" wrap="nowrap">
+                      <Box w={12} h={12} style={{ borderRadius: 3, background: t.color ? t.primary : 'repeating-linear-gradient(45deg,#000 0 2px,#fff 2px 4px)', border: '1px solid #999' }} />
+                      <span>{t.color ? t.label : 'Sobre'}</span>
+                    </Group>
+                  ),
+                }))} />
+              {!templates.themes.find((t) => t.key === options.theme)?.color && (
+                <Text size="xs" c="dimmed" mt={4}>Noir et blanc avec hachures : pour les établissements qui l'exigent à l'impression.</Text>
+              )}
               <Switch mt="md" label="Inclure les figures (histogrammes, boîtes à moustaches, barres, nuages de points, courbes de puissance)"
                 checked={options.figures} onChange={(e) => update({ figures: e.currentTarget.checked })} />
               <Switch mt="xs" label="Inclure les textes rédigés avec l'aide de l'IA, relus et retenus (toujours signalés comme tels)"
@@ -332,6 +389,39 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
                     <Text size="xs" mt={4}>À l'ouverture, Word propose de mettre à jour les champs : acceptez pour
                       afficher le sommaire.</Text>
                   )}
+                  {format === 'latex' && (
+                    <Text size="xs" mt={4}>Overleaf : « New Project », puis « Upload Project » et choisissez ce fichier
+                      .zip. Ou décompressez-le et compilez rapport.tex avec pdflatex.</Text>
+                  )}
+                </Alert>
+              )}
+            </Paper>
+
+            <Paper withBorder p="md">
+              <Text fw={650}>Autres exports</Text>
+              <Text size="xs" c="dimmed" mb="sm">Pour les analyses cochées dans le rapport. Les valeurs ne sont pas recalculées.</Text>
+              <Group justify="space-between" mb="xs">
+                <Text size="sm">Tous les tableaux de résultats dans un classeur Excel</Text>
+                <Button variant="light" leftSection={<IconFileSpreadsheet size={16} />} loading={extraBusy === 'tables'}
+                  disabled={options.analyses.length + options.power.length === 0} onClick={exportTables}>
+                  Tableaux en Excel
+                </Button>
+              </Group>
+              <Group justify="space-between" align="flex-end">
+                <Box>
+                  <Text size="sm" mb={4}>Tous les graphiques en images</Text>
+                  <SegmentedControl size="xs" value={imageFormat} onChange={(v) => setImageFormat(v as ImageFormat)}
+                    data={[{ value: 'png', label: 'PNG (300 dpi)' }, { value: 'svg', label: 'SVG (vectoriel)' }]} />
+                </Box>
+                <Button variant="light" leftSection={<IconPhoto size={16} />} loading={extraBusy === 'charts'}
+                  disabled={options.analyses.length + options.power.length === 0} onClick={exportCharts}>
+                  Graphiques en images
+                </Button>
+              </Group>
+              {extraError && <Alert mt="sm" color="red" variant="light" title="Export impossible">{extraError}</Alert>}
+              {extraDone && (
+                <Alert mt="sm" color="teal" variant="light" icon={<IconCircleCheck size={16} />}>
+                  <Text size="sm" style={{ overflowWrap: 'anywhere' }}>{extraDone}</Text>
                 </Alert>
               )}
             </Paper>

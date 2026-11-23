@@ -112,6 +112,9 @@ class Engine:
             "report.options": self.report_options,
             "report.check": self.report_check,
             "report.export": self.report_export,
+            "export.tables": self.export_tables,
+            "export.chart": self.export_chart,
+            "export.charts": self.export_charts,
         }
 
     # -------------------------------------------------------------- méthodes
@@ -400,6 +403,26 @@ class Engine:
         project = self._require_project()
         result = project.reports.export(params.get("path"), params.get("format"), params.get("options"))
         return {"export": result, "project": project.describe()}
+
+    def export_tables(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.report import exports
+        project = self._require_project()
+        return {"export": exports.export_tables(project, params.get("path"), params.get("analyses"),
+                                                params.get("power")), "project": project.describe()}
+
+    def export_chart(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.report import exports
+        project = self._require_project()
+        return {"export": exports.export_chart(project, params.get("path"), params.get("source"), params.get("id"),
+                                               params.get("index"), params.get("theme")),
+                "project": project.describe()}
+
+    def export_charts(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.report import exports
+        project = self._require_project()
+        return {"export": exports.export_charts(project, params.get("directory"), params.get("format"),
+                                                params.get("theme"), params.get("analyses"), params.get("power")),
+                "project": project.describe()}
 
     @staticmethod
     def _dataset_and_project(project: Project, params: dict[str, Any]) -> dict[str, Any]:

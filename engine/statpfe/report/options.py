@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from statpfe.errors import ValidationError
+from statpfe.report import theme as themes
 
 SECTIONS: dict[str, str] = {
     "cover": "Page de garde",
@@ -49,7 +50,8 @@ COVER_FIELDS: dict[str, str] = {
     "city": "Lieu",
 }
 COVER_MAX = 300
-FORMATS = {"docx": "Word (.docx)", "pdf": "PDF"}
+FORMATS = {"docx": "Word (.docx)", "pdf": "PDF", "latex": "LaTeX (.zip pour Overleaf)"}
+EXTENSIONS = {"docx": "docx", "pdf": "pdf", "latex": "zip"}
 MAX_ANALYSES = 200
 MAX_POWER = 50
 
@@ -61,6 +63,8 @@ def templates() -> dict[str, Any]:
         "sections": [{"key": k, "label": v} for k, v in SECTIONS.items()],
         "cover_fields": [{"key": k, "label": v} for k, v in COVER_FIELDS.items()],
         "formats": [{"key": k, "label": v} for k, v in FORMATS.items()],
+        "themes": themes.choices(),
+        "default_theme": themes.DEFAULT_THEME,
     }
 
 
@@ -73,6 +77,7 @@ def default_options(analysis_ids: list[int], power_ids: list[int] | None = None)
         "power": power_ids or [],
         "figures": True,
         "ai_texts": True,
+        "theme": themes.DEFAULT_THEME,
     }
 
 
@@ -119,5 +124,9 @@ def clean_options(raw: Any) -> dict[str, Any]:
     ai_texts = raw.get("ai_texts", True)
     if not isinstance(ai_texts, bool):
         raise ValidationError("Option « ai_texts » invalide.")
+    theme = raw.get("theme", themes.DEFAULT_THEME)
+    if not isinstance(theme, str):
+        raise ValidationError("Thème de couleurs inconnu.")
+    themes.get(theme)
     return {"template": template, "cover": cover, "sections": sections, "analyses": analyses, "power": power,
-            "figures": figures, "ai_texts": ai_texts}
+            "figures": figures, "ai_texts": ai_texts, "theme": theme}

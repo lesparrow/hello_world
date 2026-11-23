@@ -11,7 +11,7 @@ from typing import Any
 from statpfe.errors import StatpfeError, ValidationError
 from statpfe.report.build import build
 from statpfe.report.checks import run_checks
-from statpfe.report.options import FORMATS, clean_options, default_options, templates
+from statpfe.report.options import EXTENSIONS, FORMATS, clean_options, default_options, templates
 
 META_KEY = "report_options"
 
@@ -77,12 +77,14 @@ class ReportService:
                                   "Corrigez-les avant d'exporter.")
         document = build(self.p, opts)
         author = opts["cover"].get("authors", "")
-        fd, tmp = tempfile.mkstemp(prefix=".statpfe-rapport-", suffix=f".{fmt}", dir=path.parent)
+        fd, tmp = tempfile.mkstemp(prefix=".statpfe-rapport-", suffix=f".{EXTENSIONS[fmt]}", dir=path.parent)
         os.close(fd)
         tmp_path = Path(tmp)
         try:
             if fmt == "docx":
                 from statpfe.report.render_docx import render
+            elif fmt == "latex":
+                from statpfe.report.render_latex import render
             else:
                 from statpfe.report.render_pdf import render
             render(document, tmp_path, author)
@@ -108,8 +110,9 @@ def _target(raw: Any, fmt: str) -> Path:
     if not path.is_absolute():
         raise ValidationError("Le chemin du rapport doit être un chemin complet.")
     path = path.resolve()
-    if path.suffix.lower() != f".{fmt}":
-        raise ValidationError(f"Le fichier doit avoir l'extension .{fmt}.")
+    ext = EXTENSIONS[fmt]
+    if path.suffix.lower() != f".{ext}":
+        raise ValidationError(f"Le fichier doit avoir l'extension .{ext}.")
     if not path.parent.is_dir():
         raise ValidationError(f"Le dossier « {path.parent} » n'existe pas.")
     if path.is_dir():

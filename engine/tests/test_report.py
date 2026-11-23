@@ -267,7 +267,9 @@ def test_rpc_report_methods(project, tmp_path):
     engine = Engine()
     engine.project = project
     t = engine.methods["report.templates"]({})
-    assert t["formats"] == [{"key": "docx", "label": "Word (.docx)"}, {"key": "pdf", "label": "PDF"}]
+    assert t["formats"] == [{"key": "docx", "label": "Word (.docx)"}, {"key": "pdf", "label": "PDF"},
+                            {"key": "latex", "label": "LaTeX (.zip pour Overleaf)"}]
+    assert [x["key"] for x in t["themes"]] == ["bleu", "vert", "bordeaux", "sobre"]
     o = engine.methods["report.options"]({})
     res = engine.methods["report.check"]({"options": o})
     assert res["checks"]["blocking"] == 0

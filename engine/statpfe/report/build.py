@@ -78,7 +78,8 @@ class Builder:
         self.doc = Document(
             title=self.study.title,
             footer=f"STATPFE {__version__} · {french_date(self.today)} · Document de travail à réviser, non validé "
-                   "scientifiquement")
+                   "scientifiquement",
+            theme=options.get("theme") or "sobre")
         self.chapter = 0
         self.sub = 0
         self.annex = 0
@@ -412,7 +413,7 @@ class Builder:
         if self.o["figures"]:
             for ch in r.get("charts") or []:
                 self.figures += 1
-                png = charts.render(ch) if self.draw else b""
+                png = charts.render(ch, self.o.get("theme")) if self.draw else b""
                 self.add(Figure(self.figures, ch["title"], png, charts.describe(ch), self.source(a)))
         if r.get("interpretation"):
             self.add(Para([Run("Lecture. ", bold=True)] + [Run(" ".join(r["interpretation"]))]))
@@ -605,7 +606,7 @@ class Builder:
             if self.o["figures"]:
                 for ch in r.get("charts") or []:
                     self.figures += 1
-                    png = charts.render(ch) if self.draw else b""
+                    png = charts.render(ch, self.o.get("theme")) if self.draw else b""
                     self.add(Figure(self.figures, ch["title"], png, charts.describe(ch), src))
             self.add(Para([Run("Lecture. ", bold=True), Run(" ".join(r["interpretation"]))]))
             for d in r.get("diagnostics") or []:

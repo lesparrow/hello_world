@@ -551,7 +551,15 @@ export interface ReproductionReport {
   checked_at: string;
 }
 
-export type ReportFormat = 'docx' | 'pdf';
+export type ReportFormat = 'docx' | 'pdf' | 'latex';
+export type ImageFormat = 'png' | 'svg';
+
+export interface ReportTheme {
+  key: string;
+  label: string;
+  color: boolean;
+  primary: string;
+}
 export type CheckLevel = 'bloquant' | 'important' | 'methodologique' | 'information';
 
 export interface ReportTemplates {
@@ -559,6 +567,8 @@ export interface ReportTemplates {
   sections: { key: string; label: string }[];
   cover_fields: { key: string; label: string }[];
   formats: { key: ReportFormat; label: string }[];
+  themes: ReportTheme[];
+  default_theme: string;
 }
 
 export interface ReportOptions {
@@ -569,6 +579,7 @@ export interface ReportOptions {
   power: number[];
   figures: boolean;
   ai_texts: boolean;
+  theme: string;
 }
 
 export interface ReportCheck {
@@ -590,6 +601,20 @@ export interface ReportExport {
   tables: number;
   figures: number;
   checks: ReportCheck;
+}
+
+export interface TablesExport {
+  path: string;
+  file_name: string;
+  size: number;
+  sheets: number;
+  tables: number;
+}
+
+export interface ChartsExport {
+  directory: string;
+  files: string[];
+  count: number;
 }
 
 // ---------------------------------------------------------------- IA locale (optionnelle)
@@ -808,6 +833,18 @@ export interface EngineMethods {
   'report.export': {
     params: { path: string; format: ReportFormat; options: ReportOptions };
     result: { export: ReportExport; project: ProjectState };
+  };
+  'export.tables': {
+    params: { path: string; analyses?: number[]; power?: number[] };
+    result: { export: TablesExport; project: ProjectState };
+  };
+  'export.chart': {
+    params: { path: string; source: 'analysis' | 'power'; id: number; index: number; theme?: string };
+    result: { export: { path: string; file_name: string; size: number }; project: ProjectState };
+  };
+  'export.charts': {
+    params: { directory: string; format: ImageFormat; theme?: string; analyses?: number[]; power?: number[] };
+    result: { export: ChartsExport; project: ProjectState };
   };
   'analysis.advise': {
     params: { dataset_id: number; version_id: number | null; request: AdviceRequest };
