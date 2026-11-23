@@ -5,6 +5,7 @@ import {
 } from '@mantine/core';
 import { IconArrowDown, IconArrowUp, IconEyeOff, IconListDetails, IconSparkles } from '@tabler/icons-react';
 import type { Category, Dataset, Variable } from '../../engine/types';
+import { AiMarkBadge, AiMarksBanner, CopilotButton, useAiMarks } from '../../components/ai/Copilot';
 
 interface Props {
   dataset: Dataset;
@@ -22,13 +23,19 @@ export function DictionaryPanel({ dataset, onChange }: Props) {
   const voc = dataset.vocabulary;
   const [editing, setEditing] = useState<Variable | null>(null);
   const quality = Object.fromEntries(dataset.quality.variables.map((q) => [q.key, q]));
+  const ai = useAiMarks(`var:${dataset.id}:`);
 
   return (
     <>
-      <Text size="sm" c="dimmed" mb="sm">
-        Le dictionnaire décrit comment chaque colonne doit être comprise. Il s'applique à toutes les versions
-        des données ; le fichier original n'est jamais modifié.
-      </Text>
+      <Group justify="space-between" align="flex-start" wrap="nowrap" mb="sm">
+        <Text size="sm" c="dimmed">
+          Le dictionnaire décrit comment chaque colonne doit être comprise. Il s'applique à toutes les versions
+          des données ; le fichier original n'est jamais modifié.
+        </Text>
+        <CopilotButton action="variables" label="Compléter et nettoyer avec l'IA"
+          params={{ dataset_id: dataset.id, version_id: null }} />
+      </Group>
+      <AiMarksBanner marks={ai.marks} onValidate={(t) => void ai.validate(t)} />
       <ScrollArea type="auto">
         <Table verticalSpacing={6} fz="sm" miw={1100}>
           <Table.Thead>
@@ -50,6 +57,7 @@ export function DictionaryPanel({ dataset, onChange }: Props) {
                   <Table.Td>
                     <NameCell variable={v} onCommit={(changes) => onChange(v.key, changes)} />
                     <Group gap={4} mt={4}>
+                      <AiMarkBadge mark={ai.find(`var:${dataset.id}:${v.key}`)} onValidate={(t) => void ai.validate(t)} />
                       {v.key !== v.name && <Text size="xs" c="dimmed">colonne « {v.key} »</Text>}
                       {v.type !== v.detected_type && (
                         <Tooltip label={`Type détecté automatiquement : ${voc.types[v.detected_type as keyof typeof voc.types]}`}>

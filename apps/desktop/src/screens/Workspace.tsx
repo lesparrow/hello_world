@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppShell, Badge, Box, Button, Group, Kbd, Menu, Modal, NavLink, ScrollArea, Stack, Text,
   Timeline, Title, Tooltip,
@@ -7,11 +7,14 @@ import { useHotkeys } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
   IconBook2, IconChartBar, IconChevronDown, IconCopy, IconDatabase, IconDeviceFloppy,
-  IconBolt, IconClipboardList, IconFileText, IconHistory, IconSparkles, IconTransform, IconX,
+  IconBolt, IconClipboardList, IconFileText, IconHistory, IconMessageQuestion, IconRoute, IconSparkles, IconTransform,
+  IconX,
 } from '@tabler/icons-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { call, runningInTauri } from '../engine/client';
-import type { Dataset, ProjectState, Study } from '../engine/types';
+import type { CopilotAction, Dataset, ProjectState, Study } from '../engine/types';
+import { CopilotEnvContext, CopilotModal, type CopilotEnv } from '../components/ai/Copilot';
+import { AssistantDrawer } from '../components/ai/Assistant';
 import { DataPage } from './data/DataPage';
 import { PreparationPage } from './data/PreparationPage';
 import { AnalysesPage } from './analysis/AnalysesPage';
@@ -53,6 +56,34 @@ export function Workspace({ project, onChange, onClosed }: Props) {
       .catch((err) => !cancelled && notifyError(err, 'Impossible de charger les données'));
     return () => { cancelled = true; };
   }, [datasetId]);
+
+  // ---------------------------------------------------------------- copilote IA
+  const [marksVersion, setMarksVersion] = useState(0);
+  const [askOpen, setAskOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [quickAction, setQuickAction] = useState<Exclude<CopilotAction, 'ask'> | null>(null);
+  const versionId = useMemo(() => {
+    const ok = (dataset?.versions ?? []).filter((v) => !v.error);
+    return ok.length ? ok[ok.length - 1].id : null;
+  }, [dataset]);
+
+  const onApplied = useCallback((action: CopilotAction, p: ProjectState) => {
+    onChange(p);
+    if (action === 'study') setDraft(p.study);
+    if ((action === 'variables' || action === 'plan') && datasetId !== null) {
+      call('data.get', { dataset_id: datasetId }).then(setDataset).catch(() => undefined);
+    }
+    setMarksVersion((n) => n + 1);
+  }, [onChange, datasetId]);
+
+  const env: CopilotEnv = useMemo(() => ({
+    screen: section, datasetId, versionId, marksVersion, onProjectChange: onChange, onApplied,
+    openSettings: () => setSection('ia'),
+    goTo: (screen, openAction) => {
+      setSection(screen);
+      if (openAction && openAction !== 'ask') setQuickAction(openAction);
+    },
+  }), [section, datasetId, versionId, marksVersion, onChange, onApplied]);
 
   const applyDataResult = useCallback((r: { dataset: Dataset; project: ProjectState }) => {
     setDataset(r.dataset);
@@ -145,6 +176,7 @@ export function Workspace({ project, onChange, onClosed }: Props) {
   useHotkeys([['mod+S', () => void save()]], []);
 
   return (
+    <CopilotEnvContext.Provider value={env}>
     <AppShell header={{ height: 60 }} navbar={{ width: 240, breakpoint: 0 }}
       aside={{ width: 300, breakpoint: 'md', collapsed: { desktop: section !== 'etude', mobile: true } }} padding={0}>
       <AppShell.Header px="md">
@@ -157,6 +189,12 @@ export function Workspace({ project, onChange, onClosed }: Props) {
             </Box>
           </Group>
           <Group gap="xs" wrap="nowrap">
+            <Button variant="light" color="grape" leftSection={<IconRoute size={16} />} onClick={() => { void flush(); setAssistantOpen(true); }}>
+              Assistant complet
+            </Button>
+            <Button variant="subtle" color="grape" leftSection={<IconMessageQuestion size={16} />} onClick={() => { void flush(); setAskOpen(true); }}>
+              Demander à l'IA
+            </Button>
             {dirty ? (
               <Badge color="orange" variant="light">Modifications non enregistrées</Badge>
             ) : (
@@ -284,6 +322,22 @@ export function Workspace({ project, onChange, onClosed }: Props) {
           <Button variant="default" onClick={() => setPendingClose(null)}>Annuler</Button>
         </Stack>
       </Modal>
+      <AssistantDrawer opened={assistantOpen} onClose={() => setAssistantOpen(false)} project={project} />
+      {askOpen && (
+        <CopilotModal action="ask" title="Demander à l'IA" input="question" onClose={() => setAskOpen(false)} />
+      )}
+      {quickAction && (
+        <CopilotModal action={quickAction} title={QUICK_TITLES[quickAction]} onClose={() => setQuickAction(null)}
+          input={quickAction === 'study' ? 'subject' : quickAction === 'power' ? 'note' : 'none'}
+          params={quickAction === 'study' ? { mode: 'remplir' } : undefined} />
+      )}
     </AppShell>
+    </CopilotEnvContext.Provider>
   );
 }
+
+const QUICK_TITLES: Record<Exclude<CopilotAction, 'ask'>, string> = {
+  study: "Remplir l'étude avec l'IA", variables: "Compléter et nettoyer les variables avec l'IA",
+  plan: "Proposer le plan d'analyse avec l'IA", power: "Proposer la taille d'échantillon avec l'IA",
+  report: "Rédiger le rapport avec l'IA",
+};

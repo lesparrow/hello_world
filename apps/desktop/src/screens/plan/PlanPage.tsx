@@ -4,11 +4,13 @@ import {
   Stack, TagsInput, Text, Textarea, Timeline, Title, Tooltip,
 } from '@mantine/core';
 import {
-  IconArrowBackUp, IconCopy, IconHistory, IconInfoCircle, IconLock, IconLockOpen, IconPlus, IconTrash,
+  IconArrowBackUp, IconCopy, IconHistory, IconInfoCircle, IconLock, IconLockOpen, IconPlayerPlay, IconPlus, IconTrash,
 } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
+import { AiMarkBadge, AiMarksBanner, CopilotButton, useAiMarks, useCopilotEnv } from '../../components/ai/Copilot';
 import { call, errorMessage } from '../../engine/client';
 import type {
-  Catalog, PlanContent, PlanItem, PlanState, PlanVersion, PowerCalcSummary, ProjectState,
+  Catalog, PlanContent, PlanRunResult, PlanItem, PlanState, PlanVersion, PowerCalcSummary, ProjectState,
 } from '../../engine/types';
 import { HypothesesEditor } from '../../components/HypothesesEditor';
 import { formatDateTime } from '../../lib/format';
@@ -48,12 +50,16 @@ export function PlanPage({ project, variableNames, onChange }: Props) {
   onChangeRef.current = onChange;
   const contentRef = useRef(content);
   contentRef.current = content;
+  const env = useCopilotEnv();
+  const aiMarks = useAiMarks('plan');
+  const [runResult, setRunResult] = useState<PlanRunResult | null>(null);
 
+  // Rechargé aussi après une proposition de l'IA appliquée ou annulée.
   useEffect(() => {
     Promise.all([call('plan.get', {}), call('analysis.catalog', {}), call('power.list', {})])
       .then(([p, c, l]) => { setPlan(p); resetFrom(p); setCatalog(c); setCalcs(l); })
       .catch((err) => setError(errorMessage(err)));
-  }, []);
+  }, [env?.marksVersion]);
 
   const lastSent = useRef<string>('');
   const [sentVersion, setSentVersion] = useState(0);
@@ -149,6 +155,22 @@ export function PlanPage({ project, variableNames, onChange }: Props) {
     }
   };
 
+  const runAll = async () => {
+    if (!env?.datasetId) return;
+    setBusy(true);
+    try {
+      const r = await call('plan.run_all', { dataset_id: env.datasetId, version_id: env.versionId });
+      setRunResult(r.run);
+      onChange(r.project);
+      notifications.show({ color: r.run.ran ? 'teal' : 'gray',
+        message: `${r.run.ran} analyse(s) prévue(s) calculée(s) par le moteur.` });
+    } catch (err) {
+      notifyError(err, 'Lancement impossible');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const fromStudy = () => set({
     objectives: content.objectives || project.study.objectives,
     hypotheses: content.hypotheses.length ? content.hypotheses : project.study.hypotheses,
@@ -169,6 +191,7 @@ export function PlanPage({ project, variableNames, onChange }: Props) {
             {current && !isDraft && <Badge variant="light" color="teal" leftSection={<IconLock size={12} />}>
               Version {current.version} verrouillée</Badge>}
             {saving && <Loader size="xs" />}
+            <AiMarkBadge mark={aiMarks.find('plan')} onValidate={(t) => void aiMarks.validate(t)} />
           </Group>
           <Text c="dimmed" size="sm" maw={820}>
             À rédiger avant l'analyse finale. Une fois verrouillé, le plan ne change plus : toute modification crée une
@@ -177,6 +200,21 @@ export function PlanPage({ project, variableNames, onChange }: Props) {
           </Text>
         </div>
         <Group gap="xs" wrap="nowrap">
+          {(!current || isDraft) && (
+            <CopilotButton action="plan" label="Proposer le plan avec l'IA"
+              disabled={project.datasets.length === 0 || project.study.hypotheses.length === 0 || pendingLocal}
+              disabledReason={project.datasets.length === 0 ? "Importez d'abord les données."
+                : project.study.hypotheses.length === 0 ? "Ajoutez d'abord des hypothèses à l'étude (l'IA peut les proposer)."
+                : 'Enregistrement du brouillon en cours.'} />
+          )}
+          {locked && (
+            <Tooltip label="Le moteur calcule chaque analyse prévue au plan verrouillé, sur le jeu de données ouvert (et sa dernière version préparée).">
+              <Button variant="light" color="teal" leftSection={<IconPlayerPlay size={16} />} loading={busy}
+                disabled={!env?.datasetId} onClick={() => void runAll()}>
+                Lancer toutes les analyses prévues
+              </Button>
+            </Tooltip>
+          )}
           {plan.versions.length > 0 && (
             <Button variant="default" leftSection={<IconHistory size={16} />} onClick={() => setHistoryOpen(true)}>
               Historique ({plan.versions.length})
@@ -196,6 +234,23 @@ export function PlanPage({ project, variableNames, onChange }: Props) {
       </Group>
 
       {error && <Alert color="orange" mb="md">{error}</Alert>}
+      <AiMarksBanner marks={aiMarks.marks} onValidate={(t) => void aiMarks.validate(t)} />
+      {runResult && (
+        <Alert color="teal" variant="light" mb="md" withCloseButton onClose={() => setRunResult(null)}
+          title={`Plan verrouillé v${runResult.version} : ${runResult.ran} analyse(s) calculée(s)`}>
+          <List size="sm">
+            {runResult.results.map((r) => (
+              <List.Item key={r.item}>
+                <Text span size="sm" fw={600}>{r.label}</Text> : <Text span size="sm"
+                  c={r.status === 'erreur' ? 'red' : r.status === 'lancee' ? 'teal.8' : 'dimmed'}>{r.message}</Text>
+              </List.Item>
+            ))}
+          </List>
+          {runResult.ran > 0 && env && (
+            <Button size="xs" mt="xs" variant="light" onClick={() => env.goTo('analyses')}>Voir les résultats</Button>
+          )}
+        </Alert>
+      )}
       {current && !isDraft && (
         <Alert color="teal" variant="light" icon={<IconLock size={18} />} mb="md">
           Plan verrouillé le {formatDateTime(current.locked_at!)}. Vous pouvez encore le modifier : la première

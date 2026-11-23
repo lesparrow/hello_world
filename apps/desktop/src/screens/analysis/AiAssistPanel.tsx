@@ -198,7 +198,7 @@ export function Highlighted({ text, checks }: { text: string; checks: AiChecks }
   return <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{parts}</Text>;
 }
 
-function CheckSummary({ checks }: { checks: AiChecks }) {
+export function CheckSummary({ checks }: { checks: AiChecks }) {
   return (
     <Stack gap={4}>
       {checks.unverified.length > 0 ? (

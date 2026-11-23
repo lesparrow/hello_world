@@ -17,6 +17,7 @@ import { fixed } from '../../lib/stats';
 import { formatDateTime } from '../../lib/format';
 import { notifyError } from '../../App';
 import { ResultTableView } from '../analysis/ResultView';
+import { AiMarkBadge, AiMarksBanner, CopilotButton, useAiMarks, useCopilotEnv } from '../../components/ai/Copilot';
 
 interface Props {
   project: ProjectState;
@@ -145,12 +146,14 @@ export function PowerPage({ project, onChange }: Props) {
   const [sourceLabel, setSourceLabel] = useState<string | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const env = useCopilotEnv();
+  const ai = useAiMarks('power:');
 
   useEffect(() => {
     Promise.all([call('power.catalog', {}), call('power.list', {}), call('analysis.list', {})])
       .then(([c, l, a]) => { setCatalog(c); setSaved(l); setAnalyses(a); })
       .catch((err) => setError(errorMessage(err)));
-  }, []);
+  }, [env?.marksVersion]);
 
   const info = catalog?.designs.find((d) => d.key === form.design);
   const request = useMemo(() => toRequest(form, info), [form, info]);
@@ -245,8 +248,12 @@ export function PowerPage({ project, onChange }: Props) {
             garantit pas la validité de l'étude. Formules de Cohen (1988), identiques au paquet R pwr.
           </Text>
         </div>
-        <Badge variant="light" size="lg">{project.power_count} calcul(s) enregistré(s)</Badge>
+        <Group gap="sm">
+          <CopilotButton action="power" input="note" label="Proposer avec l'IA" />
+          <Badge variant="light" size="lg">{project.power_count} calcul(s) enregistré(s)</Badge>
+        </Group>
       </Group>
+      <AiMarksBanner marks={ai.marks} onValidate={(t) => void ai.validate(t)} />
 
       <Grid gap="lg">
         <Grid.Col span={{ base: 12, lg: 5 }}>
@@ -501,6 +508,7 @@ function Big({ label, value, color = 'brand.8' }: { label: string; value: string
 function SavedList({ saved, onOpen, onDelete }: {
   saved: PowerCalcSummary[]; onOpen: (id: number) => void; onDelete: (id: number) => void;
 }) {
+  const ai = useAiMarks('power:');
   if (saved.length === 0) return null;
   return (
     <Paper withBorder p="md">
@@ -518,6 +526,7 @@ function SavedList({ saved, onOpen, onDelete }: {
                   {c.locked_in_plan.length > 0 && (
                     <Badge size="xs" variant="light" color="teal">Cité dans le plan verrouillé</Badge>
                   )}
+                  <AiMarkBadge mark={ai.find(`power:${c.id}`)} onValidate={(t) => void ai.validate(t)} />
                 </Group>
               </Box>
             </Group>

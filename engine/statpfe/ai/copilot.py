@@ -881,12 +881,14 @@ def _power_validate(project, raw: dict[str, Any], params: dict[str, Any], contex
             else "two-sided"
     if design == "chi2":
         request["df"] = raw.get("df") if isinstance(raw.get("df"), int) and not isinstance(raw.get("df"), bool) else 1
+    source = _s(raw.get("effect_source"), 300)
+    request["effect_source"] = (f"{source} (proposé par l'IA, à justifier)" if source
+                                else "Proposé par l'IA, à justifier")[:300]
     try:
         clean = power.clean_request(request)
         result = project.power.compute(clean)
     except ValidationError as exc:
         return {}, [_issue("bloquant", f"Paramètres non valables : {exc.message}")]
-    source = _s(raw.get("effect_source"), 300)
     if not source or "cohen" in source.lower():
         issues.append(_issue("important", "La taille d'effet est un repère général (Cohen), pas une valeur propre à "
                                           "votre sujet : justifiez-la par une étude pilote ou la littérature."))

@@ -15,6 +15,8 @@ import type {
 import { pickExportDestination, pickExportDirectory, pickReportDestination, reportExtension } from '../../lib/files';
 import { suggestFileName } from '../../lib/format';
 import { STATUS_COLOR } from '../analysis/ResultView';
+import { ReportTexts } from './ReportTexts';
+import { useCopilotEnv } from '../../components/ai/Copilot';
 
 interface Props {
   project: ProjectState;
@@ -48,6 +50,11 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
   const [extraError, setExtraError] = useState<string | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const env = useCopilotEnv();
+  const recheck = () => setOptions((o) => (o ? { ...o } : o));
+
+  // Après une proposition de l'IA appliquée ou validée : les contrôles sont relancés.
+  useEffect(() => { recheck(); }, [env?.marksVersion]);
 
   useEffect(() => {
     Promise.all([call('report.templates', {}), call('report.options', {}), call('analysis.list', {}),
@@ -176,7 +183,7 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
         <div>
           <Title order={2}>Rapport</Title>
           <Text c="dimmed" size="sm">
-            Un rapport Word ou PDF construit à partir de votre étude et de vos analyses enregistrées, contrôlé avant
+            Un rapport Word, PDF ou LaTeX construit à partir de votre étude et de vos analyses enregistrées, contrôlé avant
             l'export. C'est un document de travail à relire et à compléter, jamais un rapport « validé ».
           </Text>
         </div>
@@ -236,6 +243,8 @@ export function ReportPage({ project, onChange, onGoToAnalyses }: Props) {
               <Switch mt="xs" label="Inclure les textes rédigés avec l'aide de l'IA, relus et retenus (toujours signalés comme tels)"
                 checked={options.ai_texts ?? true} onChange={(e) => update({ ai_texts: e.currentTarget.checked })} />
             </Paper>
+
+            <ReportTexts analyses={options.analyses} onChange={onChange} onSaved={recheck} />
 
             <Paper withBorder p="md">
               <Group justify="space-between" mb="xs">

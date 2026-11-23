@@ -31,6 +31,7 @@ export interface ProjectState {
   analyses_count: number;
   power_count: number;
   ai_count: number;
+  ai_marks?: number;
   plan_status: { version: number; status: PlanVersionStatus; locked_version: number | null } | null;
 }
 
@@ -743,7 +744,122 @@ export interface AiJob {
   ai_text: AiText | null;
 }
 
+// ---------------------------------------------------------------- copilote IA (phase 10)
+export type CopilotAction = 'study' | 'variables' | 'plan' | 'power' | 'report' | 'ask';
+export type CopilotStatus = 'proposee' | 'appliquee' | 'ecartee' | 'annulee' | 'illisible' | 'reponse';
+export type IssueLevel = 'bloquant' | 'important' | 'information';
+
+export interface CopilotIssue { level: IssueLevel; text: string; item?: string | number | null }
+
+export interface CopilotCatalogItem { key: CopilotAction; label: string; help: string; needs_data: boolean; can_apply: boolean }
+
+export interface CopilotContext {
+  text: string;
+  params: Record<string, unknown>;
+  chars: number;
+  hash: string;
+  excluded: string[];
+}
+
+export interface StudyFieldProposal { key: keyof Study & string; label: string; value: string | string[] | number; current: unknown; changed: boolean }
+export interface VariableProposal { name: string; key: string; changes: Record<string, unknown>; current: Record<string, unknown> }
+export interface RecodeProposal { variable: string; key: string; new_name: string; mapping: Record<string, string>; reason: string; rows: number }
+export type PlanVerdict = 'conforme' | 'acceptable' | 'ecart' | 'impossible';
+export interface PlanItemProposal {
+  method: string;
+  method_label: string;
+  variables: Record<string, string[]>;
+  hypothesis: number | null;
+  role: 'principale' | 'secondaire';
+  alternative: string;
+  justification: string;
+  check: { verdict: PlanVerdict; text: string; recommended?: string | null; recommended_label?: string | null; reasons?: string[] };
+}
+export interface ReportSectionProposal { label: string; text: string; checks: AiChecks }
+
+export interface CopilotProposalBody {
+  // study
+  fields?: StudyFieldProposal[];
+  // variables
+  dataset_id?: number;
+  version_id?: number | null;
+  variables?: VariableProposal[];
+  recodes?: RecodeProposal[];
+  // plan
+  analyses?: PlanItemProposal[] | number[];
+  primary_variables?: string[];
+  secondary_variables?: string[];
+  missing_values?: string;
+  multiplicity?: string;
+  // power
+  request?: Record<string, unknown>;
+  design_label?: string;
+  effect_label?: string;
+  effect_source?: string;
+  justification?: string;
+  computed?: { summary: SummaryStat[]; interpretation: string[] };
+  // report
+  sections?: Record<string, ReportSectionProposal>;
+  // ask
+  question?: string;
+  answer?: string;
+  checks?: AiChecks;
+  suggestion?: Exclude<CopilotAction, 'ask'> | null;
+}
+
+export interface CopilotProposal {
+  id: number;
+  action: CopilotAction;
+  action_label: string;
+  created_at: string;
+  provider: string;
+  model: string;
+  params: Record<string, unknown>;
+  context_chars: number;
+  proposal: CopilotProposalBody;
+  issues: CopilotIssue[];
+  status: CopilotStatus;
+  status_label: string;
+  applied_at: string | null;
+  applied: Record<string, unknown> | null;
+  duration: number | null;
+  can_undo: boolean;
+}
+
+export interface CopilotJob {
+  id: number;
+  status: 'en_cours' | 'termine' | 'erreur' | 'annule';
+  text: string;
+  error: string | null;
+  elapsed: number;
+  finish: { finish?: string; model?: string };
+  meta: { kind: 'copilot'; action: CopilotAction; label: string };
+  proposal: CopilotProposal | null;
+}
+
+export interface AiMark { target: string; proposal_id: number; label: string; created_at: string }
+
+export interface ReportText { text: string; origin: 'ia' | 'auteur'; validated: boolean; edited?: boolean }
+
+export interface PlanRunResult {
+  version: number;
+  ran: number;
+  results: { item: string; label: string; status: 'lancee' | 'deja_lancee' | 'erreur'; analysis_id: number | null; message: string }[];
+}
+
 export interface EngineMethods {
+  'ai.copilot_catalog': { params: Record<string, never>; result: { actions: CopilotCatalogItem[] } };
+  'ai.copilot_preview': { params: { action: CopilotAction; params?: Record<string, unknown> }; result: CopilotContext };
+  'ai.copilot_start': { params: { action: CopilotAction; params?: Record<string, unknown> }; result: CopilotJob };
+  'ai.copilot_apply': { params: { proposal_id: number; selection?: Record<string, unknown> }; result: { proposal: CopilotProposal; project: ProjectState } };
+  'ai.copilot_undo': { params: { proposal_id: number }; result: { proposal: CopilotProposal; project: ProjectState } };
+  'ai.copilot_discard': { params: { proposal_id: number }; result: { proposal: CopilotProposal; project: ProjectState } };
+  'ai.copilot_list': { params: { action?: CopilotAction }; result: { proposals: CopilotProposal[] } };
+  'ai.marks': { params: { prefix?: string }; result: { marks: AiMark[] } };
+  'ai.marks_validate': { params: { targets: string[] }; result: { validated: number; marks: AiMark[]; project: ProjectState } };
+  'plan.run_all': { params: { dataset_id: number; version_id: number | null }; result: { run: PlanRunResult; project: ProjectState } };
+  'report.texts': { params: Record<string, never>; result: { texts: Record<string, ReportText>; fields: Record<string, string> } };
+  'report.save_texts': { params: { texts: Record<string, string | null> }; result: { texts: Record<string, ReportText>; project: ProjectState } };
   'ai.status': { params: { probe?: boolean }; result: AiStatus };
   'ai.update_settings': { params: { changes: Partial<AiSettings> & { cloud_consent?: boolean } }; result: AiStatus };
   'ai.tasks': { params: Record<string, never>; result: AiTask[] };
