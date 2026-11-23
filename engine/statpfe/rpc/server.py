@@ -95,6 +95,18 @@ class Engine:
             "ai.check": self.ai_check,
             "ai.keep": self.ai_keep,
             "ai.discard": self.ai_discard,
+            "ai.copilot_catalog": lambda p: {"actions": __import__("statpfe.ai.copilot", fromlist=["catalog"]).catalog()},
+            "ai.copilot_preview": self.ai_copilot_preview,
+            "ai.copilot_start": self.ai_copilot_start,
+            "ai.copilot_apply": self.ai_copilot_apply,
+            "ai.copilot_undo": self.ai_copilot_undo,
+            "ai.copilot_discard": self.ai_copilot_discard,
+            "ai.copilot_list": self.ai_copilot_list,
+            "ai.marks": self.ai_marks,
+            "ai.marks_validate": self.ai_marks_validate,
+            "plan.run_all": self.plan_run_all,
+            "report.texts": self.report_texts,
+            "report.save_texts": self.report_save_texts,
             "ai.setup_claude_install": lambda p: self.ai.setup.claude_install(p.get("confirm")).snapshot(),
             "ai.setup_claude_login": lambda p: self.ai.setup.claude_login().snapshot(),
             "ai.setup_code": lambda p: self.ai.setup.send_code(p.get("job_id"), p.get("code")).snapshot(),
@@ -152,7 +164,9 @@ class Engine:
 
     def update_study(self, params: dict[str, Any]) -> dict[str, Any]:
         project = self._require_project()
-        project.update_study(params.get("changes"))
+        changed = project.update_study(params.get("changes"))
+        if changed:  # champ modifié par l'utilisateur : il n'est plus « proposé par l'IA »
+            project.copilot.clear([f"study.{f}" for f in changed], validated=False)
         return project.describe()
 
     def save(self, _: dict[str, Any]) -> dict[str, Any]:
@@ -202,6 +216,7 @@ class Engine:
     def data_update_variable(self, params: dict[str, Any]) -> dict[str, Any]:
         project = self._require_project()
         project.data.update_variable(params.get("dataset_id"), params.get("key"), params.get("changes"))
+        project.copilot.clear([f"var:{params.get('dataset_id')}:{params.get('key')}"], validated=False)
         return self._dataset_and_project(project, params)
 
     def data_create_version(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -371,6 +386,7 @@ class Engine:
     def plan_save(self, params: dict[str, Any]) -> dict[str, Any]:
         project = self._require_project()
         project.plan.save(params.get("content"))
+        project.copilot.clear(["plan"], validated=False)
         return {"plan": project.plan.get(), "project": project.describe()}
 
     def plan_lock(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -423,6 +439,83 @@ class Engine:
         return {"export": exports.export_charts(project, params.get("directory"), params.get("format"),
                                                 params.get("theme"), params.get("analyses"), params.get("power")),
                 "project": project.describe()}
+
+    # ------------------------------------------------------------------ copilote IA
+    def ai_copilot_preview(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self.ai.copilot_preview(self._require_project(), params.get("action"), params.get("params"))
+
+    def ai_copilot_start(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self.ai.copilot_start(self._require_project(), params.get("action"), params.get("params"))
+
+    def ai_copilot_apply(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.ai import copilot
+        project = self._require_project()
+        return {"proposal": copilot.apply(project, params.get("proposal_id"), params.get("selection")),
+                "project": project.describe()}
+
+    def ai_copilot_undo(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.ai import copilot
+        project = self._require_project()
+        return {"proposal": copilot.undo(project, params.get("proposal_id")), "project": project.describe()}
+
+    def ai_copilot_discard(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.ai import copilot
+        project = self._require_project()
+        return {"proposal": copilot.discard(project, params.get("proposal_id")), "project": project.describe()}
+
+    def ai_copilot_list(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        action = params.get("action")
+        return {"proposals": project.copilot.list(action if isinstance(action, str) else None)}
+
+    def ai_marks(self, params: dict[str, Any]) -> dict[str, Any]:
+        return {"marks": self._require_project().copilot.marks(params.get("prefix"))}
+
+    def ai_marks_validate(self, params: dict[str, Any]) -> dict[str, Any]:
+        project = self._require_project()
+        n = project.copilot.clear(params.get("targets"))
+        if any(isinstance(t, str) and t.startswith("report.") for t in params.get("targets") or []):
+            from statpfe.ai import copilot
+            texts = copilot.report_texts(project)
+            for t in params.get("targets") or []:
+                key = t.split(".", 1)[1] if isinstance(t, str) and t.startswith("report.") else None
+                for k in (list(texts) if key == "*" else [key]):
+                    if k in texts:
+                        texts[k]["validated"] = True
+            copilot.save_report_texts(project, texts)
+        return {"validated": n, "marks": project.copilot.marks(), "project": project.describe()}
+
+    def plan_run_all(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.core.plan_runner import run_planned
+        project = self._require_project()
+        return {"run": run_planned(project, params.get("dataset_id"), params.get("version_id")),
+                "project": project.describe()}
+
+    def report_texts(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.ai import copilot
+        project = self._require_project()
+        return {"texts": copilot.report_texts(project), "fields": copilot.REPORT_FIELDS}
+
+    def report_save_texts(self, params: dict[str, Any]) -> dict[str, Any]:
+        from statpfe.ai import copilot
+        project = self._require_project()
+        raw = params.get("texts")
+        if not isinstance(raw, dict) or set(raw) - set(copilot.REPORT_FIELDS):
+            raise ValidationError("Textes du rapport invalides.")
+        texts = copilot.report_texts(project)
+        for key, value in raw.items():
+            if value is None or (isinstance(value, str) and not value.strip()):
+                texts.pop(key, None)
+            elif isinstance(value, str) and len(value) <= 20_000:
+                previous = texts.get(key) or {}
+                if previous.get("text") != value.strip():
+                    texts[key] = {"text": value.strip(), "origin": previous.get("origin", "auteur"),
+                                  "validated": True, "edited": previous.get("origin") == "ia"}
+            else:
+                raise ValidationError("Texte trop long (20 000 caractères au plus).")
+        copilot.save_report_texts(project, texts)
+        project.copilot.clear([f"report.{k}" for k in raw], validated=False)
+        return {"texts": texts, "project": project.describe()}
 
     @staticmethod
     def _dataset_and_project(project: Project, params: dict[str, Any]) -> dict[str, Any]:

@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from statpfe import __version__
+from statpfe.ai.copilot import SCHEMA_V7_COPILOT, CopilotStore
 from statpfe.ai.store import SCHEMA_V6_AI, AiTextStore
 from statpfe.core.plan import SCHEMA_V5_PLAN, PlanStore
 from statpfe.core.study import FIELD_LABELS, Study
@@ -40,7 +41,7 @@ from statpfe.errors import ProjectFileError, UnsavedChangesError, ValidationErro
 
 EXTENSION = ".statpfe"
 FORMAT_NAME = "statpfe-project"
-FORMAT_VERSION = 6
+FORMAT_VERSION = 7
 MANIFEST = "manifest.json"
 DATABASE = "project.sqlite"
 REQUIRED_MEMBERS = {MANIFEST, DATABASE}
@@ -126,6 +127,7 @@ class Project:
         self.analyses.plan = self.plan
         self.ai_texts = AiTextStore(conn, self._log)
         self.analyses.on_delete = self.ai_texts.delete_for_analysis
+        self.copilot = CopilotStore(conn, self._log, self._touch)
         self.reports = ReportService(self)
 
     # ------------------------------------------------------------------ création
@@ -144,6 +146,7 @@ class Project:
             conn.executescript(SCHEMA_V3)
             conn.executescript(SCHEMA_V5_POWER + SCHEMA_V5_PLAN)
             conn.executescript(SCHEMA_V6_AI)
+            conn.executescript(SCHEMA_V7_COPILOT)
             created = now_iso()
             conn.executemany(
                 "INSERT INTO meta (key, value) VALUES (?, ?)",
@@ -224,6 +227,7 @@ class Project:
             "analyses_count": self.analyses.count(),
             "power_count": self.power.count(),
             "ai_count": self.ai_texts.count(),
+            "ai_marks": len(self.copilot.marks()),
             "plan_status": self._plan_status(),
         }
 
@@ -453,5 +457,7 @@ def _migrate(conn: sqlite3.Connection) -> bool:
         conn.executescript(SCHEMA_V5_POWER + SCHEMA_V5_PLAN)
     if version < 6:
         conn.executescript(SCHEMA_V6_AI)
+    if version < 7:
+        conn.executescript(SCHEMA_V7_COPILOT)
     conn.execute("UPDATE meta SET value = ? WHERE key = 'format_version'", (str(FORMAT_VERSION),))
     return True

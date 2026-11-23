@@ -121,6 +121,13 @@ def run_checks(project, options: dict[str, Any]) -> dict[str, Any]:
         add("information", "Sections à rédiger", f"{', '.join(todo)} : emplacements marqués « à rédiger » pour "
                                                    "l'auteur.")
     _ai_checks(project, options, analyses, add, passed)
+    marks = project.copilot.marks()
+    if marks:
+        add("important", f"{len(marks)} élément(s) proposé(s) par l'IA ne sont pas encore validés",
+            "Relisez et validez (ou corrigez) : " + ", ".join(m["label"] for m in marks[:8])
+            + (" …" if len(marks) > 8 else "") + ". Les textes non relus sont signalés comme tels dans le rapport.")
+    else:
+        passed.append("Aucun élément proposé par l'IA n'attend de validation.")
     passed.append("Le rapport est présenté comme un document de travail à réviser, non comme un travail validé.")
     items.sort(key=lambda i: LEVEL_ORDER[i["level"]])
     return {"items": items, "passed": passed, "blocking": sum(i["level"] == "bloquant" for i in items)}

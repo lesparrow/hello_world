@@ -167,8 +167,9 @@ class Builder:
             self.limits()
         if s["conclusion"]:
             self.h1("Conclusion")
-            self.add(Para.of("[À rédiger par l'auteur : réponse à la problématique, principaux résultats rappelés "
-                             "avec prudence, perspectives.]", "placeholder"))
+            if not self.section_text("conclusion"):
+                self.add(Para.of("[À rédiger par l'auteur : réponse à la problématique, principaux résultats "
+                                 "rappelés avec prudence, perspectives.]", "placeholder"))
         if s["annex_traceability"]:
             self.traceability()
         if s["annex_journal"]:
@@ -633,8 +634,42 @@ class Builder:
                                       "puissance est inférieure à celle visée pour les effets insuffisamment couverts.")])
         return items
 
+    def section_text(self, key: str) -> bool:
+        """Texte de section (discussion, limites, conclusion) saisi par l'auteur ou proposé par l'IA."""
+        from statpfe.ai.copilot import report_texts
+
+        t = report_texts(self.p).get(key)
+        if not t or not t.get("text"):
+            return False
+        ia = t.get("origin") == "ia"
+        if ia and not self.o.get("ai_texts", True):
+            return False
+        style = "ai" if ia else "body"
+        if ia:
+            self.add(Para([Run("Texte rédigé avec l'aide de l'IA", bold=True),
+                           Run(" à partir des résultats calculés par STATPFE"
+                               + (", relu et validé par l'auteur" + (" puis modifié" if t.get("edited") else "")
+                                  if t.get("validated") else " : proposition NON ENCORE RELUE par l'auteur")
+                               + ". Il ne remplace pas le jugement de l'auteur ni celui de l'encadrant.",
+                               italic=True)], "ai"))
+        bullets: list[list[Run]] = []
+        for line in [x.strip() for x in t["text"].split("\n")]:
+            if line.startswith(("- ", "• ", "* ")):
+                bullets.append([Run(line[2:].strip())])
+                continue
+            if bullets:
+                self.add(Bullets(bullets))
+                bullets = []
+            if line:
+                self.add(Para([Run(line)], style))
+        if bullets:
+            self.add(Bullets(bullets))
+        return True
+
     def discussion(self) -> None:
         self.h1("Discussion")
+        if self.section_text("discussion"):
+            return
         guide = ("[À rédiger par l'auteur : confrontez chaque résultat aux hypothèses"
                  + (" (" + ", ".join(f"H{i + 1}" for i in range(len(self.study.hypotheses))) + ")"
                     if self.study.hypotheses else "")
@@ -677,6 +712,8 @@ class Builder:
             self.add(Para.of("Points relevés automatiquement à partir des analyses et des choix enregistrés (les "
                              "avertissements méthodologiques figurent avec chaque analyse) :"))
             self.add(Bullets(items))
+        if self.section_text("limites"):
+            return
         self.add(Para.of("[À compléter par l'auteur : représentativité de l'échantillon, qualité des mesures, biais "
                          "possibles, portée des conclusions.]", "placeholder"))
 

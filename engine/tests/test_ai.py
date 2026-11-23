@@ -336,6 +336,6 @@ def test_analysis_deletion_removes_ai_texts_and_migration_from_v5(tmp_path, serv
                 zf.write(f, f.relative_to(work).as_posix())
     q = Project.open(str(path))
     try:
-        assert q.describe()["format_version"] == 6 and q.ai_texts.count() == 0
+        assert q.describe()["format_version"] == 7 and q.ai_texts.count() == 0
     finally:
         q.close(discard_changes=True)

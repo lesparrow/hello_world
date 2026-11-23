@@ -94,7 +94,8 @@ class JobManager:
                     job.text += piece
 
         try:
-            finish = client.stream_chat(job.settings, job.messages, job.cancel, on_text)
+            finish = client.stream_chat(job.settings, job.messages, job.cancel, on_text,
+                                        json_mode=bool(job.meta.get("json")))
             with job.lock:
                 job.finish = finish
                 if job.status == "en_cours":

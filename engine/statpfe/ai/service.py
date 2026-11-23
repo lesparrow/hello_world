@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from statpfe.ai import client, context, guard, prompts, settings, setup, system
+import dataclasses
+
+from statpfe.ai import client, context, copilot, guard, prompts, settings, setup, system
 from statpfe.ai.jobs import JobManager
 from statpfe.errors import ValidationError
 
@@ -93,7 +95,8 @@ class AiService:
         a = project.analyses.get(analysis_id)
         return context.build(project, a)
 
-    def generate(self, project, analysis_id: Any, task: Any, user_text: Any = None) -> dict[str, Any]:
+    @staticmethod
+    def _ready_settings() -> settings.AiSettings:
         s = settings.load()
         if not s.enabled:
             raise ValidationError(STATES["desactivee"])
@@ -101,6 +104,10 @@ class AiService:
             raise ValidationError("Choisissez d'abord un modèle dans les réglages de l'IA.")
         if s.provider == "claude_code" and not s.cloud_consent_at:
             raise ValidationError(STATES["consentement_requis"])
+        return s
+
+    def generate(self, project, analysis_id: Any, task: Any, user_text: Any = None) -> dict[str, Any]:
+        s = self._ready_settings()
         if task not in prompts.TASKS:
             raise ValidationError("Demande inconnue pour l'IA.")
         a = project.analyses.get(analysis_id)
@@ -112,7 +119,39 @@ class AiService:
         return self._snapshot(project, job)
 
     def job(self, project, job_id: Any) -> dict[str, Any]:
-        return self._snapshot(project, self.jobs.get(job_id))
+        job = self.jobs.get(job_id)
+        if job.meta.get("kind") == "copilot":
+            return self._copilot_snapshot(project, job)
+        return self._snapshot(project, job)
+
+    # ------------------------------------------------------------------ copilote
+    def copilot_preview(self, project, action: Any, params: Any) -> dict[str, Any]:
+        return copilot.build_context(project, action, params)
+
+    def copilot_start(self, project, action: Any, params: Any) -> dict[str, Any]:
+        s = self._ready_settings()
+        ctx = copilot.build_context(project, action, params)
+        # Les propositions structurées sont plus longues qu'un paragraphe : longueur minimale relevée.
+        run = dataclasses.replace(s, max_tokens=max(s.max_tokens, 3000))
+        msgs = copilot.messages(action, ctx["text"], ctx["params"])
+        job = self.jobs.start(run, msgs, {"kind": "copilot", "action": action, "json": True,
+                                          "label": copilot.ACTIONS[action].label, "project_id": project.project_id})
+        job.copilot = ctx  # type: ignore[attr-defined]
+        return self._copilot_snapshot(project, job)
+
+    def _copilot_snapshot(self, project, job) -> dict[str, Any]:
+        snap = job.snapshot()
+        snap["text"] = _visible(snap["text"]) if snap["status"] == "en_cours" else guard.strip_thinking(snap["text"])
+        snap["proposal"] = None
+        if snap["status"] == "termine" and project is not None and project.project_id == snap["meta"]["project_id"]:
+            if not job.stored:
+                ctx = job.copilot  # type: ignore[attr-defined]
+                job.proposal_id = copilot.finish(  # type: ignore[attr-defined]
+                    project, snap["meta"]["action"], ctx["params"], ctx["text"], job.text, job.settings.to_dict(),
+                    snap["finish"].get("model") or job.settings.model, snap["elapsed"])
+                job.stored = True
+            snap["proposal"] = project.copilot.public(job.proposal_id)  # type: ignore[attr-defined]
+        return snap
 
     def cancel(self, project, job_id: Any) -> dict[str, Any]:
         return self._snapshot(project, self.jobs.cancel(job_id))

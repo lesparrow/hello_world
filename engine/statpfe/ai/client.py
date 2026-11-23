@@ -92,7 +92,7 @@ def list_models(settings: AiSettings) -> list[dict[str, Any]]:
 
 
 def stream_chat(settings: AiSettings, messages: list[dict[str, str]], cancel: threading.Event,
-                on_text: Callable[[str], None]) -> dict[str, Any]:
+                on_text: Callable[[str], None], json_mode: bool = False) -> dict[str, Any]:
     """Envoie la conversation et transmet le texte au fur et à mesure. Renvoie les métadonnées finales."""
     if settings.provider == "claude_code":
         from statpfe.ai import claude_code
@@ -105,6 +105,8 @@ def stream_chat(settings: AiSettings, messages: list[dict[str, str]], cancel: th
         body = {"model": settings.model, "messages": messages, "stream": True, "think": False,
                 "options": {"temperature": settings.temperature, "num_predict": settings.max_tokens,
                             "num_ctx": 8192, "seed": 7}}
+        if json_mode:
+            body["format"] = "json"  # Ollama contraint la sortie à un JSON valide
         path = "/api/chat"
     else:
         body = {"model": settings.model, "messages": messages, "stream": True,
